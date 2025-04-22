@@ -1,0 +1,12 @@
+# created by virtualenv automatically
+.venv/
+
+__pycache__/
+
+.vscode/
+
+.pytest_cache/
+
+db/
+
+.env
