@@ -21,6 +21,18 @@ class Role(Base):
     role_create: Mapped[bool] = mapped_column(default=False)
     role_delete: Mapped[bool] = mapped_column(default=False)
 
+    # права на типы регионов
+    spec_region_read: Mapped[bool] = mapped_column(default=False)
+    spec_region_modify: Mapped[bool] = mapped_column(default=False)
+    spec_region_create: Mapped[bool] = mapped_column(default=False)
+    spec_region_delete: Mapped[bool] = mapped_column(default=False)
+
+    # права на регионы
+    region_read: Mapped[bool] = mapped_column(default=False)
+    region_modify: Mapped[bool] = mapped_column(default=False)
+    region_create: Mapped[bool] = mapped_column(default=False)
+    region_delete: Mapped[bool] = mapped_column(default=False)
+
     # права на типы районов
     spec_arial_read: Mapped[bool] = mapped_column(default=False)
     spec_arial_modify: Mapped[bool] = mapped_column(default=False)
@@ -33,12 +45,53 @@ class Role(Base):
     arial_create: Mapped[bool] = mapped_column(default=False)
     arial_delete: Mapped[bool] = mapped_column(default=False)
 
+    # права на типы нас.пунктов
+    spec_locality_read: Mapped[bool] = mapped_column(default=False)
+    spec_locality_modify: Mapped[bool] = mapped_column(default=False)
+    spec_locality_create: Mapped[bool] = mapped_column(default=False)
+    spec_locality_delete: Mapped[bool] = mapped_column(default=False)
+
+    # права на нас.пункты
+    locality_read: Mapped[bool] = mapped_column(default=False)
+    locality_modify: Mapped[bool] = mapped_column(default=False)
+    locality_create: Mapped[bool] = mapped_column(default=False)
+    locality_delete: Mapped[bool] = mapped_column(default=False)
+
+    # права на типы улиц
+    spec_street_read: Mapped[bool] = mapped_column(default=False)
+    spec_street_modify: Mapped[bool] = mapped_column(default=False)
+    spec_street_create: Mapped[bool] = mapped_column(default=False)
+    spec_street_delete: Mapped[bool] = mapped_column(default=False)
+
+    # права на улицы
+    street_read: Mapped[bool] = mapped_column(default=False)
+    street_modify: Mapped[bool] = mapped_column(default=False)
+    street_create: Mapped[bool] = mapped_column(default=False)
+    street_delete: Mapped[bool] = mapped_column(default=False)
+
+    # права на типы строений
+    spec_build_read: Mapped[bool] = mapped_column(default=False)
+    spec_build_modify: Mapped[bool] = mapped_column(default=False)
+    spec_build_create: Mapped[bool] = mapped_column(default=False)
+    spec_build_delete: Mapped[bool] = mapped_column(default=False)
+
+    # права на типы помещений
+    spec_room_read: Mapped[bool] = mapped_column(default=False)
+    spec_room_modify: Mapped[bool] = mapped_column(default=False)
+    spec_room_create: Mapped[bool] = mapped_column(default=False)
+    spec_room_delete: Mapped[bool] = mapped_column(default=False)
 
     # права на банки
     bank_read: Mapped[bool] = mapped_column(default=False)
     bank_modify: Mapped[bool] = mapped_column(default=False)
     bank_create: Mapped[bool] = mapped_column(default=False)
     bank_delete: Mapped[bool] = mapped_column(default=False)
+
+    # права на организации
+    organization_read: Mapped[bool] = mapped_column(default=False)
+    organization_modify: Mapped[bool] = mapped_column(default=False)
+    organization_create: Mapped[bool] = mapped_column(default=False)
+    organization_delete: Mapped[bool] = mapped_column(default=False)
 
     # права на типы контрактов
     spec_contract_read: Mapped[bool] = mapped_column(default=False)
@@ -52,11 +105,11 @@ class Role(Base):
     contract_create: Mapped[bool] = mapped_column(default=False)
     contract_delete: Mapped[bool] = mapped_column(default=False)
 
-    # права на типы строений
-    spec_build_read: Mapped[bool] = mapped_column(default=False)
-    spec_build_modify: Mapped[bool] = mapped_column(default=False)
-    spec_build_create: Mapped[bool] = mapped_column(default=False)
-    spec_build_delete: Mapped[bool] = mapped_column(default=False)
+    # права на периоды
+    period_read: Mapped[bool] = mapped_column(default=False)
+    period_modify: Mapped[bool] = mapped_column(default=False)
+    period_create: Mapped[bool] = mapped_column(default=False)
+    period_delete: Mapped[bool] = mapped_column(default=False)
 
     # права на типы оборудования
     spec_equipment_read: Mapped[bool] = mapped_column(default=False)
@@ -69,6 +122,24 @@ class Role(Base):
     equipment_modify: Mapped[bool] = mapped_column(default=False)
     equipment_create: Mapped[bool] = mapped_column(default=False)
     equipment_delete: Mapped[bool] = mapped_column(default=False)
+
+    # права на объекты
+    object_read: Mapped[bool] = mapped_column(default=False)
+    object_modify: Mapped[bool] = mapped_column(default=False)
+    object_create: Mapped[bool] = mapped_column(default=False)
+    object_delete: Mapped[bool] = mapped_column(default=False)
+
+    # права на оборудование на объектах
+    object_equipment_read: Mapped[bool] = mapped_column(default=False)
+    object_equipment_modify: Mapped[bool] = mapped_column(default=False)
+    object_equipment_create: Mapped[bool] = mapped_column(default=False)
+    object_equipment_delete: Mapped[bool] = mapped_column(default=False)
+
+    # права на операции для оборудования
+    operation_read: Mapped[bool] = mapped_column(default=False)
+    operation_modify: Mapped[bool] = mapped_column(default=False)
+    operation_create: Mapped[bool] = mapped_column(default=False)
+    operation_delete: Mapped[bool] = mapped_column(default=False)
     
         
     # Определяем отношения: одна роль может принаддлежать нескольким пользователям
