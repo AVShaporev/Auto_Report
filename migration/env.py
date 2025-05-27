@@ -14,6 +14,7 @@ sys.path.insert(0, dirname(dirname(abspath(__file__))))
 from database.database import DATABASE_URL, Base
 from model.role import Role
 from model.user import User
+# from model.contract import Contract
 # from model.arial import Arial
 
 # this is the Alembic Config object, which provides
