@@ -31,7 +31,7 @@ class Contract(Base):
     subject: Mapped[str]
     short_subject: Mapped[str]
     type_contract: Mapped[str]
-    spec_contract_id: Mapped[int] = mapped_column(ForeignKey("spec_contract.id"))   # тип контракта
+    spec_contract_id: Mapped[int] = mapped_column(ForeignKey("spec_contracts.id"))   # тип контракта
     customer_id: Mapped[int] = mapped_column(ForeignKey("organizations.id"))        # заказчик
     exeсutor_id: Mapped[int] = mapped_column(ForeignKey("organizations.id"))        # подрядчик
 
@@ -39,15 +39,16 @@ class Contract(Base):
     spec_contract: Mapped[Spec_Contract] = relationship(Spec_Contract, back_populates="contracts")
 
     # Заказчик (один контракт - один заказчик)
-    customer: Mapped[Customer] = relationship(Customer, back_populates="customers")
+    customer: Mapped[Organization] = relationship(Organization, back_populates="customers")
 
     # Подрядчик (один контракт - один подрядчик)
-    exeсutor: Mapped[Exeсutor] = relationship(Exeсutor, back_populates="exeсutors")
+    exeсutor: Mapped[Organization] = relationship(Organization, back_populates="exeсutors")
 
     # дополнительные соглашения (один контракт - ноль или много доп.соглашений)
     sub_contract_subjects: Mapped[List[Sub_Contract]] = relationship(
         Sub_Contract, 
         back_populates="contract_subject")
+
 
     # объекты (один контракт - один или много объектов)
     objects: Mapped[List[Object]] = relationship(
@@ -55,7 +56,7 @@ class Contract(Base):
         back_populates="object")
 
     def __str__(self):
-        return f"{self.__class__.__name__}(id={self.id}, name={self.name})"
+        return f"{self.__class__.__name__}(id={self.id}, name={self.number})"
 
     def __repr__(self):
         return str(self)

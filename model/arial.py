@@ -13,6 +13,7 @@ from database.database import (
                                 str_null_true
 )
 from model.spec_arial import Spec_Arial
+from model.organization import Organization
 
 
 # модель района
@@ -31,6 +32,10 @@ class Arial(Base):
                                         foreign_keys=[spec_arial_id],
                                         lazy="joined"
                                         )
+
+    # в одном районе может находиться несколько организаций
+    organizations: Mapped[List[Organization]] = relationship(Organization,
+                                                                back_populates="arial")
 
     def __str__(self):
         return f"{self.__class__.__name__}(id={self.id}, name={self.name})"
