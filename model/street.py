@@ -1,4 +1,5 @@
 from datetime import date
+from typing import List
 
 from sqlalchemy import ForeignKey, Text
 from sqlalchemy.orm import (
@@ -30,6 +31,10 @@ class Street(Base):
     # на одной улице может быть много организаций
     organizations: Mapped[List[Organization]] = relationship(Organization,
                                                                 back_populates="street")
+
+    # на одной улице может быть много объектов
+    objects: Mapped[List[Object]] = relationship(Object,
+                                                    back_populates="street")
 
     def __str__(self):
         return f"{self.__class__.__name__}(id={self.id}, name={self.name})"

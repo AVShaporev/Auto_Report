@@ -51,9 +51,8 @@ class Contract(Base):
 
 
     # объекты (один контракт - один или много объектов)
-    objects: Mapped[List[Object]] = relationship(
-        Object, 
-        back_populates="object")
+    objects: Mapped[List[Object]] = relationship(Object, 
+                                                    back_populates="contract")
 
     def __str__(self):
         return f"{self.__class__.__name__}(id={self.id}, name={self.number})"

@@ -20,7 +20,8 @@ from database.database import (
 )
 
 from model.spec_equipment import Spec_Equipment
-from model.object_equipment import Object_Equipment
+from model.objects_equipment import Objects_Equipment
+from model.spec_equipment import Spec_Equipment
 
 class Equipment(Base):
     
@@ -35,7 +36,7 @@ class Equipment(Base):
                                                             back_populates="equipments")
 
     # наименование оборудования на объекте
-    objects_equipment_name: Mapped[Object_Equipment] = relationship(Object_Equipment,
+    objects_equipment: Mapped[Objects_Equipment] = relationship(Objects_Equipment,
                                                                     back_populates="equipments")
 
     def __str__(self):

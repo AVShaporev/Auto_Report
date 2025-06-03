@@ -32,6 +32,10 @@ class Region(Base):
     organizations: Mapped[List[Organization]] = relationship(Organization,
                                                                 back_populates="region")
 
+    # в одном регионе может быть много организаций
+    objects: Mapped[List[Object]] = relationship(Object,
+                                                    back_populates="region")
+
     def __str__(self):
         return f"{self.__class__.__name__}(id={self.id}, name={self.name})"
 

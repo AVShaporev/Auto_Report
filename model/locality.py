@@ -34,3 +34,13 @@ class Locality(Base):
     # в одном насленном пункте может быть несколько организаций
     organizations: Mapped[List[Organization]] = relationship(Organization,
                                                                 back_populates="locality")
+
+    # в одном насленном пункте может быть несколько объектов
+    objects: Mapped[List[Object]] = relationship(Object,
+                                                    back_populates="locality")
+
+    def __str__(self):
+        return f"{self.__class__.__name__}(id={self.id}, name={self.name})"
+
+    def __repr__(self):
+        return str(self)
