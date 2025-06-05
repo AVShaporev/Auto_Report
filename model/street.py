@@ -15,8 +15,9 @@ from database.database import (
                                 str_uniq, 
                                 str_null_true
 )
-from model.organization import Organization
+# from model.organization import Organization
 from model.spec_street import Spec_Street
+# from model.object import Object
 
 class Street(Base):
 
@@ -29,11 +30,11 @@ class Street(Base):
                                                         back_populates="streets")
 
     # на одной улице может быть много организаций
-    organizations: Mapped[List[Organization]] = relationship(Organization,
+    organizations: Mapped[List["Organization"]] = relationship("Organization",
                                                                 back_populates="street")
 
     # на одной улице может быть много объектов
-    objects: Mapped[List[Object]] = relationship(Object,
+    objects: Mapped[List["Object"]] = relationship("Object",
                                                     back_populates="street")
 
     def __str__(self):

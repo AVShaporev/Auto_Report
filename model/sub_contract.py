@@ -14,10 +14,10 @@ from database.database import (
                                 str_uniq, 
                                 str_null_true
 )
-from model.organization import Organization
-from model.spec_contract import Spec_Contract
-from model.sub_contract import Sub_Contract
-from model.object import Object
+# from model.organization import Organization
+# from model.spec_contract import Spec_Contract
+# from model.contract import Contract
+# from model.object import Object
 
 
 class Sub_Contract(Base):
@@ -29,9 +29,8 @@ class Sub_Contract(Base):
     contract_id: Mapped[int] = mapped_column(ForeignKey("contracts.id")) # id контракта
 
     # одно доп.соглашение - один контракт
-    contract_subject: Mapped[Contract] = relationship(
-                                                    Contract,
-                                                    back_populates = "sub_contract_subjects")
+    contract_subject: Mapped["Contract"] = relationship("Contract",
+                                                            back_populates = "sub_contract_subjects")
 
     def __str__(self):
         return f"{self.__class__.__name__}(id={self.id}, name={self.number})"

@@ -1,3 +1,5 @@
+from typing import TYPE_CHECKING, List
+
 from sqlalchemy import ForeignKey, Text
 from sqlalchemy.orm import (
                             DeclarativeBase, 
@@ -12,6 +14,8 @@ from database.database import (
                                 str_uniq, 
                                 str_null_true
 )
+
+# if TYPE_CHECKING:
 from model.spec_arial import Spec_Arial
 from model.organization import Organization
 from model.object import Object
@@ -27,7 +31,7 @@ class Arial(Base):
     spec_arial_id: Mapped[int] = mapped_column(ForeignKey("spec_arials.id"))
 
     # название типа района
-    spec_arial: Mapped[Spec_Arial] = relationship(Spec_Arial,
+    spec_arial: Mapped["Spec_Arial"] = relationship("Spec_Arial",
                                         backref="arial",
                                         uselist=False,
                                         foreign_keys=[spec_arial_id],

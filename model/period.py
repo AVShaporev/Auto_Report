@@ -15,17 +15,17 @@ from database.database import (
                                 str_uniq, 
                                 str_null_true
 )
-from model.object import Object
+# from model.object import Object
 
 
-class Period(base):
+class Period(Base):
 
     id: Mapped[int_pk]
     name: Mapped[str_uniq]
     period: Mapped[str_uniq]
 
     # с одним периоддом могут быть много объектов
-    objects: Mapped[List[Object]] = relationship(Object,
+    objects: Mapped[List["Object"]] = relationship("Object",
                                                     back_populates="period")
 
     def __str__(self):

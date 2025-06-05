@@ -18,16 +18,16 @@ from database.database import (
                                 str_uniq, 
                                 str_null_true
 )
-from model.organization import Organization
+# from model.organization import Organization
 
 
-class Spec_Build(base):
+class Spec_Build(Base):
 
     id: Mapped[int_pk]
     name:Mapped[str_uniq]
 
     # в одном типе строения может находится несколько организаций
-    organizations: Mapped[List[Organization]] = relationship(Organization,
+    organizations: Mapped[List["Organization"]] = relationship("Organization",
                                                                 back_populates="spec_build")
 
     def __str__(self):

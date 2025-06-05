@@ -18,8 +18,8 @@ from database.database import (
                                 str_uniq, 
                                 str_null_true
 )
-from model.object import Object
-from model.Equipment import Equipment
+# from model.object import Object
+from model.equipment import Equipment
 
 class Objects_Equipment(Base):
 
@@ -31,12 +31,12 @@ class Objects_Equipment(Base):
                                                 nullable=False) # наименование оборудования
     
     # наименование объекта
-    objects: Mapped[Object] = relationship(Object,
+    objects: Mapped["Object"] = relationship("Object",
                                             back_populates="objects_equipments")
     
     # наименование оборудования
     equipments: Mapped[Equipment] = relationship(Equipment,
-                                                    back_populates"objects_equipment")
+                                                    back_populates="objects_equipment")
     
     def __str__(self):
         return f"{self.__class__.__name__}(id={self.id}, name={self.name})"

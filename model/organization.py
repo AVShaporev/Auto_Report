@@ -16,7 +16,7 @@ from database.database import (
 )
 from model.bank import Bank
 from model.region import Region
-from model.arial import Arial
+# from model.arial import Arial
 from model.locality import Locality
 from model.street import Street
 from model.spec_build import Spec_Build
@@ -45,8 +45,8 @@ class Organization(Base):
     customer: Mapped[bool]
     executor: Mapped[bool]
     bank_id: Mapped[int] = mapped_column(ForeignKey("banks.id"))                # банк
-    region_id: Mapped[int] = mapped_column(ForeignKey("regions.is"))            # субъект РФ
-    arial_id: Mapped[int] = mapped_column(ForeignKey("arials.is"))              # район
+    region_id: Mapped[int] = mapped_column(ForeignKey("regions.id"))            # субъект РФ
+    arial_id: Mapped[int] = mapped_column(ForeignKey("arials.id"))              # район
     locality_id: Mapped[int] = mapped_column(ForeignKey("localitys.id"))        # населенный пункт
     street_id: Mapped[int] = mapped_column(ForeignKey("streets.id"))            # улица
     spec_build_id: Mapped[int] = mapped_column(ForeignKey("spec_builds.id"))    # тип строения
@@ -64,7 +64,7 @@ class Organization(Base):
                                             lazy="selectin")
 
     # район
-    arial: Mapped[Arial] = relationship(Arial,
+    arial: Mapped["Arial"] = relationship("Arial",
                                             back_populates="organizations",
                                             lazy="selectin")
 

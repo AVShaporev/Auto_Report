@@ -20,23 +20,24 @@ from database.database import (
 )
 
 from model.spec_locality import Spec_Locality
-from model.organization import Organization
+# from model.organization import Organization
+# from model.object import Object
 
 class Locality(Base):
 
     id: Mapped[int_pk]
     name: Mapped[str_uniq]
-    spec_locallity_id: Mapped[int] = mapped_column(ForeignKey("spec_localitys.id"))
+    spec_locallity_id: Mapped[int] = mapped_column(ForeignKey("spec_localitys.id"), nullable=True)
 
     # один населенный пункт - один тип населенного пункта
     spec_locality: Mapped[Spec_Locality] = relationship(Spec_Locality)
 
     # в одном насленном пункте может быть несколько организаций
-    organizations: Mapped[List[Organization]] = relationship(Organization,
+    organizations: Mapped[List["Organization"]] = relationship("Organization",
                                                                 back_populates="locality")
 
     # в одном насленном пункте может быть несколько объектов
-    objects: Mapped[List[Object]] = relationship(Object,
+    objects: Mapped[List["Object"]] = relationship("Object",
                                                     back_populates="locality")
 
     def __str__(self):

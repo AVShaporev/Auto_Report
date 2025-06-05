@@ -1,3 +1,4 @@
+from typing import List
 from datetime import date
 
 from sqlalchemy import ForeignKey, Text
@@ -14,7 +15,7 @@ from database.database import (
                                 str_uniq, 
                                 str_null_true
 )
-from model.street import Street
+# from model.street import Street
 
 
 class Spec_Street(Base):
@@ -23,5 +24,5 @@ class Spec_Street(Base):
     name: Mapped[str_uniq]
 
     # к одному типу улицы может относится несколько улиц
-    streets: Mapped[List[Street]] = relationship(Street,
+    streets: Mapped[List["Street"]] = relationship("Street",
                                                     back_populates="spec_street")

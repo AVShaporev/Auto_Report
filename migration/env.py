@@ -14,8 +14,28 @@ sys.path.insert(0, dirname(dirname(abspath(__file__))))
 from database.database import DATABASE_URL, Base
 from model.role import Role
 from model.user import User
-# from model.contract import Contract
-# from model.arial import Arial
+from model.arial import Arial
+from model.bank import Bank
+from model.contract import Contract
+from model.equipment import Equipment
+from model.organization import Organization
+from model.locality import Locality
+from model.object import Object
+from model.objects_equipment import Objects_Equipment
+# from model.operation import Operation
+from model.period import Period
+from model.region import Region
+from model.spec_arial import Spec_Arial
+from model.spec_build import Spec_Build
+from model.spec_contract import Spec_Contract
+from model.spec_equipment import Spec_Equipment
+from model.spec_job_title import Spec_Job_Title
+from model.spec_locality import Spec_Locality
+from model.spec_region import Spec_Region
+from model.spec_room import Spec_Room
+from model.spec_street import Spec_Street
+from model.street import Street
+from model.sub_contract import Sub_Contract
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

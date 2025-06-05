@@ -1,3 +1,4 @@
+from typing import List
 from datetime import date
 
 from sqlalchemy import ForeignKey, Text
@@ -14,8 +15,8 @@ from database.database import (
                                 str_uniq, 
                                 str_null_true
 )
-from model.region import Region
-from model.arial import Arial
+# from model.region import Region
+# from model.arial import Arial
 from model.locality import Locality
 from model.street import Street
 from model.spec_build import Spec_Build
@@ -43,11 +44,11 @@ class Object(Base):
     contract_id: Mapped[int] = mapped_column(ForeignKey("contracts.id"))        # контракт
 
     # объект может находиться только в одном регионе (один к одному)
-    region: Mapped[Region] = relationship(Region,
+    region: Mapped["Region"] = relationship("Region",
                                             back_populates="objects")
 
     # объект может находиться только в одном районе (один к одному)
-    arial: Mapped[Arial] = relationship(Arial,
+    arial: Mapped["Arial"] = relationship("Arial",
                                             back_populates="objects")
 
     # объект может находиться только в одном нас.пункте (один к оддному)

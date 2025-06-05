@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, TYPE_CHECKING
 from datetime import date
 
 from sqlalchemy import (
@@ -18,11 +18,9 @@ from database.database import (
                                 str_uniq, 
                                 str_null_true
 )
-from model.arial import Arial
-
 
 # if TYPE_CHECKING:
-#     from arials.models import Arial
+# from model.arial import Arial
 
 # модель типа районов
 class Spec_Arial(Base):
@@ -31,8 +29,8 @@ class Spec_Arial(Base):
     name: Mapped[str_uniq]
 
     # Отношение: один тип района может включать несколько наименований районов
-    arials: Mapped[List[Arial]] = relationship(
-                                                Arial, 
+    arials: Mapped[List["Arial"]] = relationship(
+                                                "Arial", 
                                                 back_populates="spec_arial")
 
     def __str__(self):

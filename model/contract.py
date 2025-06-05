@@ -1,3 +1,4 @@
+from typing import List
 from datetime import date
 
 from sqlalchemy import ForeignKey, Text
@@ -14,10 +15,10 @@ from database.database import (
                                 str_uniq, 
                                 str_null_true
 )
-from model.organization import Organization
+# from model.organization import Organization
 from model.spec_contract import Spec_Contract
 from model.sub_contract import Sub_Contract
-from model.object import Object
+# from model.object import Object
 
 
 # модель контракта
@@ -39,10 +40,10 @@ class Contract(Base):
     spec_contract: Mapped[Spec_Contract] = relationship(Spec_Contract, back_populates="contracts")
 
     # Заказчик (один контракт - один заказчик)
-    customer: Mapped[Organization] = relationship(Organization, back_populates="customers")
+    customer: Mapped["Organization"] = relationship("Organization", back_populates="customers")
 
     # Подрядчик (один контракт - один подрядчик)
-    exeсutor: Mapped[Organization] = relationship(Organization, back_populates="exeсutors")
+    exeсutor: Mapped["Organization"] = relationship("Organization", back_populates="exeсutors")
 
     # дополнительные соглашения (один контракт - ноль или много доп.соглашений)
     sub_contract_subjects: Mapped[List[Sub_Contract]] = relationship(
@@ -51,7 +52,7 @@ class Contract(Base):
 
 
     # объекты (один контракт - один или много объектов)
-    objects: Mapped[List[Object]] = relationship(Object, 
+    objects: Mapped[List["Object"]] = relationship("Object", 
                                                     back_populates="contract")
 
     def __str__(self):

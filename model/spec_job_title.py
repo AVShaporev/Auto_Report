@@ -1,3 +1,4 @@
+from typing import List
 from datetime import date
 
 from sqlalchemy import ForeignKey, Text
@@ -14,7 +15,7 @@ from database.database import (
                                 str_uniq, 
                                 str_null_true
 )
-import model.organization import Organization
+# from model.organization import Organization
 
 
 class Spec_Job_Title(Base):
@@ -23,7 +24,7 @@ class Spec_Job_Title(Base):
     name: Mapped[str_uniq]
 
     # к однойдолджности может относится много руководителей организаций
-    organizations: Mapped[List[Organization]] = relationship(Organization,
+    organizations: Mapped[List["Organization"]] = relationship("Organization",
                                                     back_populates="spec_job_title")
 
     def __str__(self):

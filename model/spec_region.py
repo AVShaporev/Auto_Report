@@ -1,3 +1,4 @@
+from typing import List
 from datetime import date
 
 from sqlalchemy import ForeignKey, Text
@@ -14,7 +15,7 @@ from database.database import (
                                 str_uniq, 
                                 str_null_true
 )
-import model.region import Region
+# from model.region import Region
 
 
 class Spec_Region(Base):
@@ -23,7 +24,7 @@ class Spec_Region(Base):
     name: Mapped[str_uniq]
 
     # к одному типу региона может относится много регионов
-    regions: Mapped[List[Region]] = relationship(Region,
+    regions: Mapped[List["Region"]] = relationship("Region",
                                                     back_populates="spec_region")
 
     def __str__(self):

@@ -1,3 +1,4 @@
+from typing import List
 from datetime import date
 
 from sqlalchemy import ForeignKey, Text
@@ -15,7 +16,8 @@ from database.database import (
                                 str_null_true
 )
 from model.spec_region import Spec_Region
-from model.organization import Organization
+# from model.organization import Organization
+from model.object import Object
 
 class Region(Base):
 
@@ -29,7 +31,7 @@ class Region(Base):
                                                         back_populates="regions")
     
     # в одном регионе может быть много организаций
-    organizations: Mapped[List[Organization]] = relationship(Organization,
+    organizations: Mapped[List["Organization"]] = relationship("Organization",
                                                                 back_populates="region")
 
     # в одном регионе может быть много организаций
