@@ -17,8 +17,8 @@ from database.database import (
 
 # if TYPE_CHECKING:
 from model.spec_arial import Spec_Arial
-from model.organization import Organization
-from model.object import Object
+# from model.organization import Organization
+# from model.object import Object
 
 
 # модель района
@@ -39,11 +39,12 @@ class Arial(Base):
                                         )
 
     # в одном районе может находиться несколько организаций
-    organizations: Mapped[List[Organization]] = relationship(Organization,
+    organizations: Mapped[List["Organization"]] = relationship("Organization",
                                                                 back_populates="arial")
 
+
     # в одном районе может находиться несколько объектов
-    objects: Mapped[List[Object]] = relationship(Object,
+    objects: Mapped[List["Object"]] = relationship("Object",
                                                     back_populates="arial")
 
     def __str__(self):

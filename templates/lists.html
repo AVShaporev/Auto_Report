@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}
+    Справочники
+{% endblock %}
+
+{% block content %}
+    <body align="center">
+        <h1>Справочники</h1>
+            <p><a href="/organization/list">Организации</a></p>
+            <p><a href="/contract/list">Контракты и договоры</a></p>
+            <p><a href="/sub_contract/list">Дополнительные соглашения</a></p>
+            <p><a href="/object/list">Объекты</a></p>
+            <p><a href="/objects_equipment/list">Оборудование на объектах</a></p>
+            <p><a href="/equipment/list">Оборудование</a></p>
+            <p><a href="/region/list">Субъеты РФ</a></p>
+            <p><a href="/arial/list">Районы</a></p>
+            <p><a href="/locality/list">Населенные пункты</a></p>
+            <p><a href="/street/list">Улицы</a></p>
+            <p><a href="/bank/list">Банки</a></p>
+
+
+            {% if is_admin %}
+                <p><a href="/user/list">Пользователи</a></p>
+            {% endif %}
+
+            {% if is_superadmin %}
+                <p><a href="/user/list">Пользователи</a></p>
+                <p><a href="/role/list">Роли пользователей</a></p>
+            {% endif %}
+
+    </body>
+{% endblock %}

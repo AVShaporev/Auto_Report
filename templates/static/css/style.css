@@ -1,0 +1,48 @@
+header {
+    padding: 5px 20px;
+    background: #adadad;
+    color: white;
+    a{
+        color: rgb(148, 97, 97);
+    }
+  }
+
+
+
+body{
+    background-color: rgba(223, 241, 232, 0.87);
+    /*background-color: rgba(223, 84, 91, 0.87);*/
+    min-height: 100vh; /* Страница всегда имеет необходимый размер */
+    position: relative; /* Определяет позиционирование элементов внутри */    
+}
+
+ul.hr {
+    margin: 0; /* Обнуляем значение отступов */
+    padding: 4px; /* Значение полей */
+    margin-bottom: 4px;
+}
+
+.add {
+
+    margin-bottom: 4px;
+}
+
+ul.hr li {
+    display: inline; /* Отображать как строчный элемент */
+    margin-right: 5px; /* Отступ слева */
+    /*border: 1px solid #000; /* Рамка вокруг текста */
+    padding: 3px; /* Поля вокруг текста */
+}
+
+.footer {
+    position: fixed;
+    padding: 5px 20px;
+    left: 0;
+    bottom: 0;
+    background: #adadad;
+    color: white;
+    width: 100%;
+    a{
+        color: rgb(116, 65, 65);
+    }    
+  }

@@ -84,7 +84,7 @@ class Organization(Base):
                                             lazy="selectin")
 
     # тип помещения
-    spec_room: Mapped[Spec_Room] = relationship(Spec_Build,
+    spec_room: Mapped[Spec_Room] = relationship(Spec_Room,
                                             back_populates="organizations",
                                             lazy="selectin")
 

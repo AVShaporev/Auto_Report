@@ -140,7 +140,6 @@ class Role(Base):
     operation_modify: Mapped[bool] = mapped_column(default=False)
     operation_create: Mapped[bool] = mapped_column(default=False)
     operation_delete: Mapped[bool] = mapped_column(default=False)
-    
-        
+            
     # Определяем отношения: одна роль может принаддлежать нескольким пользователям
     users: Mapped[list["User"]] = relationship("User", back_populates="role")

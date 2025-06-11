@@ -16,7 +16,7 @@ from database.database import (
                                 str_null_true
 )
 # from model.region import Region
-# from model.arial import Arial
+from model.arial import Arial
 from model.locality import Locality
 from model.street import Street
 from model.spec_build import Spec_Build
