@@ -13,8 +13,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from loguru import logger
 
-# from web import creature as web_creature
-# from web import explorer as web_explorer
+from web import organization as web_organization
+from web import contract as web_contract
 # from web import user as web_user
 # from web import role as web_role
 
@@ -40,10 +40,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[dict, None]:
 app = FastAPI(lifespan=lifespan)
 
 # добавление субмаршрутов из уровня web
-# app.include_router(web_creature.router)
-# app.include_router(web_explorer.router)
-# app.include_router(web_user.router)
-# app.include_router(web_role.router)
+app.include_router(web_organization.router)
+app.include_router(web_contract.router)
 
 # настройка приложения FastAPI для обслуживания статических файлов
 staticfiles = StaticFiles(directory='templates/static/')
@@ -56,7 +54,7 @@ templates = Jinja2Templates(directory='templates')
 @app.get("/")
 async def main_page(request: Request, user: User = Depends(get_current_user)):
     
-    return templates.TemplateResponse(name='main.html',
+    return templates.TemplateResponse(name='index.html',
                                         context={'request': request, 
                                                     'user': user})
 
@@ -91,7 +89,8 @@ async def about_page(request: Request, user: User = Depends(get_current_user)):
 # страница входа
 @app.get("/logout")
 async def about_page(request: Request, user: User = Depends(get_current_user)):
-    res = templates.TemplateResponse(name='main.html', context={'request': request})
+    res = templates.TemplateResponse(name='index.html',
+                                        context={'request': request})
     res.delete_cookie(key="users_access_token")
     return res
 

@@ -1,0 +1,38 @@
+<header class="p-3  text-white shadow" style="background-color:#a3d4c4f5">
+    <div class="container">
+      <div class="d-flex flex-wrap align-items-center justify-content-center justify-content-lg-start">
+        <div class="badge badge-primary text-wrap" style="width: 6rem;">
+            <a href="/" class="d-flex mb-2 mx-auto mb-lg-0 text-decoration-none">
+                <img src="{{ url_for('static', path='/img/Logo_Hi-Tech_Sec_grey_grad.png') }}"
+                width="50" 
+                height="50" 
+                alt="Логотип Hi-Tech-Security">
+            </a>
+        </div>
+
+        <ul class="nav col-12 col-lg-auto me-lg-auto mb-2 justify-content-center mb-md-0">
+          <li><a href="/" class="nav-link px-2 text-white">Главная</a></li>
+          <li><a href="/about" class="nav-link px-2 text-white">О проекте</a></li>
+          <li><a href="/contact" class="nav-link px-2 text-white">Контакты</a></li>
+          <li><a href="/team" class="nav-link px-2 text-white">Отдел систем безопаности</a></li>
+          <li><a href="/lists" class="nav-link px-2 text-white">Справочник</a></li>
+            <!-- <li><a download href="/download_file">Файл</a></li> -->
+        </ul>
+
+        <div>
+            <ul class="nav col-12 col-lg-auto me-lg-auto mb-2 justify-content-center mb-md-0 ">
+
+            <li class="nav-item text-white my-auto">Andrey</li>
+
+            {% if user %}
+            <li class="nav-item m-auto mx-3">{{ user.name }}</li>
+
+              <h5>{{ user.name }}</h5>
+            {% endif %}
+            <li class="nav-item bg-soft m-auto mx-3"><a class="nav-link text-body" href="/login">Войти</a></li>
+
+              </ul>
+        </div>
+      </div>
+    </div>
+  </header>

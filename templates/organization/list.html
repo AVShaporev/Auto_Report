@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}
+    Справочник организаций
+{% endblock %}
+
+{% block content %}
+
+    <body align="center">
+        
+        <h1>Организации</h1>
+        
+        <div>
+
+            <table class="table table-striped table-hover">
+                <thead>
+                    <tr>
+                    <th scope="col">ID</th>
+                    <th scope="col">Наименование</th>
+                    <th scope="col">ИНН</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for organization in organizations %}
+                        <tr class="table-row">
+                                <th scope="row">{{ organization.id }}</th>
+                                <td><a href="/organization/{{ organization.id }}" 
+                                        class="text-decoration-none text-dark p-3">
+                                            {{ organization.short_name }}</a></td>
+                                <td>{{ organization.inn }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+
+                
+            </table>
+
+        </div>
+
+    </body>
+
+{% endblock %}

@@ -14,12 +14,13 @@ class User(Base):
     role_id: Mapped[int] = mapped_column(ForeignKey("roles.id"))
 
     # Определяем отношения: один пользователь относится к одной роли
-    role: Mapped[Role] = relationship(Role,
-                                        backref="role",
-                                        uselist=False,
-                                        foreign_keys=[role_id],
-                                        lazy="joined"
-                                        )
+    # role: Mapped[Role] = relationship(Role,
+    #                                     backref="role",
+    #                                     uselist=False,
+    #                                     foreign_keys=[role_id],
+    #                                     lazy="joined"
+    #                                     )
+    role: Mapped[Role] = relationship(Role, back_populates="users")
 
 
     def __repr__(self):

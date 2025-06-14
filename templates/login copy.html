@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block title %}
+    Вход в систему
+{% endblock %}
+
+{% block content %}
+    <body align="center">
+        <p></p>
+
+          <form action='/user/login' method='POST'>
+
+            <div>
+                <label for='login'>Логин:</label>
+                <input type='text' id='login' name='login' required placeholder="Логин"><br>
+            </div>
+            <p></p>
+
+            <div>
+                <label for='password'>Пароль:</label>
+                <input type='password' id='password' name='password' required placeholder="Пароль"><br>
+            </div>
+            <p></p>
+
+            <div>
+                <button>Войти</button>
+            </div>
+
+        </form>           
+    </body>
+{% endblock %}

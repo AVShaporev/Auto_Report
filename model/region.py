@@ -28,7 +28,8 @@ class Region(Base):
 
     # у одного региона может быть только один тип
     spec_region: Mapped[Spec_Region] = relationship(Spec_Region,
-                                                        back_populates="regions")
+                                                        back_populates="regions",
+                                                        lazy="selectin")
     
     # в одном регионе может быть много организаций
     organizations: Mapped[List["Organization"]] = relationship("Organization",

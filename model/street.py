@@ -27,7 +27,8 @@ class Street(Base):
 
     # у улицы может быть только один тип улицы
     spec_street: Mapped[Spec_Street] = relationship(Spec_Street,
-                                                        back_populates="streets")
+                                                        back_populates="streets",
+                                                        lazy="selectin")
 
     # на одной улице может быть много организаций
     organizations: Mapped[List["Organization"]] = relationship("Organization",

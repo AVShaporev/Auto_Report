@@ -44,6 +44,7 @@ class Organization(Base):
     room_number: Mapped[str_null_true]
     customer: Mapped[bool]
     executor: Mapped[bool]
+    postal_code: Mapped[str_null_true] = None
     bank_id: Mapped[int] = mapped_column(ForeignKey("banks.id"))                # банк
     region_id: Mapped[int] = mapped_column(ForeignKey("regions.id"))            # субъект РФ
     arial_id: Mapped[int] = mapped_column(ForeignKey("arials.id"))              # район
@@ -84,7 +85,7 @@ class Organization(Base):
                                             lazy="selectin")
 
     # тип помещения
-    spec_room: Mapped[Spec_Room] = relationship(Spec_Build,
+    spec_room: Mapped[Spec_Room] = relationship(Spec_Room,
                                             back_populates="organizations",
                                             lazy="selectin")
 
