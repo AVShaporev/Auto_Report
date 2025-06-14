@@ -6,28 +6,120 @@
 
 {% block content %}
     <body align="center">
-        <h1>Справочники</h1>
-            <p><a href="/organization/list">Организации</a></p>
-            <p><a href="/contract/list">Контракты и договоры</a></p>
-            <p><a href="/sub_contract/list">Дополнительные соглашения</a></p>
-            <p><a href="/object/list">Объекты</a></p>
-            <p><a href="/objects_equipment/list">Оборудование на объектах</a></p>
-            <p><a href="/equipment/list">Оборудование</a></p>
-            <p><a href="/region/list">Субъеты РФ</a></p>
-            <p><a href="/arial/list">Районы</a></p>
-            <p><a href="/locality/list">Населенные пункты</a></p>
-            <p><a href="/street/list">Улицы</a></p>
-            <p><a href="/bank/list">Банки</a></p>
 
+        <h1>Справочник</h1>
 
-            {% if is_admin %}
-                <p><a href="/user/list">Пользователи</a></p>
-            {% endif %}
+        <div>
 
-            {% if is_superadmin %}
-                <p><a href="/user/list">Пользователи</a></p>
-                <p><a href="/role/list">Роли пользователей</a></p>
-            {% endif %}
+            <table class="table table-striped table-hover">
+
+                <tbody>
+
+                    <tr class="table-row">
+                        <td>
+                            <a href="/organization/list"
+                                    class="text-decoration-none text-dark p-3">
+                                    Организации
+                                </a>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td>
+                            <a href="/contract/list"
+                                class="text-decoration-none text-dark p-3">
+                                Контракты и договоры
+                            </a>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td>
+                            <a href="/sub_contract/list"
+                                class="text-decoration-none text-dark p-3">
+                                Дополнительные соглашения
+                            </a>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td>
+                            <a href="/object/list"
+                                class="text-decoration-none text-dark p-3">
+                                Объекты
+                            </a>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td>
+                            <a href="/objects_equipment/list"
+                                class="text-decoration-none text-dark p-3">
+                                Оборудование на объектах
+                            </a>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td>
+                            <a href="/equipment/list"
+                                class="text-decoration-none text-dark p-3">
+                                Оборудование
+                            </a>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td>
+                            <a href="/region/list"
+                                class="text-decoration-none text-dark p-3">
+                                Субъеты РФ
+                            </a>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td>
+                            <a href="/arial/list"
+                                class="text-decoration-none text-dark p-3">
+                                Районы
+                            </a>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td>
+                            <a href="/locality/list"
+                                class="text-decoration-none text-dark p-3">
+                                Населенные пункты
+                            </a>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td>
+                            <a href="/street/list"
+                                class="text-decoration-none text-dark p-3">
+                                Улицы
+                            </a>
+                            </td>
+                    </tr>
+                    
+                    <tr>
+                        <td>
+                            <a href="/bank/list"
+                                class="text-decoration-none text-dark p-3">
+                                Банки
+                            </a>
+                        </td>
+                    </tr>
+
+                </tbody>
+
+                
+            </table>
+
+        </div>
 
     </body>
 {% endblock %}

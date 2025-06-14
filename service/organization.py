@@ -5,14 +5,14 @@ import data.organization as data
 def get_all() -> list[Organization]:
     return data.get_all()
 
-def get_one(name: str) -> Organization:
-    return data.get_one(name)
+def get_one(id: str) -> Organization:
+    return data.get_one_by_id(id)
 
 def create(organization: Organization) -> Organization:
-    return data.create(explorer)
+    return data.create(organization)
 
 def replace(organization: Organization) -> Organization:
-    return data.replace(explorer)
+    return data.replace(organization)
 
 def modify(organization: Organization) -> Organization:
     return data.modify(organization)

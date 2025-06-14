@@ -30,6 +30,14 @@ async def get_one(name: str) -> Organization:
         organization = res.scalars().all()[0]
         return organization
 
+# Функция запроса одного организации по id
+async def get_one_by_id(id: int) -> Organization:
+    async with new_session() as session:
+        query = select(Organization).filter(Organization.id == id)
+        res = await session.execute(query)
+        organization = res.scalars().all()[0]
+        return organization
+
 # Функция запроса списка организаций из БД
 async def get_all() -> list[Organization] | None:
     async with new_session() as session:

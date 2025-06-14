@@ -37,7 +37,9 @@ class Contract(Base):
     exeсutor_id: Mapped[int] = mapped_column(ForeignKey("organizations.id"))        # подрядчик
 
     # Тип контракта (один контракт - один тип контракта)
-    spec_contract: Mapped[Spec_Contract] = relationship(Spec_Contract, back_populates="contracts")
+    spec_contract: Mapped[Spec_Contract] = relationship(Spec_Contract,
+                                                            back_populates="contracts",
+                                                            lazy="selectin")
 
     # Заказчик (один контракт - один заказчик)
     customer: Mapped["Organization"] = relationship("Organization",

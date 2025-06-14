@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block title %}
+    Информация о контракте/договоре
+{% endblock %}
+
+{% block content %}
+
+    <body align="center">
+        
+        <h3>{{contract.spec_contract.name}}
+                №{{ contract.number }}
+                от {{ contract.date_of_consclusion.strftime('%d.%m.%Y') }} г.</h3>
+        <div>
+
+            <table class="table table-striped table-hover">
+
+                <tbody>
+                        <tr class="table-row">
+                                <th scope="row">ID</th>
+                                <td>{{ contract.id }}</td>
+                        </tr>
+                        
+                        <tr class="table-row">
+                                <th scope="row">Номер контракта/договора</th>
+                                <td>{{ contract.number }}</td>
+                        </tr>
+
+                        <tr class="table-row">
+                                <th scope="row">Дата заключения контракта/договора</th>
+                                <td>{{ contract.date_of_consclusion.strftime('%d.%m.%Y') }} г.</td>
+                        </tr>
+
+                        <tr class="table-row">
+                                <th scope="row">Предмет контракта/договора</th>
+                                <td>{{ contract.subject }}</td>
+                        </tr>
+
+                        <tr class="table-row">
+                                <th scope="row">Полное наименование Заказчика</th>
+                                <td><a href="/organization/{{ contract.customer.id }}"
+                                        class="text-decoration-none text-dark p-3">
+                                        {{ contract.customer.name }}</a></td>
+                        </tr>
+
+                        <tr class="table-row">
+                                <th scope="row">Полное наименование Подрядчика</th>
+                                <td><a href="/organization/{{ contract.exeсutor.id }}"
+                                        class="text-decoration-none text-dark p-3">
+                                        {{ contract.exeсutor.name }}</a></td>
+                        </tr>
+
+                </tbody>
+
+                
+            </table>
+
+        </div>
+
+    </body>
+
+{% endblock %}

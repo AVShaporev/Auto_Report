@@ -44,6 +44,7 @@ class Organization(Base):
     room_number: Mapped[str_null_true]
     customer: Mapped[bool]
     executor: Mapped[bool]
+    postal_code: Mapped[str_null_true] = None
     bank_id: Mapped[int] = mapped_column(ForeignKey("banks.id"))                # банк
     region_id: Mapped[int] = mapped_column(ForeignKey("regions.id"))            # субъект РФ
     arial_id: Mapped[int] = mapped_column(ForeignKey("arials.id"))              # район

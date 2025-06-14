@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+
+{% block title %}
+    Информация об организации
+{% endblock %}
+
+{% block content %}
+
+    <body align="center">
+        
+        <h3>{{ organization.name }}</h3>
+        <div>
+
+            <table class="table table-striped table-hover">
+                <thead>
+                    <tr>
+                    <th scope="col">Параметр</th>
+                    <th scope="col">Значение</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                        <tr class="table-row">
+                                <th scope="row">ID</th>
+                                <td>{{ organization.id }}</td>
+                        </tr>
+                        
+                        <tr class="table-row">
+                                <th scope="row">Полное наименование</th>
+                                <td>{{ organization.name }}</td>
+                        </tr>
+
+                        <tr class="table-row">
+                                <th scope="row">Сокращенное наименование</th>
+                                <td>{{ organization.short_name }}</td>
+                        </tr>
+
+                        <tr class="table-row">
+                                <th scope="row">ИНН</th>
+                                <td>{{ organization.inn }}</td>
+                        </tr>
+
+                        <tr class="table-row">
+                                <th scope="row">КПП</th>
+                                <td>{{ organization.kpp }}</td>
+                        </tr>
+
+                        <tr class="table-row">
+                                <th scope="row">Руководитель</th>
+                                <td>
+                                        {{ organization.drector_last_name }}
+                                        {{ organization.director_first_name }}
+                                        {{ organization.drector_surname }}
+                                </td>
+                        </tr>
+
+                        <tr class="table-row">
+                                <th scope="row">Телефоны</th>
+                                <td>{{ organization.telephone }}</td>
+                        </tr>                                               
+
+                        <tr class="table-row">
+                                <th scope="row">Элекроная почта</th>
+                                <td>
+                                    <a href="mailto:{{ organization.email }}">
+                                        {{ organization.email }}
+                                    </a>
+                                </td>
+
+                        {% if organization.site %}
+
+                                <tr class="table-row">
+                                        <th scope="row">Веб-страница организации</th>
+                                        <td>
+                                        <a href="http://{{ organization.site }}">
+                                                {{ organization.site }}
+                                        </a>
+                                        </td>
+                                </tr>
+                                
+                        {% endif %}
+                        
+                        <tr class="table-row">
+                                <th scope="row">Адрес</th>
+                                <td>
+                                        Российская Федерация,
+                                        {{ organization.postal_code }},
+                                        {{ organization.region.name }}
+                                        {{ organization.region.spec_region.name }},
+                                        {{ organization.street.spec_street.name }}
+                                        {{ organization.street.name }},
+                                        {{ organization.spec_build.name }}
+                                        {{ organization.build_number }}
+                                    </a>
+                                </td>
+                        </tr>
+
+                </tbody>
+
+                
+            </table>
+
+        </div>
+
+    </body>
+
+{% endblock %}
