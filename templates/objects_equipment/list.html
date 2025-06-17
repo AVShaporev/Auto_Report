@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}
+    Справочник оборудования на объектах
+{% endblock %}
+
+{% block content %}
+
+    <body align="center">
+        
+        <h3>
+            Оборудование на объектах
+        </h3>
+        
+        <div>
+
+            {% if objects_equipments %}
+
+                {% for objects_equipment in objects_equipments %}
+
+                    {{ objects_equipment.objects }}
+
+                {% endfor %}
+                
+            {% else %}
+
+                <h3>На данный момент для указанного объекта не указано оборудования!!!</h3>
+            
+            {% endif %}
+
+
+        </div>
+
+    </body>
+
+{% endblock %}

@@ -30,15 +30,18 @@ class Locality(Base):
     spec_locallity_id: Mapped[int] = mapped_column(ForeignKey("spec_localitys.id"), nullable=True)
 
     # один населенный пункт - один тип населенного пункта
-    spec_locality: Mapped[Spec_Locality] = relationship(Spec_Locality)
+    spec_locality: Mapped[Spec_Locality] = relationship(Spec_Locality,
+                                                            lazy="selectin")
 
     # в одном насленном пункте может быть несколько организаций
     organizations: Mapped[List["Organization"]] = relationship("Organization",
-                                                                back_populates="locality")
+                                                                back_populates="locality",
+                                                                lazy="selectin")
 
     # в одном насленном пункте может быть несколько объектов
     objects: Mapped[List["Object"]] = relationship("Object",
-                                                    back_populates="locality")
+                                                    back_populates="locality",
+                                                    lazy="selectin")
 
     def __str__(self):
         return f"{self.__class__.__name__}(id={self.id}, name={self.name})"

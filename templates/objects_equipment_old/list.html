@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block title %}
+    Справочник оборудования на объектах
+{% endblock %}
+
+{% block content %}
+
+    <body align="center">
+        
+        <h3>
+            Оборудование на объектах
+        </h3>
+        
+        <div>
+
+            {% if objects_equipments %}
+
+                {{ objects_equipments }}
+
+                <table class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                        <th scope="col">ID</th>
+                        <th scope="col">Тип</th>
+                        <th scope="col">Наименование/Модель</th>
+                        <th scope="col">Количество</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for equipment in object.objects_equipments %}
+                            <tr class="table-row">
+                                    <td><a href="/equipment/{{ equipment.equipment_id }}" 
+                                            class="text-decoration-none text-dark p-3">
+                                                {{ equipment.equipments.id }}</a></td>
+                                    <td><a href="/equipment/{{ equipment.equipment_id }}" 
+                                            class="text-decoration-none text-dark p-3">
+                                            {{ equipment.equipments.spec_equipment }}</a></td>
+                                    <td>
+                                        {{ equipment.equipments.name }}
+                                    </td>
+                                    <td>
+                                        {{ equipment.count }}
+                                    </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+
+                    
+                </table>
+
+            {% else %}
+
+                <h3>На данный момент для указанного объекта не указано оборудования!!!</h3>
+            
+            {% endif %}
+
+
+        </div>
+
+    </body>
+
+{% endblock %}

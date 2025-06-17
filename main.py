@@ -15,6 +15,9 @@ from loguru import logger
 
 from web import organization as web_organization
 from web import contract as web_contract
+from web import sub_contract as web_sub_contract
+from web import myobject as web_object
+from web import objects_equipment as web_objects_equipment
 # from web import user as web_user
 # from web import role as web_role
 
@@ -42,6 +45,9 @@ app = FastAPI(lifespan=lifespan)
 # добавление субмаршрутов из уровня web
 app.include_router(web_organization.router)
 app.include_router(web_contract.router)
+app.include_router(web_sub_contract.router)
+app.include_router(web_object.router)
+app.include_router(web_objects_equipment.router)
 
 # настройка приложения FastAPI для обслуживания статических файлов
 staticfiles = StaticFiles(directory='templates/static/')

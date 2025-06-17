@@ -1,18 +1,18 @@
 {% extends "base.html" %}
 
 {% block title %}
-    Справочник контрактов
+    Справочник дополнителных соглашений
 {% endblock %}
 
 {% block content %}
 
     <body align="center">
         
-        <h1>Контракты и договоры</h1>
+        <h1>Дополнительные соглашения</h1>
         
         <div>
-
-            {% if contracts %}
+            
+            {% if sub_conracts %}
 
                 <table class="table table-striped table-hover">
                     <thead>
@@ -20,18 +20,15 @@
                         <th scope="col">ID</th>
                         <th scope="col">Номер</th>
                         <th scope="col">Дата подписания</th>
-                        <th scope="col">Предмет договора</th>
-                        <th scope="col">Заказчик</th>
-                        <th scope="col">Подрядчик</th>
-                        <th scope="col">Сумма</th>
-                        <th scope="col">Срок окончания</th>
+                        <th scope="col">Предмет дополнительного соглашения</th>
+                        <th scope="col">Контракт</th>
                         </tr>
                     </thead>
 
                     <tbody>
-                        {% for contract in contracts %}
+                        {% for sub_contract in sub_contracts %}
                             <tr class="table-row">
-                                    <td><a href="/contract/{{ contract.id }}" 
+                                    <td><a href="/sub_contract/{{ contract.id }}" 
                                             class="text-decoration-none text-dark p-3">
                                                 {{ contract.id }}</a></td>
                                     <td><a href="/contract/{{ contract.id }}" 
@@ -56,11 +53,10 @@
 
             {% else %}
 
-                <h3>На данный момент в справочниках не зарегистрировано 
+                <h3 class="text-danger">На данный момент в справочниках не зарегистрировано 
                     ни одного дополнительгого соглашения!!!</h3>
             
             {% endif %}
-
 
         </div>
 

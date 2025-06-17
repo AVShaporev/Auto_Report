@@ -45,36 +45,45 @@ class Object(Base):
 
     # объект может находиться только в одном регионе (один к одному)
     region: Mapped["Region"] = relationship("Region",
-                                            back_populates="objects")
+                                            back_populates="objects",
+                                                            lazy="selectin")
 
     # объект может находиться только в одном районе (один к одному)
     arial: Mapped["Arial"] = relationship("Arial",
-                                            back_populates="objects")
+                                            back_populates="objects",
+                                                            lazy="selectin")
 
     # объект может находиться только в одном нас.пункте (один к оддному)
     locality: Mapped[Locality] = relationship(Locality,
-                                            back_populates="objects")
+                                            back_populates="objects",
+                                                            lazy="selectin")
 
     # объект может быть только на одной улице (один к одному)
     street: Mapped[Street] = relationship(Street,
-                                            back_populates="objects")
+                                            back_populates="objects",
+                                                            lazy="selectin")
     
     # наименование типа строения (один к одному)
-    spec_build: Mapped[Spec_Build] = relationship(Spec_Build)
+    spec_build: Mapped[Spec_Build] = relationship(Spec_Build,
+                                                    lazy="selectin")
 
     # наименование типа помещения (один к одному)
-    spec_room: Mapped[Spec_Room] = relationship(Spec_Room)
+    spec_room: Mapped[Spec_Room] = relationship(Spec_Room,
+                                                    lazy="selectin")
 
     # наименование периода обслуживания (один к одному)
-    period: Mapped[Period] = relationship(Period)
+    period: Mapped[Period] = relationship(Period,
+                                            lazy="selectin")
 
     # объект может быть только в одном контракте (один к одному)
     contract: Mapped[Contract] = relationship(Contract,
-                                            back_populates="objects")
+                                            back_populates="objects",
+                                                            lazy="selectin")
 
     # наименование оборудования на одному объекте может быть несколько (один ко многим)
     objects_equipments: Mapped[List[Objects_Equipment]] = relationship(Objects_Equipment,
-                                                                        back_populates="objects")
+                                                                        back_populates="objects",
+                                                                        lazy="selectin")
 
     def __str__(self):
         return f"{self.__class__.__name__}(id={self.id}, name={self.name})"

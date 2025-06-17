@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block title %}
+    Справочник объектов
+{% endblock %}
+
+{% block content %}
+
+    <body align="center">
+        
+        <h1>Объекты</h1>
+        
+        <div>
+
+            {% if objects %}
+
+                <table class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                        <th scope="col">ID</th>
+                        <th scope="col">Наименование</th>
+                        <th scope="col">Адрес</th>
+                        <th scope="col">Период обслуживания</th>
+                        <th scope="col">Контракт/Договор</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for object in objects %}
+                            <tr class="table-row">
+                                    <td><a href="/object/{{ object.id }}" 
+                                            class="text-decoration-none text-dark p-3">
+                                                {{ object.id }}</a></td>
+                                    <td><a href="/object/{{ object.id }}" 
+                                            class="text-decoration-none text-dark p-3">
+                                            {{ object.name }}</a></td>
+                                    <td>
+                                            {{ object.region.name }}
+                                            {{ object.region.spec_region.name }},
+                                            {{ object.locality.spec_locality.short_name }}
+                                            {{ object.locality.name }},
+                                            {{ object.street.spec_street.name }}
+                                            {{ object.street.name }},
+                                            {{ object.spec_build.name }}
+                                            {{ object.build_number }}
+                                    </td>
+                                    <td>
+                                        {{ object.period.name }}
+                                    </td>
+                                    <td><a href="/contract/{{ object.contract_id }}" 
+                                            class="text-decoration-none text-dark p-3">
+                                            {{ object.contract.spec_contract.name }}
+                                            №{{ object.contract.number }}
+                                            от {{ object.contract.date_of_consclusion.strftime('%d.%m.%Y') }} г.
+                                            </a>
+                                    </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+
+                    
+                </table>
+
+            {% else %}
+
+                <h3>На данный момент в справочниках не зарегистрировано 
+                    ни одного объекта!!!</h3>
+            
+            {% endif %}
+
+
+        </div>
+
+    </body>
+
+{% endblock %}

@@ -32,14 +32,17 @@ class Objects_Equipment(Base):
     
     # наименование объекта
     objects: Mapped["Object"] = relationship("Object",
-                                            back_populates="objects_equipments")
+                                            back_populates="objects_equipments",
+                                            lazy="selectin")
+    
     
     # наименование оборудования
     equipments: Mapped[Equipment] = relationship(Equipment,
-                                                    back_populates="objects_equipment")
+                                                    back_populates="objects_equipment",
+                                                    lazy="selectin")
     
     def __str__(self):
-        return f"{self.__class__.__name__}(id={self.id}, name={self.name})"
+        return f"{self.__class__.__name__}(id={self.id}, count={self.count})"
 
     def __repr__(self):
         return str(self)
