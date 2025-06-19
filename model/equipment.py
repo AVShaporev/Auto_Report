@@ -33,10 +33,12 @@ class Equipment(Base):
 
     # одно наименование оборудования относится к одному типу оборудования
     spec_equipment: Mapped[Spec_Equipment] = relationship(Spec_Equipment,
+                                                            lazy="selectin",
                                                             back_populates="equipments")
 
     # наименование оборудования на объекте
     objects_equipment: Mapped["Objects_Equipment"] = relationship("Objects_Equipment",
+                                                                    lazy="selectin",
                                                                     back_populates="equipments")
 
     def __str__(self):

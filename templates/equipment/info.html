@@ -7,8 +7,14 @@
 {% block content %}
 
     <body align="center">
+
+        <h4>Наименование/Модель</h4>
         
-        <h3>{{ equipment.name }}</h3>
+        <h5><a href="{{ url_for_google }}" 
+                class="text-decoration-none text-dark p-3">
+                {{ equipment.name }}
+            </a>
+        </h5>
         <div>
 
             <table class="table table-striped table-hover">
@@ -21,7 +27,9 @@
                         
                         <tr class="table-row">
                                 <th scope="row">Тип оборудования</th>
-                                <td>{{ equipment.spec_equipment.name }}</td>
+                                <td>
+                                    {{ equipment.spec_equipment.name }}
+                                </td>
                         </tr>
 
                 </tbody>

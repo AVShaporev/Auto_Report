@@ -24,7 +24,7 @@ async def create(equipment: Equipment) -> bool:
 # Функция запроса одного наименования оборудования по id
 async def get_one(id: int) -> Equipment:
     async with new_session() as session:
-        query = select(Object).filter(Equipment.id == id)
+        query = select(Equipment).filter(Equipment.id == id)
         res = await session.execute(query)
         equipment = res.scalars().all()[0]
         return equipment
@@ -34,8 +34,8 @@ async def get_all() -> list[Equipment] | None:
     async with new_session() as session:
         query = select(Equipment)
         res = await session.execute(query)
-        equipmentы = res.scalars().all()
-    return equipmentы
+        equipments = res.scalars().all()
+    return equipments
 
 # Функция изменения данных оборудования
 async def modify(equipment: Equipment):

@@ -16,15 +16,53 @@
 
             {% if objects_equipments %}
 
-                {% for objects_equipment in objects_equipments %}
+                <table class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                        <th scope="col">ID</th>
+                        <th scope="col">Объект</th>
+                        <th scope="col">Наименование оборудования</th>
+                        <th scope="col">Количество</th>
+                        </tr>
+                    </thead>
 
-                    {{ objects_equipment.objects }}
+                    <tbody>
+                        {% for objects_equipment in objects_equipments %}
 
-                {% endfor %}
                 
+                                <tr class="table-row">
+
+                                        <td>
+                                            {{ objects_equipment.id }}
+                                        </td>
+
+                                        <td><a href="/object/{{ objects_equipment.objects.id }}" 
+                                                class="text-decoration-none text-dark p-3">
+                                                {{ objects_equipment.objects.name }}
+                                            </a>
+                                        </td>
+
+                                        <td><a href="/equipment/{{ objects_equipment.equipments.id }}" 
+                                                class="text-decoration-none text-dark p-3">
+                                                {{ objects_equipment.equipments.name }}
+                                            </a>
+                                        </td>
+                                        <td>
+                                            {{ objects_equipment.count }}
+                                        </td>
+                                </tr>
+
+                        {% endfor %}
+
+                    </tbody>
+
+                    
+                </table>
+
             {% else %}
 
-                <h3>На данный момент для указанного объекта не указано оборудования!!!</h3>
+                <h3>На данный момент в справочниках не зарегистрировано 
+                    ни одного объекта с оборудованием!!!</h3>
             
             {% endif %}
 

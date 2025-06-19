@@ -32,6 +32,11 @@
                         </tr>
 
                         <tr class="table-row">
+                                <th scope="row">Сумма контракта/договора</th>
+                                <td>{{ contract.summ }}</td>
+                        </tr>
+
+                        <tr class="table-row">
                                 <th scope="row">Предмет контракта/договора</th>
                                 <td>{{ contract.subject }}</td>
                         </tr>
@@ -49,6 +54,63 @@
                                         class="text-decoration-none text-dark p-3">
                                         {{ contract.exeсutor.name }}</a></td>
                         </tr>
+                
+                </tbody>
+
+                
+            </table>
+
+        </div>
+
+        <h3>Объекты</h3>
+
+        <div>
+
+            <table class="table table-striped table-hover">
+
+                <tbody>
+
+                                                
+                        <thead>
+                                <tr>
+                                        <th scope="col">ID</th>
+                                        <th scope="col">Наименование</th>
+                                        <th scope="col">Адрес</th>
+                                </tr>
+                        </thead>
+
+                        {% for object in contract.objects %}
+                        
+                                <tbody>
+
+                                        <td>
+                                                <a href="/object/{{ object.id }}"
+                                                class="text-decoration-none text-dark p-3">
+                                                {{ object.id }}
+                                                </a>
+                                        </td>
+
+                                        <td>
+                                                <a href="/object/{{ object.id }}"
+                                                class="text-decoration-none text-dark p-3">
+                                                {{ object.name }}
+                                                </a>
+                                        </td>
+
+                                        <td>
+                                                {{ object.region.name }}
+                                                {{ object.region.spec_region.name }},
+                                                {{ object.locality.spec_locality.name[:3] }}.
+                                                {{ object.locality.name }},
+                                                {{ object.street.spec_street.name }}
+                                                {{ object.street.name }},
+                                                {{ object.spec_build.name }}
+                                                {{ object.build_number }}
+                                        </td>
+
+                                </tbody>
+
+                        {% endfor %}
 
                 </tbody>
 

@@ -1,57 +1,46 @@
 {% extends "base.html" %}
 
 {% block title %}
-    Информация об объекте
+    Общий справочник оборудования
 {% endblock %}
 
 {% block content %}
 
     <body align="center">
         
-        <h5>
-            {{ object.name }}<p></p>
-            {{ object.contract.customer.name }}
-            {{ object.region.name }}
-            {{ object.region.spec_region.name }},<p></p>
-            {{ object.locality.spec_locality.name[:3] }}.
-            {{ object.locality.name }},
-            {{ object.street.spec_street.name }}
-            {{ object.street.name }},
-            {{ object.spec_build.name }}
-            {{ object.build_number }}<p></p>
-        </h5>
-
+        <h3>
+            Всё оборудование
+        </h3>
+        
         <div>
 
-            <h4>Список оборудования</h4>
-
-            {% if object.objects_equipments %}
+            {% if equipments %}
 
                 <table class="table table-striped table-hover">
                     <thead>
                         <tr>
                         <th scope="col">ID</th>
                         <th scope="col">Наименование/Модель</th>
-                        <th scope="col">Количество</th>
+                        <th scope="col">Тип оборудования</th>
                         </tr>
                     </thead>
 
                     <tbody>
-                        {% for equipment in object.objects_equipments %}
+                        {% for equipment in equipments %}
                             <tr class="table-row">
                                     
                                 <td><a href="/equipment/{{ equipment.id }}" 
                                             class="text-decoration-none text-dark p-3">
-                                        {{ equipment.equipments.id }}</a>
+                                        {{ equipment.id }}</a>
                                 </td>
                                 
                                 <td><a href="/equipment/{{ equipment.id }}" 
                                             class="text-decoration-none text-dark p-3">
-                                        {{ equipment.equipments.name }}</a>
+                                        {{ equipment.name }}</a>
                                 </td>
-
+                                
                                 <td>
-                                    {{ equipment.count }}
+                                    {{ equipment.spec_equipment.name }}
                                 </td>
                                 
                             </tr>
