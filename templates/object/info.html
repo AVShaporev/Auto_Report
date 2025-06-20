@@ -10,10 +10,10 @@
         
         <h5>
             {{ object.name }}<p></p>
-            {{ object.contract.customer.name }}
+            {{ object.contract.customer.name }}<p></p>
             {{ object.region.name }}
-            {{ object.region.spec_region.name }},<p></p>
-            {{ object.locality.spec_locality.name[:3] }}.
+            {{ object.region.spec_region.name }},
+            {{ object.locality.spec_locality.short_name }}
             {{ object.locality.name }},
             {{ object.street.spec_street.name }}
             {{ object.street.name }},

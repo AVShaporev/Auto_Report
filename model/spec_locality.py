@@ -25,7 +25,7 @@ class Spec_Locality(Base):
 
     id: Mapped[int_pk]
     name: Mapped[str_uniq]
-    short_name: Mapped[str_null_true] = "default"
+    short_name: Mapped[str_null_true]
     
     localitys: Mapped[List["Locality"]] = relationship("Locality",
                                                         back_populates="spec_locality")
