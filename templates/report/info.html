@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}
+    Информация об отчёте
+{% endblock %}
+
+{% block content %}
+
+    <body align="center">
+        
+        <h3>Отчёт № {{ report.number }}</h3>
+
+        <div>
+
+            <table class="table table-striped table-hover">
+
+                <tbody>
+                        <tr class="table-row">
+                                <th scope="row">ID</th>
+                                <td>{{ report.id }}</td>
+                        </tr>
+                        
+                        <tr class="table-row">
+                                <th scope="row">Номер контракта/договора</th>
+                                <td>{{ report.contract.number }}</td>
+                        </tr>                
+                </tbody>
+
+                
+            </table>
+
+        </div>
+
+        <h3>Объекты</h3>
+
+    </body>
+
+{% endblock %}

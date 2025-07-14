@@ -29,6 +29,7 @@ class Report(Base):
     period_id: Mapped[int] = mapped_column(ForeignKey("periods.id"))            # период обслуживания
     contract_id: Mapped[int] = mapped_column(ForeignKey("contracts.id"))        # контракт
     object_id: Mapped[int] = mapped_column(ForeignKey("objects.id"))            # объект
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))            # пользователь, создавший отчёт
 
     # наименование периода обслуживания (один к одному)
     period: Mapped[Period] = relationship(Period,
@@ -44,8 +45,14 @@ class Report(Base):
                                                 back_populates="reports",
                                                 lazy="selectin")
 
+    # один отчет может создать только один пользователь
+    user: Mapped["User"] = relationship("User",
+                                        back_populates="reports",
+                                        lazy="selectin")
+
     def __str__(self):
         return f"{self.__class__.__name__}(id={self.id}, number={self.number})"
 
     def __repr__(self):
         return str(self)
+        
