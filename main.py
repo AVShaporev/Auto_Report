@@ -19,8 +19,7 @@ from web import sub_contract as web_sub_contract
 from web import myobject as web_object
 from web import equipment as web_equipment
 from web import objects_equipment as web_objects_equipment
-# from web import user as web_user
-# from web import role as web_role
+from web import locality as web_locality
 
 from service.user import get_all as get_all_users
 from service.auth import (
@@ -50,6 +49,7 @@ app.include_router(web_sub_contract.router)
 app.include_router(web_object.router)
 app.include_router(web_equipment.router)
 app.include_router(web_objects_equipment.router)
+app.include_router(web_locality.router)
 
 # настройка приложения FastAPI для обслуживания статических файлов
 staticfiles = StaticFiles(directory='templates/static/')

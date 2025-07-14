@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}
+    Информация о населенном пункте
+{% endblock %}
+
+{% block content %}
+
+    <body align="center">
+        
+        <h3>{{locality.name}}</h3>
+
+        <div>
+
+            <table class="table table-striped table-hover">
+
+                <tbody>
+                        <tr class="table-row">
+                                <th scope="row">ID</th>
+                                <td>{{ locality.id }}</td>
+                        </tr>
+                        
+                        <tr class="table-row">
+                                <th scope="row">Тип населенного пункта</th>
+                                <td>{{ locality.spec_locality.name }}</td>
+                        </tr>
+
+                        <tr class="table-row">
+                                <th scope="row">Название населенного пункта</th>
+                                <td>{{ locality.name }}</td>
+                        </tr>
+
+                        <tr class="table-row">
+                                <th scope="row">Комментарии</th>
+                                <td>{{ locality.description }}</td>
+                        </tr>
+                
+                </tbody>
+
+                
+            </table>
+
+        </div>
+
+    </body>
+
+{% endblock %}

@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block title %}
+    Добавить населенный пункт
+{% endblock %}
+
+{% block content %}
+
+    <body align="center">
+        
+        <h3>Добавить населенный пункт</h3>
+
+        <div>
+
+                <form action='/locality/create' method='POST'>
+
+                    <div class="mb-3">
+
+                        <label for="name" class="form-label">
+
+                                Наименование
+
+                        </label>
+                        
+                        <input type="text" class="form-control" id="name">
+
+                                <div id="nameHelp" class="form-text">
+
+                                        Введите только название населенного пункта
+
+                                </div>
+                    </div>
+
+                    <div class="mb-3">
+                        
+                        <label for="spec_locality" class="form-label">
+
+                                Тип населенного пункта
+                        </label>
+
+                        <select name='spec_locality' Тип населенного пункта>
+
+                            {% for spec_locality in spec_localitys %}
+
+                                <option spec_locality_id value={{spec_locality.id}}>{{spec_locality.name}}</option>
+                            
+                                {% endfor %}
+
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+
+                        <label for="name" class="form-label">
+
+                                Описание/Комментарий
+
+                        </label>
+                        
+                        <input type="text" class="form-control" id="description">
+
+                                <div id="descriptionHelp" class="form-text">
+
+                                        Введите короткое описание населенного пункта или добавьте комментарий.
+                                </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">
+
+                            Создать
+
+                    </button>
+                    
+                </form>
+
+        </div>
+
+    </body>
+
+{% endblock %}

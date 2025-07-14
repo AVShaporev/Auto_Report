@@ -25,6 +25,16 @@ async def get_organizations_html(request: Request, user: User = Depends(get_curr
             'organizations': organizations, 
             'user': user})
 
+
+@router.get('/create')
+async def get_create_organization(request: Request,
+                        user: User = Depends(get_current_user)):
+    return templates.TemplateResponse(
+        name='organization/create.html', 
+        context={
+            'request': request,
+            'user': user})
+
 @router.post('/create')
 async def create_organization(request: Request,
                         name: str = Form(),

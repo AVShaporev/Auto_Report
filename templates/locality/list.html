@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}
+    Справочник населённых пунктов
+{% endblock %}
+
+{% block content %}
+
+    <body align="center">
+        
+        <h1>Населённые пункты</h1>
+        
+        <div>
+
+            {% if localitys %}
+
+                <table class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                        <th scope="col">ID</th>
+                        <th scope="col">Тип</th>
+                        <th scope="col">Наименование</th>
+                        <th scope="col">Описание</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for locality in localitys %}
+                            <tr class="table-row">
+                                    <td><a href="/locality/{{ locality.id }}" 
+                                            class="text-decoration-none text-dark p-3">
+                                                {{ locality.id }}</a></td>
+                                    <td><a href="/spec_locality/{{ locality.spec_locality.id }}" 
+                                            class="text-decoration-none text-dark p-3">
+                                            {{ locality.spec_locality.name }}</a></td>
+                                    <td><a href="/locality/{{ locality.id }}" 
+                                            class="text-decoration-none text-dark p-3">
+                                            {{ locality.name }}</a></td>
+                                    <td><a href="/locality/{{ locality.id }}" 
+                                            class="text-decoration-none text-dark p-3">
+                                            {{ locality.description }}</a></td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+
+                    
+                </table>
+
+            {% else %}
+
+                <h3>На данный момент в справочниках не зарегистрировано 
+                    ни одного населенного пункта!!!</h3>
+            
+            {% endif %}
+
+
+        </div>
+        
+        <div class="d-flex justify-content-center mt-3">
+            <a href="/locality/create" class="btn btn-primary">Добавить</a>
+        </div>
+
+    </body>
+
+{% endblock %}

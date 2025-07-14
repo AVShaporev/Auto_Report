@@ -19,6 +19,7 @@ from database.database import (
 from model.spec_contract import Spec_Contract
 from model.sub_contract import Sub_Contract
 # from model.object import Object
+from model.report import Report
 
 
 # модель контракта
@@ -65,6 +66,11 @@ class Contract(Base):
     objects: Mapped[List["Object"]] = relationship("Object", 
                                                     back_populates="contract",
                                                     lazy="subquery")
+
+    # отчеты по объекту (один контракт - много отчетов)
+    reports: Mapped[List[Report]] = relationship(Report,
+                                                    back_populates="contract",
+                                                    lazy="selectin")
 
     def __str__(self):
         return f"{self.__class__.__name__}(id={self.id}, name={self.number})"

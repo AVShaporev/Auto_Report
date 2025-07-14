@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block title %}
+    Добавить населенный пункт
+{% endblock %}
+
+{% block content %}
+
+    <body align="center">
+        
+        <h3>Добавить населенный пункт</h3>
+
+        <div>
+
+            <form action='/locality/create' method='POST'>
+                Тип населённого пункта
+                <select name='spec_locality_id'>
+                    {% for spec_locality in spec_localitys %}
+                        <option role_id value={{spec_locality.id}}>{{spec_locality.name}}</option>
+                    {% endfor %}
+                </select> 
+                <p></p>
+
+                <label for='name'>Наименование:</label>
+                    <input type='text' id='name' name='name' required><br>
+                <p></p>
+                
+                    <label for='description'>Описание:</label>
+                <input type='text' id='description' name='description'><br>
+                <p></p>
+                
+                <input type='submit' value='Сохранить'>
+
+            </form>
+
+        </div>
+
+    </body>
+
+{% endblock %}
