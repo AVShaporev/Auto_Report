@@ -6,6 +6,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from database.database import Base, int_pk, str_uniq, str_null_true
 from model.role import Role
 from model.report import Report
+from model.order import Order
 
 
 class User(Base):
@@ -21,6 +22,11 @@ class User(Base):
 
     # отчеты пользователя (один пользователь - много отчетов)
     reports: Mapped[List[Report]] = relationship(Report,
+                                                    back_populates="user",
+                                                    lazy="selectin")
+
+    # заявки пользователя (один пользователь - много заявок)
+    orders: Mapped[List[Order]] = relationship(Order,
                                                     back_populates="user",
                                                     lazy="selectin")
 
