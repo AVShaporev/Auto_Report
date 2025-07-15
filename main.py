@@ -18,6 +18,7 @@ from web import contract as web_contract
 from web import sub_contract as web_sub_contract
 from web import myobject as web_object
 from web import report as web_report
+from web import order as web_order
 from web import equipment as web_equipment
 from web import objects_equipment as web_objects_equipment
 from web import locality as web_locality
@@ -49,6 +50,7 @@ app.include_router(web_contract.router)
 app.include_router(web_sub_contract.router)
 app.include_router(web_object.router)
 app.include_router(web_report.router)
+app.include_router(web_order.router)
 app.include_router(web_equipment.router)
 app.include_router(web_objects_equipment.router)
 app.include_router(web_locality.router)

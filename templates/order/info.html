@@ -1,14 +1,14 @@
 {% extends "base.html" %}
 
 {% block title %}
-    Информация об отчёте
+    Информация о заявке
 {% endblock %}
 
 {% block content %}
 
     <body align="center">
         
-        <h3>Отчёт № {{ report.number }}</h3>
+        <h3>Заявка № {{ order.number }}</h3>
 
         <div>
 
@@ -17,12 +17,12 @@
                 <tbody>
                         <tr class="table-row">
                                 <th scope="row">ID</th>
-                                <td>{{ report.id }}</td>
+                                <td>{{ order.id }}</td>
                         </tr>
                         
                         <tr class="table-row">
                                 <th scope="row">Номер контракта/договора</th>
-                                <td>{{ report.contract.number }}</td>
+                                <td>{{ order.contract.number }}</td>
                         </tr>                
                 </tbody>
 

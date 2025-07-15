@@ -25,6 +25,7 @@ class Report(Base):
 
     id: Mapped[int_pk]
     number: Mapped[str]
+    # order_id: Mapped[int] = mapped_column(ForeignKey("orders.id"))              # заявка
     check_pass: Mapped[bool]                                                    # флаг утверждения
     period_id: Mapped[int] = mapped_column(ForeignKey("periods.id"))            # период обслуживания
     contract_id: Mapped[int] = mapped_column(ForeignKey("contracts.id"))        # контракт
@@ -49,6 +50,11 @@ class Report(Base):
     user: Mapped["User"] = relationship("User",
                                         back_populates="reports",
                                         lazy="selectin")
+
+    # один отчет по одной заявке
+    order: Mapped["Order"] = relationship("Order",
+                                            back_populates="report",
+                                            lazy="selectin")
 
     def __str__(self):
         return f"{self.__class__.__name__}(id={self.id}, number={self.number})"

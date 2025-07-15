@@ -27,6 +27,7 @@ class Order(Base):
     contract_id: Mapped[int] = mapped_column(ForeignKey("contracts.id"))        # контракт
     object_id: Mapped[int] = mapped_column(ForeignKey("objects.id"))            # объект
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))                # пользователь, создавший заявку
+    report_id: Mapped[int] = mapped_column(ForeignKey("reports.id"))            # отчёт
 
     # наименование типа заявки (один ко многим)
     spec_order: Mapped[Spec_Order] = relationship(Spec_Order,
@@ -47,6 +48,11 @@ class Order(Base):
     user: Mapped["User"] = relationship("User",
                                         back_populates="orders",
                                         lazy="selectin")
+    
+    # одна заявка один отчёт(один к одному)
+    report: Mapped["Report"] = relationship("Report",
+                                            back_populates="order",
+                                            lazy="selectin")
 
     def __str__(self):
         return f"{self.__class__.__name__}(id={self.id}, number={self.number})"

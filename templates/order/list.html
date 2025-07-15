@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block title %}
+    Список заявок
+{% endblock %}
+
+{% block content %}
+
+    <body align="center">
+        
+        <h1>Заявки</h1>
+        
+        <div>
+
+            {% if orders %}
+
+                <table class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th scope="col">ID</th>
+                            <th scope="col">Тип</th>
+                            <th scope="col">Номер</th>
+                            <th scope="col">Контракт</th>
+                            <th scope="col">Объект</th>
+                            <th scope="col">Заявитель</th>
+                            <th scope="col">Отчёт</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for order in orders %}
+                            <tr class="table-row">
+                                    <td><a href="/order/{{ reports.id }}" 
+                                            class="text-decoration-none text-dark p-3">
+                                                {{ order.id }}</a></td>
+                                    <td><a href="/order/{{ reports.id }}" 
+                                            class="text-decoration-none text-dark p-3">
+                                            {{ order.number }}</a></td>
+                                    <td>{{ order.contract.number }}
+                                        {{ order.contract.date_of_consclusion.strftime('%d.%m.%Y') }} г.
+                                        {{ order.contract.short_subject }}
+                                    </td>
+                                    <td><a href="/object/{{ report.object_report.id }}"
+                                            class="text-decoration-none text-dark p-3">
+                                        {{ order.object_order.name }}<p></p>
+                                        {{ order.object_order.contract.customer.name }}<p></p>
+                                        {{ order.object_order.region.name }}
+                                        {{ order.object_order.region.spec_region.name }},
+                                        {{ order.object_order.locality.spec_locality.short_name }}
+                                        {{ order.object_order.locality.name }},
+                                        {{ order.object_order.street.spec_street.name }}
+                                        {{ order.object_order.street.name }},
+                                        {{ order.object_order.spec_build.name }}
+                                        {{ order.object_order.build_number }}<p></p>
+                                        </a>
+                                    </td>
+                                    <td>{{ order.user.name }} </a></td>
+                                    <td><a href="/report/{{ order.report.id }}" 
+                                            class="text-decoration-none text-dark p-3">
+                                            {{ order.report.number }}</a></td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+
+                    
+                </table>
+
+            {% else %}
+
+                <h3>На данный момент в справочниках не зарегистрировано 
+                    ни одной заявки!!!</h3>
+            
+            {% endif %}
+
+
+        </div>
+
+    </body>
+
+{% endblock %}
