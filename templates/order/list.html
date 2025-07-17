@@ -30,17 +30,22 @@
                     <tbody>
                         {% for order in orders %}
                             <tr class="table-row">
-                                    <td><a href="/order/{{ reports.id }}" 
+                                    <td><a href="/order/{{ order.id }}" 
                                             class="text-decoration-none text-dark p-3">
                                                 {{ order.id }}</a></td>
-                                    <td><a href="/order/{{ reports.id }}" 
+
+                                    <td>{{ order.spec_order.name }}</td>
+
+                                    <td><a href="/order/{{ order.id }}" 
                                             class="text-decoration-none text-dark p-3">
                                             {{ order.number }}</a></td>
+
                                     <td>{{ order.contract.number }}
                                         {{ order.contract.date_of_consclusion.strftime('%d.%m.%Y') }} г.
                                         {{ order.contract.short_subject }}
                                     </td>
-                                    <td><a href="/object/{{ report.object_report.id }}"
+
+                                    <td><a href="/object/{{ order.object_order.id }}"
                                             class="text-decoration-none text-dark p-3">
                                         {{ order.object_order.name }}<p></p>
                                         {{ order.object_order.contract.customer.name }}<p></p>
@@ -54,10 +59,18 @@
                                         {{ order.object_order.build_number }}<p></p>
                                         </a>
                                     </td>
+
                                     <td>{{ order.user.name }} </a></td>
-                                    <td><a href="/report/{{ order.report.id }}" 
-                                            class="text-decoration-none text-dark p-3">
-                                            {{ order.report.number }}</a></td>
+
+                                    <td>
+                                        {% if order.report %}
+                                            <a href="/report/{{ order.report.id }}" 
+                                                class="text-decoration-none text-dark p-3">
+                                                {{ order.report.number }}</a>
+                                        {% else %}
+                                            Отчета пока нет
+                                        {% endif %}
+                                    </td>
                             </tr>
                         {% endfor %}
                     </tbody>
@@ -72,7 +85,10 @@
             
             {% endif %}
 
+        </div>
 
+        <div class="d-flex justify-content-center mt-3">
+            <a href="/order/create" class="btn btn-primary">Создать заявку</a>
         </div>
 
     </body>

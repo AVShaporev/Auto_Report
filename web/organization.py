@@ -49,32 +49,29 @@ async def create_organization(request: Request,
         await create(organization = organization)
         organizations = await get_all()
         create_ok = True
-        return templates.TemplateResponse(
-            name='organization/list.html', 
-            context={
-                'request': request,
-                'organization': organization,
-                'organizations': organizations,
-                'create_ok': create_ok, 
-                'user': user})
+        return templates.TemplateResponse(name='organization/list.html', 
+                                            context={
+                                                'request': request,
+                                                'organization': organization,
+                                                'organizations': organizations,
+                                                'create_ok': create_ok, 
+                                                'user': user})
     except Duplicate:
         error_msg = "Организация с таким наименованием уже существует!"
-        explorers = get_all()
-        return templates.TemplateResponse(
-            name='organization/create.html', 
-            context={
-                'request': request,
-                'organization': organization,
-                'error_msg': duplicate})
+        organizations = get_all()
+        return templates.TemplateResponse(name='organization/create.html', 
+                                            context={
+                                                'request': request,
+                                                'organization': organization,
+                                                'error_msg': duplicate})
     except BaseLocking:
         error_msg = "База данных недоступна для записи!"
         organizations = get_all()
-        return templates.TemplateResponse(
-            name='organization/create.html', 
-            context={
-                'request': request,
-                'organization': organization,
-                'error_msg': duplicate})
+        return templates.TemplateResponse(name='organization/create.html', 
+                                            context={
+                                                'request': request,
+                                                'organization': organization,
+                                                'error_msg': duplicate})
 
 @router.get('/{organization_id}')
 async def get_one_web(request: Request,

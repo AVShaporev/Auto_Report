@@ -22,6 +22,7 @@ from web import order as web_order
 from web import equipment as web_equipment
 from web import objects_equipment as web_objects_equipment
 from web import locality as web_locality
+from web import user as web_user
 
 from service.user import get_all as get_all_users
 from service.auth import (
@@ -54,6 +55,7 @@ app.include_router(web_order.router)
 app.include_router(web_equipment.router)
 app.include_router(web_objects_equipment.router)
 app.include_router(web_locality.router)
+app.include_router(web_user.router)
 
 # настройка приложения FastAPI для обслуживания статических файлов
 staticfiles = StaticFiles(directory='templates/static/')

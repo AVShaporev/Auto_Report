@@ -47,7 +47,7 @@ async def auth_user(request: Request,
 
     user = await get_one(user_data.login)
 
-    res = templates.TemplateResponse(name='main.html', request=request, context={'user': user})
+    res = templates.TemplateResponse(name='index.html', request=request, context={'user': user})
     
     res.set_cookie(key="users_access_token", value=access_token)
 
@@ -55,7 +55,7 @@ async def auth_user(request: Request,
 
 @router.get("/logout")
 async def logout_user(request: Request, response:Response):
-    res = templates.TemplateResponse(name='main.html', context={'request': request})
+    res = templates.TemplateResponse(name='index.html', context={'request': request})
     res.delete_cookie(key="users_access_token")
     return res
 
