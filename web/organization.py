@@ -6,6 +6,12 @@ from service.organization import (get_one,
                                     create,
                                     delete,
                                     modify)
+from service.spec_job_title import get_all as get_all_spec_job_titles
+from service.bank import get_all as get_all_banks
+from service.region import get_all as get_all_regions
+from service.arial import get_all as get_all_arials
+from service.locality import get_all as get_all_localitys
+from service.street import get_all as get_all_streets
 from model.organization import Organization
 from model.user import User
 from errors import Duplicate, Missing, BaseLocking
@@ -29,22 +35,78 @@ async def get_organizations_html(request: Request, user: User = Depends(get_curr
 @router.get('/create')
 async def get_create_organization(request: Request,
                         user: User = Depends(get_current_user)):
+    spec_job_titles = await get_all_spec_job_titles()
+    banks = await get_all_banks()
+    regions = await get_all_regions()
+    arials = await get_all_arials()
+    localitys = await get_all_localitys()
+    streets = await get_all_streets()
     return templates.TemplateResponse(
         name='organization/create.html', 
         context={
             'request': request,
+            'spec_job_titles': spec_job_titles,
+            'banks': banks,
+            'arials': arials,
+            'regions': regions,
+            'localitys': localitys,
+            'streets': streets,
             'user': user})
 
 @router.post('/create')
-async def create_organization(request: Request,
+async def post_create_organization(request: Request,
                         name: str = Form(),
-                        country: str = Form(),
-                        description: str = Form(),
+                        short_name: str = Form(),
+                        inn: str = Form(),
+                        kpp: str = Form(),
+                        director_first_name: str = Form(),
+                        drector_last_name: str = Form(),
+                        drector_surname: str = Form(),
+                        email: str = Form(),
+                        telephone: str = Form(),
+                        site: str = Form(),
+                        corr_check: str = Form(),
+                        acc_check: str = Form(),
+                        build_number: str = Form(),
+                        room_number: str = Form(),
+                        customer: bool = Form(),
+                        executor: bool = Form(),
+                        postal_code: str = Form(),
+                        bank_id: int = Form(),
+                        region_id: int = Form(),
+                        arial_id: int = Form(),
+                        locality_id: int = Form(),
+                        street_id: int = Form(),
+                        spec_build_id: int = Form(),
+                        spec_room_id: int = Form(),
+                        spec_job_title_id: int = Form(),
                         user: User = Depends(get_current_user)):
     error_msg = None
     organization = Organization(name=name,
-                    description=description,
-                    country=country)
+                        short_name=short_name,
+                        inn=inn,
+                        kpp=kpp,
+                        director_first_name=director_first_name,
+                        drector_last_name=drector_last_name,
+                        drector_surname=drector_surname,
+                        email=email,
+                        telephone=telephone,
+                        site=site,
+                        corr_check=corr_check,
+                        acc_check=acc_check,
+                        build_number=build_number,
+                        room_number=room_number,
+                        customer=customer,
+                        executor=executor,
+                        postal_code=postal_code,
+                        bank_id=bank_id,
+                        region_id=region_id,
+                        arial_id=arial_id,
+                        locality_id=locality_id,
+                        street_id=street_id,
+                        spec_build_id=spec_build_id,
+                        spec_room_id=spec_room_id,
+                        spec_job_title_id=spec_job_title_id)
     try:
         await create(organization = organization)
         organizations = await get_all()

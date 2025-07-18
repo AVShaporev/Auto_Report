@@ -24,7 +24,6 @@ from model.spec_room import Spec_Room
 from model.spec_job_title import Spec_Job_Title
 
 
-
 class Organization(Base):
 
     id: Mapped[int_pk]

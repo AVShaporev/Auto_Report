@@ -6,20 +6,192 @@
 
 {% block content %}
 
-    <body align="center"> 
-        <h3>Добавление новой организации</h3>
-            <div class="mb-3 row">
-                <label for="text" class="col-sm-2 col-form-label">Полное наименование</label>
-                <div class="col-sm-10">
-                    <input type="text" class="form-control-plaintext" id="name">
+    <body align="center">
+        <form action='/organization/create' method='POST'>
+            <h3>Добавление организации</h3>
+                <div class="mb-3 row">
+                    <label for="text" class="col-sm-2 col-form-label">Полное наименование</label>
+                    <div class="col-sm-10">
+                        <input type="text" class="form-control" id="name">
+                    </div>
                 </div>
-            </div>
-            <div class="mb-3 row">
-                <label for="text" class="col-sm-2 col-form-label">Короткое наименование</label>
-                <div class="col-sm-10">
-                    <input type="text" class="form-control-plaintext" id="short_name">
+
+                <div class="mb-3 row">
+                    <label for="text" class="col-sm-2 col-form-label">Короткое наименование</label>
+                    <div class="col-sm-10">
+                        <input type="text" class="form-control" id="short_name">
+                    </div>
                 </div>
-            </div>
+
+                <div class="mb-3 row">
+                    <label for="text" class="col-sm-2 col-form-label">ИНН</label>
+                    <div class="col-sm-10">
+                        <input type="text" class="form-control" id="inn">
+                    </div>
+                </div>
+
+                <div class="mb-3 row">
+                    <label for="text" class="col-sm-2 col-form-label">КПП</label>
+                    <div class="col-sm-10">
+                        <input type="text" class="form-control" id="kpp">
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    Наименование должности руководителя
+                    <select name='bank_id'>
+                        {% for spec_job_title in spec_job_titles %}
+                            <option contract_id value={{spec_job_title.id}}>{{spec_job_title.name}}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="mb-3 row">
+                    <label for="text" class="col-sm-2 col-form-label">Фамилия руководителя</label>
+                    <div class="col-sm-10">
+                        <input type="text" class="form-control" id="drector_last_name">
+                    </div>
+                </div>
+
+                <div class="mb-3 row">
+                    <label for="text" class="col-sm-2 col-form-label">Имя руководителя</label>
+                    <div class="col-sm-10">
+                        <input type="text" class="form-control" id="director_first_name">
+                    </div>
+                </div>
+
+                <div class="mb-3 row">
+                    <label for="text" class="col-sm-2 col-form-label">Отчество руководителя</label>
+                    <div class="col-sm-10">
+                        <input type="text" class="form-control" id="drector_surname">
+                    </div>
+                </div>
+
+                <div class="mb-3 row">
+                    <label for="text" class="col-sm-2 col-form-label">Электронная почта</label>
+                    <div class="col-sm-10">
+                        <input type="email" class="form-control" id="email">
+                    </div>
+                </div>
+
+                <div class="mb-3 row">
+                    <label for="text" class="col-sm-2 col-form-label">Телефон</label>
+                    <div class="col-sm-10">
+                        <input type="text" class="form-control" id="telephone">
+                    </div>
+                </div>
+
+                <div class="mb-3 row">
+                    <label for="text" class="col-sm-2 col-form-label">Веб-сайт</label>
+                    <div class="col-sm-10">
+                        <input type="text" class="form-control" id="site">
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    Банк
+                    <select name='bank_id'>
+                        {% for bank in banks %}
+                            <option contract_id value={{bank.id}}>{{bank.name}}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="mb-3 row">
+                    <label for="text" class="col-sm-2 col-form-label">Коресподентский счёт</label>
+                    <div class="col-sm-10">
+                        <input type="text" class="form-control" id="corr_check">
+                    </div>
+                </div>
+
+                <div class="mb-3 row">
+                    <label for="text" class="col-sm-2 col-form-label">Расчётный счет</label>
+                    <div class="col-sm-10">
+                        <input type="text" class="form-control" id="acc_check">
+                    </div>
+                </div>
+
+                <div class="mb-3 row">
+                    <label for="text" class="col-sm-2 col-form-label">Почтовый индекс</label>
+                    <div class="col-sm-10">
+                        <input type="text" class="form-control" id="postal_code">
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    Регион
+                    <select name='region_id'>
+                        {% for region in regions %}
+                            <option contract_id value={{region.id}}>{{region.spec_region.name}} {{region.name}}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    Район
+                    <select name='arial_id'>
+                        {% for arial in arials %}
+                            <option contract_id value={{arial.id}}>{{arial.spec_arial.name}} {{arial.name}}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    Населенный пункт
+                    <select name='locality_id'>
+                        {% for locality in localitys %}
+                            <option contract_id value={{locality.id}}>{{locality.spec_locality.name}} {{locality.name}}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    Улица
+                    <select name='street_id'>
+                        {% for street in streets %}
+                            <option contract_id value={{street.id}}>{{street.spec_street.name}} {{street.name}}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="mb-3 row">
+                    <label for="text" class="col-sm-2 col-form-label">Номер дома/строения</label>
+                    <div class="col-sm-10">
+                        <input type="text" class="form-control" id="build_number">
+                    </div>
+                </div>
+
+                <div class="mb-3 row">
+                    <label for="text" class="col-sm-2 col-form-label">Номер помещения</label>
+                    <div class="col-sm-10">
+                        <input type="text" class="form-control" id="room_number">
+                    </div>
+                </div>
+
+                <div class="mb-3 row">
+                    <label for="text" class="col-sm-2 col-form-label">Номер помещения</label>
+                    <div class="col-sm-10">
+                        <input type="text" class="form-control" id="room_number">
+                    </div>
+                </div>
+
+                <div class="form-check container text-center">
+                    <input class="form-check-input" type="checkbox" value="" id="customer">
+                    <label class="form-check-label float-start" for="customer">
+                        Заказчик
+                    </label>
+                </div>
+                <div class="form-check container text-center">
+                    <input class="form-check-input" type="checkbox" value="" id="executor">
+                    <label class="form-check-label float-start" for="executor">
+                        Подрядчик
+                    </label>
+                </div>
+        
+            <input type='submit' value='Сохранить'>
+
+        </form>
+
     </body>
 
 {% endblock %}
