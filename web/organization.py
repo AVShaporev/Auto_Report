@@ -12,6 +12,9 @@ from service.region import get_all as get_all_regions
 from service.arial import get_all as get_all_arials
 from service.locality import get_all as get_all_localitys
 from service.street import get_all as get_all_streets
+from service.spec_build import get_all as get_all_spec_builds
+from service.spec_room import get_all as get_all_spec_rooms
+
 from model.organization import Organization
 from model.user import User
 from errors import Duplicate, Missing, BaseLocking
@@ -41,6 +44,8 @@ async def get_create_organization(request: Request,
     arials = await get_all_arials()
     localitys = await get_all_localitys()
     streets = await get_all_streets()
+    spec_builds = await get_all_spec_builds()
+    spec_rooms = await get_all_spec_rooms()
     return templates.TemplateResponse(
         name='organization/create.html', 
         context={
@@ -51,6 +56,8 @@ async def get_create_organization(request: Request,
             'regions': regions,
             'localitys': localitys,
             'streets': streets,
+            'spec_builds': spec_builds,
+            'spec_rooms': spec_rooms,
             'user': user})
 
 @router.post('/create')
@@ -69,8 +76,8 @@ async def post_create_organization(request: Request,
                         acc_check: str = Form(),
                         build_number: str = Form(),
                         room_number: str = Form(),
-                        customer: bool = Form(),
-                        executor: bool = Form(),
+                        customer: bool = Form(False),
+                        executor: bool = Form(False),
                         postal_code: str = Form(),
                         bank_id: int = Form(),
                         region_id: int = Form(),
