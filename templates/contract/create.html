@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}
+    Добавить контракт
+{% endblock %}
+
+{% block content %}
+
+    <body align="center">
+
+        <form action='/contract/create' method='POST'>
+
+            <h3>Добавление контракта/договора</h3>
+
+                <div class="mb-3">
+                    Заказчик
+                    <select name='spec_contract'>
+                        {% for spec_contract in spec_contracts %}
+                            <option contract_id value={{spec_contract.id}}>{{spec_contract.name}}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    Заказчик
+                    <select name='customer_id'>
+                        {% for customer in customers %}
+                            <option contract_id value={{customer.id}}>{{customer.name}}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    Подрядчик
+                    <select name='executor_id'>
+                        {% for executor in executors %}
+                            <option contract_id value={{executor.id}}>{{executor.name}}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+
+        </form>
+
+    </body>
+
+{% endblock %}

@@ -6,8 +6,13 @@ from service.contract import (get_one,
                                     create,
                                     delete,
                                     modify)
+from service.spec_contract import get_all as get_all_spec_contracts
+from service.organization import get_all_customers
+from service.organization import get_all_executors
+
 from model.contract import Contract
 from model.user import User
+
 from errors import Duplicate, Missing, BaseLocking
 from service.auth import (get_current_user)
 
@@ -22,6 +27,21 @@ async def get_contracts_html(request: Request, user: User = Depends(get_current_
         context={
             'request': request,
             'contracts': contracts, 
+            'user': user})
+
+@router.get('/create')
+async def get_create_contract(request: Request,
+                        user: User = Depends(get_current_user)):
+    spec_contracts = await get_all_spec_contracts()
+    customers = await get_all_customers()
+    executors = await get_all_executors()
+    return templates.TemplateResponse(
+        name='contract/create.html', 
+        context={
+            'request': request,
+            'spec_contracts': spec_contracts,
+            'customers': customers,
+            'executors': executors,
             'user': user})
 
 @router.get('/{contract_id}')
