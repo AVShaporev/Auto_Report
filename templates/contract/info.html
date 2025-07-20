@@ -50,9 +50,9 @@
 
                         <tr class="table-row">
                                 <th scope="row">Полное наименование Подрядчика</th>
-                                <td><a href="/organization/{{ contract.exeсutor.id }}"
+                                <td><a href="/organization/{{ contract.executor.id }}"
                                         class="text-decoration-none text-dark p-3">
-                                        {{ contract.exeсutor.name }}</a></td>
+                                        {{ contract.executor.name }}</a></td>
                         </tr>
                 
                 </tbody>
@@ -116,6 +116,13 @@
 
                 
             </table>
+        
+            <form action='/object/create_form' method='POST'>
+                <div class="d-flex justify-content-center mt-3">
+                        <input type="hidden" id="myHiddenField" name="contract_id" value="{{ contract.id }}">
+                <input type='submit' value='Добавить объект'>
+                </div>
+            </form>
 
         </div>
 

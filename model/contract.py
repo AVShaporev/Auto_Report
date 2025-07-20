@@ -36,7 +36,7 @@ class Contract(Base):
     type_contract: Mapped[str]
     spec_contract_id: Mapped[int] = mapped_column(ForeignKey("spec_contracts.id"))   # тип контракта
     customer_id: Mapped[int] = mapped_column(ForeignKey("organizations.id"))        # заказчик
-    exeсutor_id: Mapped[int] = mapped_column(ForeignKey("organizations.id"))        # подрядчик
+    executor_id: Mapped[int] = mapped_column(ForeignKey("organizations.id"))        # подрядчик
 
     # Тип контракта (один контракт - один тип контракта)
     spec_contract: Mapped[Spec_Contract] = relationship(Spec_Contract,
@@ -51,10 +51,10 @@ class Contract(Base):
                                                         lazy="joined")
 
     # Подрядчик (один контракт - один подрядчик)
-    exeсutor: Mapped["Organization"] = relationship("Organization",
-                                                         backref="exeсutor_name",
+    executor: Mapped["Organization"] = relationship("Organization",
+                                                         backref="executor_name",
                                                         uselist=False,
-                                                        foreign_keys=[exeсutor_id],
+                                                        foreign_keys=[executor_id],
                                                         lazy="joined")
 
     # дополнительные соглашения (один контракт - ноль или много доп.соглашений)

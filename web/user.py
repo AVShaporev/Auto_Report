@@ -118,7 +118,7 @@ async def create_user(request: Request,
     user_role_id = role_id
 
     if user is None:
-        return templates.TemplateResponse(name='main.html',
+        return templates.TemplateResponse(name='index.html',
                                             context={'request': request, 
                                                         'user': user})
 
