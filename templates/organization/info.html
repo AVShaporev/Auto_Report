@@ -48,6 +48,7 @@
                         <tr class="table-row">
                                 <th scope="row">Руководитель</th>
                                 <td>
+                                        {{ organization.spec_job_title.name }}
                                         {{ organization.drector_last_name }}
                                         {{ organization.director_first_name }}
                                         {{ organization.drector_surname }}
@@ -83,7 +84,6 @@
                         <tr class="table-row">
                                 <th scope="row">Адрес</th>
                                 <td>
-                                        Российская Федерация,
                                         {{ organization.postal_code }},
                                         {{ organization.region.name }}
                                         {{ organization.region.spec_region.name }},
@@ -97,12 +97,27 @@
                                 </td>
                         </tr>
 
+                        <tr class="table-row">
+                                <th scope="row">Банковские реквизиты</th>
+                                <td>
+                                        Банк - {{ organization.bank.name }},
+                                        БИК - {{ organization.bank.bik }}
+                                        Корр.счёт - {{ organization.corr_check }},
+                                        Расч.счёт - {{ organization.acc_check }}
+                                        {% if organization.pers_check %}
+                                                Лиц.счёт (при наличии) - {{ organization.pers_check }}
+                                        {% endif %}
+                                </td>
+                        </tr>
+
                 </tbody>
 
                 
             </table>
 
         </div>
+
+        <a href="/organization/{{ organization.id }}/edit" class="btn btn-primary">Редактировать</a>
 
     </body>
 

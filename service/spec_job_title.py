@@ -9,7 +9,7 @@ def get_one(id: str) -> Spec_Job_Title:
     return data.get_one_by_id(id)
 
 def create(spec_job_title: Spec_Job_Title) -> Spec_Job_Title:
-    return data.create(Spec_Job_Title)
+    return data.create(spec_job_title)
 
 def replace(spec_job_title: Spec_Job_Title) -> Spec_Job_Title:
     return data.replace(spec_job_title)

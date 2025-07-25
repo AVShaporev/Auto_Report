@@ -1,210 +1,367 @@
 {% extends "base.html" %}
 
 {% block title %}
-    Добавить организацию
+    Новая организация
 {% endblock %}
 
 {% block content %}
 
-    <body align="center">
         <form action='/organization/create' method='POST'>
 
-            <h3>Добавление организации</h3>
+            <h3 class="text-center">Новая организация</h3>
 
-                <div class="mb-3 row">
-                    <label for="text" class="col-sm-2 col-form-label">Полное наименование</label>
-                    <div class="col-sm-10">
-                        <input type="text" class="form-control" id="name" name='name'>
+            <h4 class="text-center">Основные реквизиты</h4>
+
+            <div class="mb-3 row">
+                <label for="name" class="col-sm-2 col-form-label ps-5">Полное наименование</label>
+                <div class="col-sm-10 pe-5">
+                    <input type="text" class="form-control" id="name" 
+                            name='name' autocomplete="name" 
+                            placeholder="Введите полное наименование организации"
+                            required>
+                </div>
+            </div>
+
+            <div class="mb-3 row">
+                <label for="short_name" class="col-sm-2 col-form-label ps-5">Короткое наименование</label>
+                <div class="col-sm-10 pe-5">
+                    <input type="text" class="form-control" id="short_name" 
+                            name='short_name' 
+                            placeholder="Введите короткое наименование организации"
+                            required>
+                </div>
+            </div>
+
+            <div class="mb-3 row">
+                <label for="inn" class="col-sm-2 col-form-label ps-5">ИНН</label>
+                <div class="col-sm-10 pe-5">
+                    <input type="text" class="form-control" id="inn" 
+                            name='inn' placeholder="Введите ИНН организации" required>
+                </div>
+            </div>
+
+            <div class="mb-3 row">
+                <label for="kpp" class="col-sm-2 col-form-label ps-5">КПП</label>
+                <div class="col-sm-10 pe-5">
+                    <input type="text" class="form-control" id="kpp" 
+                            name='kpp' 
+                            placeholder="Введите КПП организации"
+                            required>
+                </div>
+            </div>
+
+            <h4 class="text-center">Данные руководителя/подписанта</h4>
+
+            <!-- Выпадающий список должностей руководителей -->
+            <div class="mb-3 ps-5 pe-5">
+                <label class="form-label">Наименование должности руководителя (подписанта)</label>
+            
+            <!-- Основной dropdown -->
+            <div class="dropdown">
+
+                <!-- Кнопка для открытия списка -->
+                <button class="btn btn-outline-secondary dropdown-toggle w-100 text-start" 
+                        type="button" 
+                        id="specJobTitleBtn" 
+                        data-bs-toggle="dropdown" 
+                        aria-expanded="false">
+                Выбрать должность
+                </button>
+                
+                <!-- Выпадающее меню с поиском -->
+                <div class="dropdown-menu w-100 p-2">
+                <!-- Поле поиска -->
+                <div class="px-2 mb-2">
+                    <input type="text" 
+                        class="form-control" 
+                        placeholder="Поиск..." 
+                        id="specJobTitleSearch">
+                </div>
+                <div class="dropdown-divider"></div>
+                
+                <!-- Список наиманований должностей с прокруткой -->
+                <div class="overflow-auto" style="max-height: 200px;">
+                    <button class="dropdown-item" type="button" value="create">
+                        Создать новую должность
+                    </button>
+                    {% for spec_job_title in spec_job_titles %}
+                        <button class="dropdown-item" type="button" value="{{ spec_job_title.id }}">
+                    {{ spec_job_title.name }}
+                    </button>
+                    {% endfor %}
+                </div>
+                </div>
+            </div>
+            
+            <!-- Скрытое поле для формы -->
+            <input type="hidden" name="spec_job_title_id" id="selectedSpecJobTitle">
+            </div>
+
+            <script>
+            // Перенесите этот код ВЫШЕ модального окна
+            function submitSpec_Job_Title() {
+                const name = document.getElementById('name_of_job_title').value;
+                const description = document.getElementById('description').value;
+
+                fetch('/api/spec_job_title/create', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({name, description})
+                })
+                .then(response => response.json())
+                .then(data => {
+                const select = document.getElementById("action-select-spec_job_title");
+                const option = new Option(data.name, data.id);
+                select.add(option);
+                select.value = data.id;
+                bootstrap.Modal.getInstance(document.getElementById('spec_job_title_Modal')).hide();
+                })
+                .catch(error => console.error('Error:', error));
+            }
+            </script>
+
+            <!-- Модальное окно добавление новой должности руководителя-->
+            <div class="modal fade" id="spec_job_title_Modal" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Новое наименование должности руководителя (подписанта)</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                                <div class="mb-3">
+                                    <label for="name_of_job_title" class="form-label">Наименование</label>
+                                    <input type="text" class="form-control" id="name_of_job_title" name="name_of_job_title" autocomplete="spec_job_title">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="description" class="form-label">Описание</label>
+                                    <textarea class="form-control" id="description" name="description" autocomplete="description"></textarea>
+                                </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+                            <button type="button" class="btn btn-primary" onclick="submitSpec_Job_Title()">Сохранить</button>
+                        </div>
                     </div>
                 </div>
+            </div>
 
-                <div class="mb-3 row">
-                    <label for="text" class="col-sm-2 col-form-label">Короткое наименование</label>
-                    <div class="col-sm-10">
-                        <input type="text" class="form-control" id="short_name" name='short_name'>
-                    </div>
+            <div class="mb-3 row">
+                <label for="drector_last_name" class="col-sm-2 col-form-label ps-5">Фамилия руководителя</label>
+                <div class="col-sm-10 pe-5">
+                    <input type="text" class="form-control" id="drector_last_name" name='drector_last_name' required>
                 </div>
+            </div>
 
-                <div class="mb-3 row">
-                    <label for="text" class="col-sm-2 col-form-label">ИНН</label>
-                    <div class="col-sm-10">
-                        <input type="text" class="form-control" id="inn"name='inn'>
-                    </div>
+            <div class="mb-3 row">
+                <label for="director_first_name" class="col-sm-2 col-form-label ps-5">Имя руководителя</label>
+                <div class="col-sm-10 pe-5">
+                    <input type="text" class="form-control" id="director_first_name" name='director_first_name'required>
                 </div>
+            </div>
 
-                <div class="mb-3 row">
-                    <label for="text" class="col-sm-2 col-form-label">КПП</label>
-                    <div class="col-sm-10">
-                        <input type="text" class="form-control" id="kpp" name='kpp'>
-                    </div>
+            <div class="mb-3 row">
+                <label for="drector_surname" class="col-sm-2 col-form-label ps-5">Отчество руководителя</label>
+                <div class="col-sm-10 pe-5">
+                    <input type="text" class="form-control" id="drector_surname" name='drector_surname' required>
                 </div>
+            </div>
 
-                <div class="mb-3">
-                    Наименование должности руководителя
-                    <select name='spec_job_title_id'>
-                        {% for spec_job_title in spec_job_titles %}
-                            <option contract_id value={{spec_job_title.id}}>{{spec_job_title.name}}</option>
-                        {% endfor %}
-                    </select>
+            <h4 class="text-center">Остальные реквизиты</h4>
+
+            <div class="mb-3 row">
+                <label for="email" class="col-sm-2 col-form-label ps-5">Электронная почта</label>
+                <div class="col-sm-10 pe-5">
+                    <input type="email" class="form-control" id="email" name='email' autocomplete="email">
                 </div>
+            </div>
 
-                <div class="mb-3 row">
-                    <label for="text" class="col-sm-2 col-form-label">Фамилия руководителя</label>
-                    <div class="col-sm-10">
-                        <input type="text" class="form-control" id="drector_last_name" name='drector_last_name'>
-                    </div>
+            <div class="mb-3 row">
+                <label for="telephone" class="col-sm-2 col-form-label ps-5">Телефон</label>
+                <div class="col-sm-10 pe-5">
+                    <input type="text" class="form-control" id="telephone" name='telephone'>
                 </div>
+            </div>
 
-                <div class="mb-3 row">
-                    <label for="text" class="col-sm-2 col-form-label">Имя руководителя</label>
-                    <div class="col-sm-10">
-                        <input type="text" class="form-control" id="director_first_name" name='director_first_name'>
-                    </div>
+            <div class="mb-3 row">
+                <label for="site" class="col-sm-2 col-form-label ps-5">Веб-сайт</label>
+                <div class="col-sm-10 pe-5">
+                    <input type="text" class="form-control" id="site" name='site'>
                 </div>
+            </div>
 
-                <div class="mb-3 row">
-                    <label for="text" class="col-sm-2 col-form-label">Отчество руководителя</label>
-                    <div class="col-sm-10">
-                        <input type="text" class="form-control" id="drector_surname" name='drector_surname'>
-                    </div>
+            <h4 class="text-center">Банковские реквизиты</h4>
+
+            <div class="mb-3 ps-5 pe-5">
+                Банк
+                <select class="form-select" name='bank_id'>
+                    {% for bank in banks %}
+                        <option contract_id value={{bank.id}}>{{bank.name}}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="mb-3 row">
+                <label for="corr_check" class="col-sm-2 col-form-label ps-5">Коресподентский счёт</label>
+                <div class="col-sm-10 pe-5">
+                    <input type="text" class="form-control" id="corr_check" name='corr_check' required>
                 </div>
+            </div>
 
-                <div class="mb-3 row">
-                    <label for="text" class="col-sm-2 col-form-label">Электронная почта</label>
-                    <div class="col-sm-10">
-                        <input type="email" class="form-control" id="email" name='email'>
-                    </div>
+            <div class="mb-3 row">
+                <label for="acc_check" class="col-sm-2 col-form-label ps-5">Расчётный счёт</label>
+                <div class="col-sm-10 pe-5">
+                    <input type="text" class="form-control" id="acc_check" name='acc_check' required>
                 </div>
+            </div>
 
-                <div class="mb-3 row">
-                    <label for="text" class="col-sm-2 col-form-label">Телефон</label>
-                    <div class="col-sm-10">
-                        <input type="text" class="form-control" id="telephone" name='telephone'>
-                    </div>
+            <div class="mb-3 row">
+                <label for="pers_check" class="col-sm-2 col-form-label ps-5">Лицевой счёт (при наличии)</label>
+                <div class="col-sm-10 pe-5">
+                    <input type="text" class="form-control" id="pers_check" name='pers_check'>
                 </div>
+            </div>
 
-                <div class="mb-3 row">
-                    <label for="text" class="col-sm-2 col-form-label">Веб-сайт</label>
-                    <div class="col-sm-10">
-                        <input type="text" class="form-control" id="site" name='site'>
-                    </div>
+            <h4 class="text-center">Почтовые реквизиты/адрес</h4>
+
+            <div class="mb-3 row ps-5">
+                <label for="postal_code" class="col-sm-2 col-form-label ps-5">Почтовый индекс</label>
+                <div class="col-sm-10 pe-5">
+                    <input type="text" class="form-control" id="postal_code" name='postal_code' autocomplete="postal_code" required>
                 </div>
+            </div>
 
-                <div class="mb-3">
-                    Банк
-                    <select name='bank_id'>
-                        {% for bank in banks %}
-                            <option contract_id value={{bank.id}}>{{bank.name}}</option>
-                        {% endfor %}
-                    </select>
+            <!-- Выпадающий список регионов -->
+            <div class="mb-3 ps-5 pe-5">
+                Регион
+                <select class="form-select" name='region_id'>
+                    {% for region in regions %}
+                        <option region_id value={{region.id}}>{{region.spec_region.name}} {{region.name}}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Выпадающий список районов -->
+            <div class="mb-3 ps-5 pe-5">
+                Район
+                <select class="form-select" name='arial_id'>
+                    {% for arial in arials %}
+                        <option arial_id value={{arial.id}}>{{arial.spec_arial.name}} {{arial.name}}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Выпадающий список населенных пунктов -->
+            <div class="mb-3 ps-5 pe-5">
+                Населенный пункт
+                <select class="form-select" name='locality_id'>
+                    {% for locality in localitys %}
+                        <option locality_id value={{locality.id}}>{{locality.spec_locality.name}} {{locality.name}}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Выпадающий список улиц -->
+            <div class="mb-3 ps-5 pe-5">
+                Улица
+                <select class="form-select" name='street_id'>
+                    {% for street in streets %}
+                        <option street_id value={{street.id}}>{{street.spec_street.name}} {{street.name}}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Выпадающий список типов строений -->
+            <div class="mb-3 ps-5 pe-5">
+                Тип строения
+                <select class="form-select" name='spec_build_id'>
+                    {% for spec_build in spec_builds %}
+                        <option spec_build_id value={{spec_build.id}}>{{spec_build.name}}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="mb-3 row ps-5">
+                <label for="build_number" class="col-sm-2 col-form-label">Номер дома/строения</label>
+                <div class="col-sm-10 pe-5">
+                    <input type="text" class="form-control" id="build_number" name='build_number' required>
                 </div>
+            </div>
 
-                <div class="mb-3 row">
-                    <label for="text" class="col-sm-2 col-form-label">Коресподентский счёт</label>
-                    <div class="col-sm-10">
-                        <input type="text" class="form-control" id="corr_check" name='corr_check'>
-                    </div>
+            <!-- Выпадающий список типов помещений -->
+            <div class="mb-3 ps-5 pe-5">
+                Тип помещения
+                <select class="form-select" name='spec_room_id'>
+                    {% for spec_room in spec_rooms %}
+                        <option spec_room_id value={{spec_room.id}}>{{spec_room.name}}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="mb-3 row ps-5">
+                <label for="room_number" class="col-sm-2 col-form-label">Номер помещения</label>
+                <div class="col-sm-10 pe-5">
+                    <input type="text" class="form-control" id="room_number" name='room_number'>
                 </div>
+            </div>
 
-                <div class="mb-3 row">
-                    <label for="text" class="col-sm-2 col-form-label">Расчётный счет</label>
-                    <div class="col-sm-10">
-                        <input type="text" class="form-control" id="acc_check" name='acc_check'>
-                    </div>
-                </div>
+            <h4 class="text-center">Функция/признак организации</h4>
 
-                <div class="mb-3 row">
-                    <label for="text" class="col-sm-2 col-form-label">Почтовый индекс</label>
-                    <div class="col-sm-10">
-                        <input type="text" class="form-control" id="postal_code" name='postal_code'>
-                    </div>
-                </div>
-
-                <div class="mb-3">
-                    Регион
-                    <select name='region_id'>
-                        {% for region in regions %}
-                            <option contract_id value={{region.id}}>{{region.spec_region.name}} {{region.name}}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-
-                <div class="mb-3">
-                    Район
-                    <select name='arial_id'>
-                        {% for arial in arials %}
-                            <option contract_id value={{arial.id}}>{{arial.spec_arial.name}} {{arial.name}}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-
-                <div class="mb-3">
-                    Населенный пункт
-                    <select name='locality_id'>
-                        {% for locality in localitys %}
-                            <option contract_id value={{locality.id}}>{{locality.spec_locality.name}} {{locality.name}}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-
-                <div class="mb-3">
-                    Улица
-                    <select name='street_id'>
-                        {% for street in streets %}
-                            <option contract_id value={{street.id}}>{{street.spec_street.name}} {{street.name}}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-
-                <div class="mb-3">
-                    Тип строения
-                    <select name='spec_build_id'>
-                        {% for spec_build in spec_builds %}
-                            <option contract_id value={{spec_build.id}}>{{spec_build.name}}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-
-                <div class="mb-3 row">
-                    <label for="text" class="col-sm-2 col-form-label">Номер дома/строения</label>
-                    <div class="col-sm-10">
-                        <input type="text" class="form-control" id="build_number" name='build_number'>
-                    </div>
-                </div>
-
-                <div class="mb-3">
-                    Тип помещения
-                    <select name='spec_room_id'>
-                        {% for spec_room in spec_rooms %}
-                            <option contract_id value={{spec_room.id}}>{{spec_room.name}}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-
-                <div class="mb-3 row">
-                    <label for="text" class="col-sm-2 col-form-label">Номер помещения</label>
-                    <div class="col-sm-10">
-                        <input type="text" class="form-control" id="room_number" name='room_number'>
-                    </div>
-                </div>
-
-                <div class="form-check container text-center">
+            <div class="mb-3 text-center">
+                <span class="me-3">
                     <input class="form-check-input" type="checkbox" value="True" id="customer" name="customer">
-                    <label class="form-check-label float-start" for="customer">
-                        Заказчик
-                    </label>
-                </div>
-                <div class="form-check container text-center">
+                    <label class="form-check-label" for="customer">Заказчик</label>
+                </span>
+                <span>
                     <input class="form-check-input" type="checkbox" value="True" id="executor" name="executor">
-                    <label class="form-check-label float-start" for="executor">
-                        Подрядчик
-                    </label>
-                </div>
+                    <label class="form-check-label" for="executor">Подрядчик</label>
+                </span>
+            </div>
         
-            <input type='submit' value='Сохранить'>
+            <div class="text-center mt-4">
+                <button type="submit" class="btn btn-primary">Сохранить</button>
+            </div>
 
         </form>
 
-    </body>
+        <!-- Скрипты -->
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+        // Элементы для должностей
+        const dropdownBtn = document.getElementById('specJobTitleBtn');
+        const searchInput = document.getElementById('specJobTitleSearch');
+        const hiddenInput = document.getElementById('selectedSpecJobTitle');
+        const dropdownItems = document.querySelectorAll('#specJobTitleBtn + .dropdown-menu .dropdown-item');
+        
+        // Поиск в dropdown
+        searchInput.addEventListener('input', function() {
+            const searchText = this.value.toLowerCase();
+            
+            dropdownItems.forEach(item => {
+            const text = item.textContent.toLowerCase();
+            item.style.display = text.includes(searchText) ? 'block' : 'none';
+            });
+        });
+        
+        // Обработка выбора
+        document.querySelectorAll('#specJobTitleBtn + .dropdown-menu .dropdown-item').forEach(item => {
+            item.addEventListener('click', function() {
+            // Обновляем текст кнопки
+            dropdownBtn.textContent = this.textContent;
+            
+            // Записываем значение в hidden input
+            hiddenInput.value = this.getAttribute('value');
+            
+            // Если выбрано "Создать новую должность"
+            if (this.getAttribute('value') === 'create') {
+                const modal = new bootstrap.Modal(document.getElementById('spec_job_title_Modal'));
+                modal.show();
+            }
+            });
+        });
+        });
+
+        </script>
 
 {% endblock %}

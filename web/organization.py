@@ -37,7 +37,7 @@ async def get_organizations_html(request: Request, user: User = Depends(get_curr
 
 @router.get('/create')
 async def get_create_organization(request: Request,
-                        user: User = Depends(get_current_user)):
+                                    user: User = Depends(get_current_user)):
     spec_job_titles = await get_all_spec_job_titles()
     banks = await get_all_banks()
     regions = await get_all_regions()
@@ -74,6 +74,7 @@ async def post_create_organization(request: Request,
                         site: str = Form(),
                         corr_check: str = Form(),
                         acc_check: str = Form(),
+                        pers_check: str = Form(),
                         build_number: str = Form(),
                         room_number: str = Form(),
                         customer: bool = Form(False),
@@ -101,6 +102,7 @@ async def post_create_organization(request: Request,
                         site=site,
                         corr_check=corr_check,
                         acc_check=acc_check,
+                        pers_check=pers_check,
                         build_number=build_number,
                         room_number=room_number,
                         customer=customer,
@@ -142,6 +144,16 @@ async def post_create_organization(request: Request,
                                                 'organization': organization,
                                                 'error_msg': duplicate})
 
+@router.get('/{organization_id}/edit')
+async def get_modify_organization(request: Request,
+                                    organization_id: str = '',
+                                    user: User = Depends(get_current_user)):
+    organization = await get_one(int(organization_id))
+    return templates.TemplateResponse(
+        name='organization/info.html',
+        context={'request': request,
+                'organization': organization})
+
 @router.get('/{organization_id}')
 async def get_one_web(request: Request,
                     user: User = Depends(get_current_user),
@@ -151,6 +163,7 @@ async def get_one_web(request: Request,
         name='organization/info.html',
         context={'request': request,
                 'organization': organization})
+
 
 
 @router.get("/link/external_link")

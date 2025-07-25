@@ -43,13 +43,10 @@ async def get_create_locality(request: Request,
 
 @router.post('/create')
 async def post_create_locality(request: Request,
-                        name: str = Form(),
-                        spec_locality_id: int = Form(),
-                        description: str = Form(),
-                        user: User = Depends(get_current_user)):
-
-    print(name, spec_locality_id, description)
-
+                                name: str = Form(),
+                                spec_locality_id: int = Form(),
+                                description: str = Form(),
+                                user: User = Depends(get_current_user)):
     locality = Locality(name=name,
                         spec_locallity_id=spec_locality_id,
                         description=description)

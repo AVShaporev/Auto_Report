@@ -15,12 +15,12 @@ def model_to_dict(spec_job_title: Spec_Job_Title) -> dict:
     return spec_job_title.dict()
 
 # Функция добавления строки в БД
-async def create(spec_job_title: Spec_Job_Title) -> bool:
+async def create(spec_job_title: Spec_Job_Title) -> Spec_Job_Title:
     async with new_session() as session:
         session.add(spec_job_title)
         await session.flush()
         await session.commit()
-        return True
+        return await get_one(spec_job_title.name)
 
 # Функция выбора всех регионов  из БД
 async def get_all():

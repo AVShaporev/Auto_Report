@@ -11,32 +11,30 @@
 
   </head>
 
-  <body>
+    <body>
+
+        {% include 'header.html' %}
 
 
+      <div class="wrapper">
 
-      {% include 'header.html' %}
+        <div class="content d-flex flex-column vh-100 mb-5">
+          <centre>
+              <main>
+                  {% block content %}{% endblock %}
+                  <br>
+                  <br>
+                  <br>
+              </main>
+          </centre>
+        </div>
 
-
-    <div class="wrapper">
-
-      <div class="content d-flex flex-column vh-100 mb-5">
-        <centre>
-            <main>
-                {% block content %}{% endblock %}
-                <br>
-                <br>
-                <br>
-            </main>
-        </centre>
       </div>
-
-    </div>
-            
-    <footer>
-      {% include 'footer.html' %}
-    </footer>    
-    
-  </body>
+              
+      <footer>
+        {% include 'footer.html' %}
+      </footer>    
+      
+    </body>
 
 </html>
