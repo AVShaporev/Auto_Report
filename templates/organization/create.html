@@ -80,14 +80,14 @@
                 <div class="dropdown-divider"></div>
                 
                 <!-- Список наиманований должностей с прокруткой -->
-                <div class="overflow-auto" style="max-height: 200px;">
+                <div class="overflow-auto" id="job-titles-list" style="max-height: 200px;">
                     <button class="dropdown-item" type="button" value="create">
                         Создать новую должность
                     </button>
                     {% for spec_job_title in spec_job_titles %}
                         <button class="dropdown-item" type="button" value="{{ spec_job_title.id }}">
-                    {{ spec_job_title.name }}
-                    </button>
+                            {{ spec_job_title.name }}
+                            </button>
                     {% endfor %}
                 </div>
                 </div>
@@ -98,26 +98,71 @@
             </div>
 
             <script>
-            // Перенесите этот код ВЫШЕ модального окна
-            function submitSpec_Job_Title() {
-                const name = document.getElementById('name_of_job_title').value;
-                const description = document.getElementById('description').value;
+            // Обработка кнопки "Сохранить" в модальном окне
+            async function submitSpec_Job_Title() {
+                const name = document.getElementById('name_of_job_title').value.trim();
+                const description = document.getElementById('description').value.trim();
 
-                fetch('/api/spec_job_title/create', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({name, description})
-                })
-                .then(response => response.json())
-                .then(data => {
-                const select = document.getElementById("action-select-spec_job_title");
-                const option = new Option(data.name, data.id);
-                select.add(option);
-                select.value = data.id;
-                bootstrap.Modal.getInstance(document.getElementById('spec_job_title_Modal')).hide();
-                })
-                .catch(error => console.error('Error:', error));
-            }
+                if (!name) {
+                    alert("Введите название должности");
+                    return;
+                }
+
+                try {
+                    // Отправка данных на сервер
+                    const response = await fetch('/api/spec_job_title/create', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({name, description})
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`Ошибка сервера: ${response.status}`);
+                    }
+
+                    const data = await response.json();
+
+                    // Контейнер списка наименования должностей
+                    const jobTitlesList = document.getElementById('job-titles-list');
+
+                    // Создание новой кнопки-элемента
+                    const newButton = document.createElement('button');
+                    newButton.className = 'dropdown-item';
+                    newButton.type = 'button';
+                    newButton.value = data.id;
+                    newButton.textContent = data.name;
+
+                    // Добавление обработчика клика
+                    newButton.addEventListener('click', function() {
+                        document.getElementById('specJobTitleBtn').textContent = this.textContent;
+                        document.getElementById('selectedSpecJobTitle').value = this.value;
+                    });
+
+                    // Вставка новой кнопки перед разделителем или в конец списка
+                    const divider = document.querySelector('.dropdown-divider');
+                    if (divider) {
+                        divider.insertAdjacentElement('afterend', newButton);
+                    } else {
+                        dropdownList.appendChild(newButton);
+                    }
+
+                    // Обновление выбранного значения
+                    document.getElementById('specJobTitleBtn').textContent = data.name;
+                    document.getElementById('selectedSpecJobTitle').value = data.id;
+
+                    // Закрытие модального окна
+                    bootstrap.Modal.getInstance(document.getElementById('spec_job_title_Modal')).hide();
+
+                    // Очистка полей формы модельного окна
+                    document.getElementById('name_of_job_title').value = '';
+                    document.getElementById('description').value = '';
+
+                     } catch (error) {
+                        console.error("Ошибка:", error);
+                        alert("Не удалось сохранить должность: " + error.message);
+                    }
+
+                }
             </script>
 
             <!-- Модальное окно добавление новой должности руководителя-->
