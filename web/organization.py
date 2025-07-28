@@ -123,7 +123,7 @@ async def post_create_organization(request: Request,
         await create(organization = organization)
         organizations = await get_all()
         create_ok = True
-        return RedirectResponse(url="list", status_code=303)
+        return RedirectResponse(url=f"{organization.id}", status_code=303)
     except Duplicate:
         error_msg = "Организация с таким наименованием уже существует!"
         organizations = get_all()

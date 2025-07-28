@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from fastapi import APIRouter, Request, Depends, Form, Depends
+from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from service.contract import (get_one,
@@ -75,12 +76,8 @@ async def post_create_contract(request: Request,
         await create(contract = contract)
         contracts = await get_all()
         create_ok = True
-        return RedirectResponse(url="list", status_code=303)
-        # return templates.TemplateResponse(name='contract/list.html', 
-        #                                     context={
-        #                                         'request': request,
-        #                                         'contracts': contracts, 
-        #                                         'user': user})
+        return RedirectResponse(url=f"{contract.id}", status_code=303)
+
     except Duplicate:
         error_msg = "Контракт с таким номером уже существует!"
         contracts = get_all()
