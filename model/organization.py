@@ -1,3 +1,4 @@
+from typing import List
 from datetime import date
 
 from sqlalchemy import ForeignKey, Text
@@ -16,12 +17,12 @@ from database.database import (
 )
 from model.bank import Bank
 from model.region import Region
-# from model.arial import Arial
 from model.locality import Locality
 from model.street import Street
 from model.spec_build import Spec_Build
 from model.spec_room import Spec_Room
 from model.spec_job_title import Spec_Job_Title
+from model.contract import Contract
 
 
 class Organization(Base):

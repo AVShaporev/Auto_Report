@@ -98,7 +98,7 @@
             </div>
 
             <script>
-            // Обработка кнопки "Сохранить" в модальном окне
+            // Обработка кнопки "Сохранить" в модальном окне создания наименование должности руководителя/подписанта
             async function submitSpec_Job_Title() {
                 const name = document.getElementById('name_of_job_title').value.trim();
                 const description = document.getElementById('description').value.trim();
@@ -237,13 +237,166 @@
 
             <h4 class="text-center">Банковские реквизиты</h4>
 
+
+            <!-- Выпадающий список банков -->
             <div class="mb-3 ps-5 pe-5">
-                Банк
-                <select class="form-select" name='bank_id'>
-                    {% for bank in banks %}
-                        <option contract_id value={{bank.id}}>{{bank.name}}</option>
-                    {% endfor %}
-                </select>
+                <label class="form-label">Банк</label>
+            
+            <!-- Основной dropdown -->
+            <div class="dropdown">
+
+                <!-- Кнопка для открытия списка -->
+                <button class="btn btn-outline-secondary dropdown-toggle w-100 text-start" 
+                        type="button" 
+                        id="BankBtn"
+                        data-bs-toggle="dropdown" 
+                        aria-expanded="false">
+                Выбрать Банк
+                </button>
+                
+                <!-- Выпадающее меню с поиском -->
+                <div class="dropdown-menu w-100 p-2">
+                    <!-- Поле поиска -->
+                    <div class="px-2 mb-2">
+                        <input type="text" 
+                            class="form-control" 
+                            placeholder="Поиск..." 
+                            id="BankSearch">
+                    </div>
+                    <div class="dropdown-divider"></div>
+                    
+                    <!-- Список банков с прокруткой -->
+                    <div class="overflow-auto" id="banks-list" style="max-height: 200px;">
+                        <button class="dropdown-item" type="button" value="create">
+                            Создать новый банк
+                        </button>
+                        {% for bank in banks %}
+                            <button class="dropdown-item" type="button" value="{{ bank.id }}">
+                                {{ bank.name }}
+                            </button>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Скрытое поле для формы -->
+            <input type="hidden" name="bank_id" id="selectedBank">
+            </div>
+
+            <script>
+            // Обработка кнопки "Сохранить" в модальном окне создания банка
+            async function submitBank() {
+                const name = document.getElementById('name_of_bank').value.trim();
+                const bik = document.getElementById('bik_of_bank').value.trim();
+                const inn = document.getElementById('inn_of_bank').value.trim();
+                const description = document.getElementById('description_of_bank').value.trim();
+
+                if (!name) {
+                    alert("Введите название банка");
+                    return;
+                }
+
+                if (!bik) {
+                    alert("Введите БИК банка");
+                    return;
+                }
+
+                if (!inn) {
+                    alert("Введите ИНН банка");
+                    return;
+                }
+
+                try {
+                    // Отправка данных на сервер
+                    const response = await fetch('/api/bank/create', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({name, bik, inn, description})
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`Ошибка сервера: ${response.status}`);
+                    }
+
+                    const data = await response.json();
+
+                    // Контейнер списка наименования должностей
+                    const BankList = document.getElementById('banks-list');
+
+                    // Создание новой кнопки-элемента с названием банка
+                    const newButton = document.createElement('button');
+                    newButton.className = 'dropdown-item';
+                    newButton.type = 'button';
+                    newButton.value = data.id;
+                    newButton.textContent = data.name;
+
+                    // Добавление обработчика клика
+                    newButton.addEventListener('click', function() {
+                        document.getElementById('BankBtn').textContent = this.textContent;
+                        document.getElementById('selectedBank').value = this.value;
+                    });
+
+                    // Вставка новой кнопки перед разделителем или в конец списка
+                    const divider = document.querySelector('.dropdown-divider');
+                    if (divider) {
+                        divider.insertAdjacentElement('afterend', newButton);
+                    } else {
+                        dropdownList.appendChild(newButton);
+                    }
+
+                    // Обновление выбранного значения
+                    document.getElementById('BankBtn').textContent = data.name;
+                    document.getElementById('selectedBank').value = data.id;
+
+                    // Закрытие модального окна
+                    bootstrap.Modal.getInstance(document.getElementById('bank_Modal')).hide();
+
+                    // Очистка полей формы модельного окна
+                    document.getElementById('name_of_bank').value = '';
+                    document.getElementById('inn_of_bank').value = '';
+                    document.getElementById('bik_of_bank').value = '';
+                    document.getElementById('description_of_bank').value = '';
+
+                     } catch (error) {
+                        console.error("Ошибка:", error);
+                        alert("Не удалось сохранить Банк: " + error.message);
+                    }
+
+                }
+            </script>
+
+            <!-- Модальное окно добавления нового банка -->
+            <div class="modal fade" id="bank_Modal" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Новый Банк</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                                <div class="mb-3">
+                                    <label for="name_of_bank" class="form-label">Наименование</label>
+                                    <input type="text" class="form-control" id="name_of_bank" name="name_of_bank" autocomplete="name_of_bank">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="bik_of_bank" class="form-label">БИК</label>
+                                    <input type="text" class="form-control" id="bik_of_bank" name="bik_of_bank" autocomplete="bik_of_bank">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="inn_of_bank" class="form-label">ИНН</label>
+                                    <input type="text" class="form-control" id="inn_of_bank" name="inn_of_bank" autocomplete="inn_of_bank">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="description_of_bank" class="form-label">Описание</label>
+                                    <textarea class="form-control" id="description_of_bank" name="description_of_bank" autocomplete="description_of_bank"></textarea>
+                                </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+                            <button type="button" class="btn btn-primary" onclick="submitBank()">Сохранить</button>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <div class="mb-3 row">
@@ -373,6 +526,7 @@
         <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
         <script>
             document.addEventListener('DOMContentLoaded', function() {
+
         // Элементы для должностей
         const dropdownBtn = document.getElementById('specJobTitleBtn');
         const searchInput = document.getElementById('specJobTitleSearch');
@@ -401,6 +555,45 @@
             // Если выбрано "Создать новую должность"
             if (this.getAttribute('value') === 'create') {
                 const modal = new bootstrap.Modal(document.getElementById('spec_job_title_Modal'));
+                modal.show();
+            }
+            });
+        });
+        });
+
+        </script>
+
+        
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+        // Элементы для банков
+        const dropdownBtn = document.getElementById('BankBtn');
+        const searchInput = document.getElementById('BankSearch');
+        const hiddenInput = document.getElementById('selectedBank');
+        const dropdownItems = document.querySelectorAll('#BankBtn + .dropdown-menu .dropdown-item');
+        
+        // Поиск в dropdown
+        searchInput.addEventListener('input', function() {
+            const searchText = this.value.toLowerCase();
+            
+            dropdownItems.forEach(item => {
+            const text = item.textContent.toLowerCase();
+            item.style.display = text.includes(searchText) ? 'block' : 'none';
+            });
+        });
+        
+        // Обработка выбора
+        document.querySelectorAll('#BankBtn + .dropdown-menu .dropdown-item').forEach(item => {
+            item.addEventListener('click', function() {
+            // Обновляем текст кнопки
+            dropdownBtn.textContent = this.textContent;
+            
+            // Записываем значение в hidden input
+            hiddenInput.value = this.getAttribute('value');
+            
+            // Если выбрано "Создать новый банк"
+            if (this.getAttribute('value') === 'create') {
+                const modal = new bootstrap.Modal(document.getElementById('bank_Modal'));
                 modal.show();
             }
             });

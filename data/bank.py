@@ -22,7 +22,8 @@ async def create(bank: Bank) -> bool:
         session.add(bank)
         await session.flush()
         await session.commit()
-        return True
+        bank = await get_one(bank.name)
+        return bank
 
 # Функция выбора всех банков из БД
 async def get_all():

@@ -15,7 +15,7 @@ from schema.spec_job_title import SpecJobTitleResponse
 from errors import Duplicate, Missing, BaseLocking
 from service.auth import (get_current_user)
 
-router = APIRouter(prefix='/api/spec_job_title', tags=['Фротенд'])
+router = APIRouter(prefix='/api/spec_job_title', tags=['API'])
 templates = Jinja2Templates(directory='templates')
 
 @router.get('/list')

@@ -52,7 +52,7 @@ class Contract(Base):
 
     # Подрядчик (один контракт - один подрядчик)
     executor: Mapped["Organization"] = relationship("Organization",
-                                                         backref="executor_name",
+                                                        backref="executor_name",
                                                         uselist=False,
                                                         foreign_keys=[executor_id],
                                                         lazy="joined")
@@ -79,7 +79,7 @@ class Contract(Base):
                                                 lazy="selectin")
 
     def __str__(self):
-        return f"{self.__class__.__name__}(id={self.id}, name={self.number})"
+        return f"{self.__class__.__name__}(id={self.id}, number={self.number})"
 
     def __repr__(self):
         return str(self)

@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Request, Depends, Form, Depends
 from fastapi.templating import Jinja2Templates
+from fastapi.responses import RedirectResponse
 
 from service.organization import (get_one,
                                     get_all,
@@ -14,6 +15,8 @@ from service.locality import get_all as get_all_localitys
 from service.street import get_all as get_all_streets
 from service.spec_build import get_all as get_all_spec_builds
 from service.spec_room import get_all as get_all_spec_rooms
+from service.contract import (get_by_customer,
+                                get_by_executor)
 
 from model.organization import Organization
 from model.user import User
@@ -120,13 +123,7 @@ async def post_create_organization(request: Request,
         await create(organization = organization)
         organizations = await get_all()
         create_ok = True
-        return templates.TemplateResponse(name='organization/list.html', 
-                                            context={
-                                                'request': request,
-                                                'organization': organization,
-                                                'organizations': organizations,
-                                                'create_ok': create_ok, 
-                                                'user': user})
+        return RedirectResponse(url="list", status_code=303)
     except Duplicate:
         error_msg = "Организация с таким наименованием уже существует!"
         organizations = get_all()
@@ -159,10 +156,14 @@ async def get_one_web(request: Request,
                     user: User = Depends(get_current_user),
                     organization_id: str = ''):
     organization = await get_one(int(organization_id))
+    customer_contracts = await get_by_customer(int(organization_id))
+    executor_contracts = await get_by_executor(int(organization_id))
+    contracts = customer_contracts + executor_contracts
     return templates.TemplateResponse(
         name='organization/info.html',
         context={'request': request,
-                'organization': organization})
+                'organization': organization,
+                'contracts': contracts})
 
 
 
