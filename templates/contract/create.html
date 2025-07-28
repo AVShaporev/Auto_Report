@@ -33,16 +33,14 @@
                             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                         </div>
                         <div class="modal-body">
-                            <form id="spec_contract_Form">
                                 <div class="mb-3">
                                     <label class="form-label">Наименование</label>
-                                    <input type="text" class="form-control" id="name" name="name" required autocomplete="name">
+                                    <input type="text" class="form-control" id="name" name="name" autocomplete="name">
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label">Описание</label>
-                                    <textarea class="form-control" id="description" name="description" required autocomplete="description"></textarea>
+                                    <textarea class="form-control" id="description" name="description" autocomplete="description"></textarea>
                                 </div>
-                            </form>
                         </div>
                         <div class="modal-footer">
                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
@@ -159,13 +157,19 @@
                 }
                 
                 // Сброс выбора (чтобы можно было выбрать снова)
-                this.value = '';
+                //this.value = '';
             });
 
              // Отправка данных формы
             async function submitSpec_Contract() {
             const name = document.getElementById('name').value;
             const description = document.getElementById('description').value;
+
+            // Проверка на пустые поля
+            if (!name.trim()) {
+                alert("Пожалуйста, введите наименование контракта");
+                return;
+    }
 
             const response = await fetch('/spec_contract/create', {
                 method: 'POST',

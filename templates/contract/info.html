@@ -17,18 +17,8 @@
 
                 <tbody>
                         <tr class="table-row">
-                                <th scope="row">ID</th>
-                                <td>{{ contract.id }}</td>
-                        </tr>
-                        
-                        <tr class="table-row">
-                                <th scope="row">Номер контракта/договора</th>
-                                <td>{{ contract.number }}</td>
-                        </tr>
-
-                        <tr class="table-row">
-                                <th scope="row">Дата заключения контракта/договора</th>
-                                <td>{{ contract.date_of_consclusion.strftime('%d.%m.%Y') }} г.</td>
+                                <th scope="row">Срок исполнения</th>
+                                <td>{{ contract.date_of_completion.strftime('%d.%m.%Y') }} г.</td>
                         </tr>
 
                         <tr class="table-row">

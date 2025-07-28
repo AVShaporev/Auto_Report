@@ -59,17 +59,6 @@ async def post_create_contract(request: Request,
                         executor_id: int = Form(),
                         description: str = Form(),
                         user: User = Depends(get_current_user)):
-    print(spec_contract,
-            number, 
-            date_of_consclusion,
-            date_of_completion, 
-            summ,
-            subject,
-            short_subject,
-            type_contract,
-            customer_id, 
-            executor_id,
-            description)
     error_msg = None
     contract = Contract(spec_contract_id=spec_contract,
                         number=number, 
@@ -86,11 +75,12 @@ async def post_create_contract(request: Request,
         await create(contract = contract)
         contracts = await get_all()
         create_ok = True
-        return templates.TemplateResponse(name='contract/list.html', 
-                                            context={
-                                                'request': request,
-                                                'contracts': contracts, 
-                                                'user': user})
+        return RedirectResponse(url="list", status_code=303)
+        # return templates.TemplateResponse(name='contract/list.html', 
+        #                                     context={
+        #                                         'request': request,
+        #                                         'contracts': contracts, 
+        #                                         'user': user})
     except Duplicate:
         error_msg = "Контракт с таким номером уже существует!"
         contracts = get_all()
