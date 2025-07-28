@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}
+    Создание заявки
+{% endblock %}
+
+{% block content %}
+
+    <body align="center"> 
+        
+        <form action='/order/create' method='POST'>
+                
+            Тип заявки
+                <select name='spec_order_id'>
+                    {% for spec_order in spec_orders %}
+                        <option spec_order_id value={{spec_order.id}}>{{spec_order.name}}</option>
+                    {% endfor %}
+                </select>
+            
+            Контракт
+                <select name='contract_id'>
+                    {% for contract in contracts %}
+                        <option contract_id value={{contract.id}}>{{contract.number}}</option>
+                    {% endfor %}
+                </select>
+
+            Объект
+                <select name='object_id'>
+                    {% for object in objects %}
+                        <option object_id value={{object.id}}>{{object.name}}</option>
+                    {% endfor %}
+                </select>
+                
+            <input type='submit' value='Сохранить'>
+
+            </form>
+    </body>
+
+{% endblock %}

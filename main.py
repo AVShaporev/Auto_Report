@@ -17,10 +17,17 @@ from web import organization as web_organization
 from web import contract as web_contract
 from web import sub_contract as web_sub_contract
 from web import myobject as web_object
+from web import report as web_report
+from web import order as web_order
 from web import equipment as web_equipment
 from web import objects_equipment as web_objects_equipment
-# from web import user as web_user
-# from web import role as web_role
+from web import locality as web_locality
+from web import user as web_user
+from web import spec_contract as web_spec_contract
+
+from api import spec_contract as api_spec_contract
+from api import spec_job_title as api_spec_job_title
+from api import bank as api_bank
 
 from service.user import get_all as get_all_users
 from service.auth import (
@@ -48,8 +55,18 @@ app.include_router(web_organization.router)
 app.include_router(web_contract.router)
 app.include_router(web_sub_contract.router)
 app.include_router(web_object.router)
+app.include_router(web_report.router)
+app.include_router(web_order.router)
 app.include_router(web_equipment.router)
 app.include_router(web_objects_equipment.router)
+app.include_router(web_locality.router)
+app.include_router(web_user.router)
+app.include_router(web_spec_contract.router)
+
+# # добавление субмаршрутов из уровня api
+app.include_router(api_spec_contract.router)
+app.include_router(api_spec_job_title.router)
+app.include_router(api_bank.router)
 
 # настройка приложения FastAPI для обслуживания статических файлов
 staticfiles = StaticFiles(directory='templates/static/')

@@ -48,6 +48,7 @@
                         <tr class="table-row">
                                 <th scope="row">Руководитель</th>
                                 <td>
+                                        {{ organization.spec_job_title.name }}
                                         {{ organization.drector_last_name }}
                                         {{ organization.director_first_name }}
                                         {{ organization.drector_surname }}
@@ -83,7 +84,6 @@
                         <tr class="table-row">
                                 <th scope="row">Адрес</th>
                                 <td>
-                                        Российская Федерация,
                                         {{ organization.postal_code }},
                                         {{ organization.region.name }}
                                         {{ organization.region.spec_region.name }},
@@ -97,12 +97,101 @@
                                 </td>
                         </tr>
 
+                        <tr class="table-row">
+                                <th scope="row">Банковские реквизиты</th>
+                                <td>
+                                        Банк - {{ organization.bank.name }},
+                                        БИК - {{ organization.bank.bik }}
+                                        Корр.счёт - {{ organization.corr_check }},
+                                        Расч.счёт - {{ organization.acc_check }},
+                                        {% if organization.pers_check %}
+                                                Лиц.счёт (при наличии) - {{ organization.pers_check }}
+                                        {% endif %}
+                                </td>
+                        </tr>
+
                 </tbody>
 
                 
             </table>
 
         </div>
+
+        <a href="/organization/{{ organization.id }}/edit" class="btn btn-primary">Редактировать</a>
+
+        {% if contracts %}
+
+                <h3>Контракты</h3>
+
+                <div>
+
+                <table class="table table-striped table-hover">
+
+                        <tbody>           
+                                <thead>
+                                        <tr>
+                                                <th scope="col">ID</th>
+                                                <th scope="col">Номер</th>
+                                                <th scope="col">Предмет</th>
+                                                <th scope="col">Дата заключения</th>
+                                                <th scope="col">Дата исполнения</th>
+                                                <th scope="col">Сумма</th>
+                                        </tr>
+                                </thead>
+
+                                {% for contract in contracts %}
+                                
+                                        <tbody>
+                                                <!-- ID -->
+                                                <td>
+                                                        <a href="/contract/{{ contract.id }}"
+                                                        class="text-decoration-none text-dark p-3">
+                                                        {{ contract.id }}
+                                                        </a>
+                                                </td>
+
+                                                <!-- Номер -->
+                                                <td>
+                                                        <a href="/contract/{{ contract.id }}"
+                                                        class="text-decoration-none text-dark p-3">
+                                                        {{ contract.number }}
+                                                        </a>
+                                                </td>
+
+                                                <!-- Предмет -->
+                                                <td>
+                                                        {{ contract.subject }}
+                                                </td>
+
+                                                <!-- Дата заключения -->
+                                                <td>
+                                                        {{ contract.date_of_consclusion.strftime('%d.%m.%Y') }} г.
+                                                </td>
+
+                                                <!-- Дата исполнения -->
+                                                <td>
+                                                        {{ contract.date_of_completion.strftime('%d.%m.%Y') }} г.
+                                                </td>
+
+                                                <!-- Сумма -->
+                                                <td>
+                                                        {{ contract.summ }}
+                                                </td>
+                                                
+                                        </tbody>
+
+                                {% endfor %}
+
+                        </tbody>
+
+                        
+                </table>
+
+                </div>
+        
+        {% endif %}
+
+        <a href="/contract/create" class="btn btn-primary">Добавить контракт</a>
 
     </body>
 

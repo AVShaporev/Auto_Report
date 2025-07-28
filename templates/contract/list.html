@@ -42,9 +42,9 @@
                                     <td><a href="/organization/{{ contract.customer.id }}"
                                             class="text-decoration-none text-dark p-3">
                                         {{ contract.customer.short_name }}</a></td>
-                                    <td><a href="/organization/{{ contract.exeсutor.id }}"
+                                    <td><a href="/organization/{{ contract.executor.id }}"
                                             class="text-decoration-none text-dark p-3">
-                                        {{ contract.exeсutor.short_name }}</a></td>
+                                        {{ contract.executor.short_name }}</a></td>
                                     <td>{{ contract.summ }}</td>
                                     <td>{{ contract.date_of_completion.strftime('%d.%m.%Y') }} г.</td>
                             </tr>
@@ -62,6 +62,10 @@
             {% endif %}
 
 
+        </div>
+
+        <div class="d-flex justify-content-center mt-3">
+            <a href="/contract/create" class="btn btn-primary">Добавить</a>
         </div>
 
     </body>

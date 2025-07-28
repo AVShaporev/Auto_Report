@@ -46,6 +46,22 @@ async def get_all() -> list[Organization] | None:
         organizations = res.scalars().all()
     return organizations
 
+# Функция запроса всех Заказчиков
+async def get_all_customers() -> Organization:
+    async with new_session() as session:
+        query = select(Organization).filter(Organization.customer)
+        res = await session.execute(query)
+        organizations = res.scalars().all()
+        return organizations
+
+# Функция запроса всех Подрядчиков
+async def get_all_executors() -> Organization:
+    async with new_session() as session:
+        query = select(Organization).filter(Organization.executor)
+        res = await session.execute(query)
+        organizations = res.scalars().all()
+        return organizations
+
 # Функция изменения данных организации
 async def modify(organization: Organization):
     async with new_session() as session:

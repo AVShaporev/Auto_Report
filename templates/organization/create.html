@@ -1,0 +1,605 @@
+{% extends "base.html" %}
+
+{% block title %}
+    Новая организация
+{% endblock %}
+
+{% block content %}
+
+        <form action='/organization/create' method='POST'>
+
+            <h3 class="text-center">Новая организация</h3>
+
+            <h4 class="text-center">Основные реквизиты</h4>
+
+            <div class="mb-3 row">
+                <label for="name" class="col-sm-2 col-form-label ps-5">Полное наименование</label>
+                <div class="col-sm-10 pe-5">
+                    <input type="text" class="form-control" id="name" 
+                            name='name' autocomplete="name" 
+                            placeholder="Введите полное наименование организации"
+                            required>
+                </div>
+            </div>
+
+            <div class="mb-3 row">
+                <label for="short_name" class="col-sm-2 col-form-label ps-5">Короткое наименование</label>
+                <div class="col-sm-10 pe-5">
+                    <input type="text" class="form-control" id="short_name" 
+                            name='short_name' 
+                            placeholder="Введите короткое наименование организации"
+                            required>
+                </div>
+            </div>
+
+            <div class="mb-3 row">
+                <label for="inn" class="col-sm-2 col-form-label ps-5">ИНН</label>
+                <div class="col-sm-10 pe-5">
+                    <input type="text" class="form-control" id="inn" 
+                            name='inn' placeholder="Введите ИНН организации" required>
+                </div>
+            </div>
+
+            <div class="mb-3 row">
+                <label for="kpp" class="col-sm-2 col-form-label ps-5">КПП</label>
+                <div class="col-sm-10 pe-5">
+                    <input type="text" class="form-control" id="kpp" 
+                            name='kpp' 
+                            placeholder="Введите КПП организации"
+                            required>
+                </div>
+            </div>
+
+            <h4 class="text-center">Данные руководителя/подписанта</h4>
+
+            <!-- Выпадающий список должностей руководителей -->
+            <div class="mb-3 ps-5 pe-5">
+                <label class="form-label">Наименование должности руководителя (подписанта)</label>
+            
+            <!-- Основной dropdown -->
+            <div class="dropdown">
+
+                <!-- Кнопка для открытия списка -->
+                <button class="btn btn-outline-secondary dropdown-toggle w-100 text-start" 
+                        type="button" 
+                        id="specJobTitleBtn" 
+                        data-bs-toggle="dropdown" 
+                        aria-expanded="false">
+                Выбрать должность
+                </button>
+                
+                <!-- Выпадающее меню с поиском -->
+                <div class="dropdown-menu w-100 p-2">
+                <!-- Поле поиска -->
+                <div class="px-2 mb-2">
+                    <input type="text" 
+                        class="form-control" 
+                        placeholder="Поиск..." 
+                        id="specJobTitleSearch">
+                </div>
+                <div class="dropdown-divider"></div>
+                
+                <!-- Список наиманований должностей с прокруткой -->
+                <div class="overflow-auto" id="job-titles-list" style="max-height: 200px;">
+                    <button class="dropdown-item" type="button" value="create">
+                        Создать новую должность
+                    </button>
+                    {% for spec_job_title in spec_job_titles %}
+                        <button class="dropdown-item" type="button" value="{{ spec_job_title.id }}">
+                            {{ spec_job_title.name }}
+                            </button>
+                    {% endfor %}
+                </div>
+                </div>
+            </div>
+            
+            <!-- Скрытое поле для формы -->
+            <input type="hidden" name="spec_job_title_id" id="selectedSpecJobTitle">
+            </div>
+
+            <script>
+            // Обработка кнопки "Сохранить" в модальном окне создания наименование должности руководителя/подписанта
+            async function submitSpec_Job_Title() {
+                const name = document.getElementById('name_of_job_title').value.trim();
+                const description = document.getElementById('description').value.trim();
+
+                if (!name) {
+                    alert("Введите название должности");
+                    return;
+                }
+
+                try {
+                    // Отправка данных на сервер
+                    const response = await fetch('/api/spec_job_title/create', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({name, description})
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`Ошибка сервера: ${response.status}`);
+                    }
+
+                    const data = await response.json();
+
+                    // Контейнер списка наименования должностей
+                    const jobTitlesList = document.getElementById('job-titles-list');
+
+                    // Создание новой кнопки-элемента
+                    const newButton = document.createElement('button');
+                    newButton.className = 'dropdown-item';
+                    newButton.type = 'button';
+                    newButton.value = data.id;
+                    newButton.textContent = data.name;
+
+                    // Добавление обработчика клика
+                    newButton.addEventListener('click', function() {
+                        document.getElementById('specJobTitleBtn').textContent = this.textContent;
+                        document.getElementById('selectedSpecJobTitle').value = this.value;
+                    });
+
+                    // Вставка новой кнопки перед разделителем или в конец списка
+                    const divider = document.querySelector('.dropdown-divider');
+                    if (divider) {
+                        divider.insertAdjacentElement('afterend', newButton);
+                    } else {
+                        dropdownList.appendChild(newButton);
+                    }
+
+                    // Обновление выбранного значения
+                    document.getElementById('specJobTitleBtn').textContent = data.name;
+                    document.getElementById('selectedSpecJobTitle').value = data.id;
+
+                    // Закрытие модального окна
+                    bootstrap.Modal.getInstance(document.getElementById('spec_job_title_Modal')).hide();
+
+                    // Очистка полей формы модельного окна
+                    document.getElementById('name_of_job_title').value = '';
+                    document.getElementById('description').value = '';
+
+                     } catch (error) {
+                        console.error("Ошибка:", error);
+                        alert("Не удалось сохранить должность: " + error.message);
+                    }
+
+                }
+            </script>
+
+            <!-- Модальное окно добавление новой должности руководителя-->
+            <div class="modal fade" id="spec_job_title_Modal" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Новое наименование должности руководителя (подписанта)</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                                <div class="mb-3">
+                                    <label for="name_of_job_title" class="form-label">Наименование</label>
+                                    <input type="text" class="form-control" id="name_of_job_title" name="name_of_job_title" autocomplete="spec_job_title">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="description" class="form-label">Описание</label>
+                                    <textarea class="form-control" id="description" name="description" autocomplete="description"></textarea>
+                                </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+                            <button type="button" class="btn btn-primary" onclick="submitSpec_Job_Title()">Сохранить</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mb-3 row">
+                <label for="drector_last_name" class="col-sm-2 col-form-label ps-5">Фамилия руководителя</label>
+                <div class="col-sm-10 pe-5">
+                    <input type="text" class="form-control" id="drector_last_name" name='drector_last_name' required>
+                </div>
+            </div>
+
+            <div class="mb-3 row">
+                <label for="director_first_name" class="col-sm-2 col-form-label ps-5">Имя руководителя</label>
+                <div class="col-sm-10 pe-5">
+                    <input type="text" class="form-control" id="director_first_name" name='director_first_name'required>
+                </div>
+            </div>
+
+            <div class="mb-3 row">
+                <label for="drector_surname" class="col-sm-2 col-form-label ps-5">Отчество руководителя</label>
+                <div class="col-sm-10 pe-5">
+                    <input type="text" class="form-control" id="drector_surname" name='drector_surname' required>
+                </div>
+            </div>
+
+            <h4 class="text-center">Остальные реквизиты</h4>
+
+            <div class="mb-3 row">
+                <label for="email" class="col-sm-2 col-form-label ps-5">Электронная почта</label>
+                <div class="col-sm-10 pe-5">
+                    <input type="email" class="form-control" id="email" name='email' autocomplete="email">
+                </div>
+            </div>
+
+            <div class="mb-3 row">
+                <label for="telephone" class="col-sm-2 col-form-label ps-5">Телефон</label>
+                <div class="col-sm-10 pe-5">
+                    <input type="text" class="form-control" id="telephone" name='telephone'>
+                </div>
+            </div>
+
+            <div class="mb-3 row">
+                <label for="site" class="col-sm-2 col-form-label ps-5">Веб-сайт</label>
+                <div class="col-sm-10 pe-5">
+                    <input type="text" class="form-control" id="site" name='site'>
+                </div>
+            </div>
+
+            <h4 class="text-center">Банковские реквизиты</h4>
+
+
+            <!-- Выпадающий список банков -->
+            <div class="mb-3 ps-5 pe-5">
+                <label class="form-label">Банк</label>
+            
+            <!-- Основной dropdown -->
+            <div class="dropdown">
+
+                <!-- Кнопка для открытия списка -->
+                <button class="btn btn-outline-secondary dropdown-toggle w-100 text-start" 
+                        type="button" 
+                        id="BankBtn"
+                        data-bs-toggle="dropdown" 
+                        aria-expanded="false">
+                Выбрать Банк
+                </button>
+                
+                <!-- Выпадающее меню с поиском -->
+                <div class="dropdown-menu w-100 p-2">
+                    <!-- Поле поиска -->
+                    <div class="px-2 mb-2">
+                        <input type="text" 
+                            class="form-control" 
+                            placeholder="Поиск..." 
+                            id="BankSearch">
+                    </div>
+                    <div class="dropdown-divider"></div>
+                    
+                    <!-- Список банков с прокруткой -->
+                    <div class="overflow-auto" id="banks-list" style="max-height: 200px;">
+                        <button class="dropdown-item" type="button" value="create">
+                            Создать новый банк
+                        </button>
+                        {% for bank in banks %}
+                            <button class="dropdown-item" type="button" value="{{ bank.id }}">
+                                {{ bank.name }}
+                            </button>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Скрытое поле для формы -->
+            <input type="hidden" name="bank_id" id="selectedBank">
+            </div>
+
+            <script>
+            // Обработка кнопки "Сохранить" в модальном окне создания банка
+            async function submitBank() {
+                const name = document.getElementById('name_of_bank').value.trim();
+                const bik = document.getElementById('bik_of_bank').value.trim();
+                const inn = document.getElementById('inn_of_bank').value.trim();
+                const description = document.getElementById('description_of_bank').value.trim();
+
+                if (!name) {
+                    alert("Введите название банка");
+                    return;
+                }
+
+                if (!bik) {
+                    alert("Введите БИК банка");
+                    return;
+                }
+
+                if (!inn) {
+                    alert("Введите ИНН банка");
+                    return;
+                }
+
+                try {
+                    // Отправка данных на сервер
+                    const response = await fetch('/api/bank/create', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({name, bik, inn, description})
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`Ошибка сервера: ${response.status}`);
+                    }
+
+                    const data = await response.json();
+
+                    // Контейнер списка наименования должностей
+                    const BankList = document.getElementById('banks-list');
+
+                    // Создание новой кнопки-элемента с названием банка
+                    const newButton = document.createElement('button');
+                    newButton.className = 'dropdown-item';
+                    newButton.type = 'button';
+                    newButton.value = data.id;
+                    newButton.textContent = data.name;
+
+                    // Добавление обработчика клика
+                    newButton.addEventListener('click', function() {
+                        document.getElementById('BankBtn').textContent = this.textContent;
+                        document.getElementById('selectedBank').value = this.value;
+                    });
+
+                    // Вставка новой кнопки перед разделителем или в конец списка
+                    const divider = document.querySelector('.dropdown-divider');
+                    if (divider) {
+                        divider.insertAdjacentElement('afterend', newButton);
+                    } else {
+                        dropdownList.appendChild(newButton);
+                    }
+
+                    // Обновление выбранного значения
+                    document.getElementById('BankBtn').textContent = data.name;
+                    document.getElementById('selectedBank').value = data.id;
+
+                    // Закрытие модального окна
+                    bootstrap.Modal.getInstance(document.getElementById('bank_Modal')).hide();
+
+                    // Очистка полей формы модельного окна
+                    document.getElementById('name_of_bank').value = '';
+                    document.getElementById('inn_of_bank').value = '';
+                    document.getElementById('bik_of_bank').value = '';
+                    document.getElementById('description_of_bank').value = '';
+
+                     } catch (error) {
+                        console.error("Ошибка:", error);
+                        alert("Не удалось сохранить Банк: " + error.message);
+                    }
+
+                }
+            </script>
+
+            <!-- Модальное окно добавления нового банка -->
+            <div class="modal fade" id="bank_Modal" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Новый Банк</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                                <div class="mb-3">
+                                    <label for="name_of_bank" class="form-label">Наименование</label>
+                                    <input type="text" class="form-control" id="name_of_bank" name="name_of_bank" autocomplete="name_of_bank">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="bik_of_bank" class="form-label">БИК</label>
+                                    <input type="text" class="form-control" id="bik_of_bank" name="bik_of_bank" autocomplete="bik_of_bank">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="inn_of_bank" class="form-label">ИНН</label>
+                                    <input type="text" class="form-control" id="inn_of_bank" name="inn_of_bank" autocomplete="inn_of_bank">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="description_of_bank" class="form-label">Описание</label>
+                                    <textarea class="form-control" id="description_of_bank" name="description_of_bank" autocomplete="description_of_bank"></textarea>
+                                </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+                            <button type="button" class="btn btn-primary" onclick="submitBank()">Сохранить</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mb-3 row">
+                <label for="corr_check" class="col-sm-2 col-form-label ps-5">Коресподентский счёт</label>
+                <div class="col-sm-10 pe-5">
+                    <input type="text" class="form-control" id="corr_check" name='corr_check' required>
+                </div>
+            </div>
+
+            <div class="mb-3 row">
+                <label for="acc_check" class="col-sm-2 col-form-label ps-5">Расчётный счёт</label>
+                <div class="col-sm-10 pe-5">
+                    <input type="text" class="form-control" id="acc_check" name='acc_check' required>
+                </div>
+            </div>
+
+            <div class="mb-3 row">
+                <label for="pers_check" class="col-sm-2 col-form-label ps-5">Лицевой счёт (при наличии)</label>
+                <div class="col-sm-10 pe-5">
+                    <input type="text" class="form-control" id="pers_check" name='pers_check'>
+                </div>
+            </div>
+
+            <h4 class="text-center">Почтовые реквизиты/адрес</h4>
+
+            <div class="mb-3 row ps-5">
+                <label for="postal_code" class="col-sm-2 col-form-label ps-5">Почтовый индекс</label>
+                <div class="col-sm-10 pe-5">
+                    <input type="text" class="form-control" id="postal_code" name='postal_code' autocomplete="postal_code" required>
+                </div>
+            </div>
+
+            <!-- Выпадающий список регионов -->
+            <div class="mb-3 ps-5 pe-5">
+                Регион
+                <select class="form-select" name='region_id'>
+                    {% for region in regions %}
+                        <option region_id value={{region.id}}>{{region.spec_region.name}} {{region.name}}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Выпадающий список районов -->
+            <div class="mb-3 ps-5 pe-5">
+                Район
+                <select class="form-select" name='arial_id'>
+                    {% for arial in arials %}
+                        <option arial_id value={{arial.id}}>{{arial.spec_arial.name}} {{arial.name}}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Выпадающий список населенных пунктов -->
+            <div class="mb-3 ps-5 pe-5">
+                Населенный пункт
+                <select class="form-select" name='locality_id'>
+                    {% for locality in localitys %}
+                        <option locality_id value={{locality.id}}>{{locality.spec_locality.name}} {{locality.name}}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Выпадающий список улиц -->
+            <div class="mb-3 ps-5 pe-5">
+                Улица
+                <select class="form-select" name='street_id'>
+                    {% for street in streets %}
+                        <option street_id value={{street.id}}>{{street.spec_street.name}} {{street.name}}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Выпадающий список типов строений -->
+            <div class="mb-3 ps-5 pe-5">
+                Тип строения
+                <select class="form-select" name='spec_build_id'>
+                    {% for spec_build in spec_builds %}
+                        <option spec_build_id value={{spec_build.id}}>{{spec_build.name}}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="mb-3 row ps-5">
+                <label for="build_number" class="col-sm-2 col-form-label">Номер дома/строения</label>
+                <div class="col-sm-10 pe-5">
+                    <input type="text" class="form-control" id="build_number" name='build_number' required>
+                </div>
+            </div>
+
+            <!-- Выпадающий список типов помещений -->
+            <div class="mb-3 ps-5 pe-5">
+                Тип помещения
+                <select class="form-select" name='spec_room_id'>
+                    {% for spec_room in spec_rooms %}
+                        <option spec_room_id value={{spec_room.id}}>{{spec_room.name}}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="mb-3 row ps-5">
+                <label for="room_number" class="col-sm-2 col-form-label">Номер помещения</label>
+                <div class="col-sm-10 pe-5">
+                    <input type="text" class="form-control" id="room_number" name='room_number'>
+                </div>
+            </div>
+
+            <h4 class="text-center">Функция/признак организации</h4>
+
+            <div class="mb-3 text-center">
+                <span class="me-3">
+                    <input class="form-check-input" type="checkbox" value="True" id="customer" name="customer">
+                    <label class="form-check-label" for="customer">Заказчик</label>
+                </span>
+                <span>
+                    <input class="form-check-input" type="checkbox" value="True" id="executor" name="executor">
+                    <label class="form-check-label" for="executor">Подрядчик</label>
+                </span>
+            </div>
+        
+            <div class="text-center mt-4">
+                <button type="submit" class="btn btn-primary">Сохранить</button>
+            </div>
+
+        </form>
+
+        <!-- Скрипты -->
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+
+        // Элементы для должностей
+        const dropdownBtn = document.getElementById('specJobTitleBtn');
+        const searchInput = document.getElementById('specJobTitleSearch');
+        const hiddenInput = document.getElementById('selectedSpecJobTitle');
+        const dropdownItems = document.querySelectorAll('#specJobTitleBtn + .dropdown-menu .dropdown-item');
+        
+        // Поиск в dropdown
+        searchInput.addEventListener('input', function() {
+            const searchText = this.value.toLowerCase();
+            
+            dropdownItems.forEach(item => {
+            const text = item.textContent.toLowerCase();
+            item.style.display = text.includes(searchText) ? 'block' : 'none';
+            });
+        });
+        
+        // Обработка выбора
+        document.querySelectorAll('#specJobTitleBtn + .dropdown-menu .dropdown-item').forEach(item => {
+            item.addEventListener('click', function() {
+            // Обновляем текст кнопки
+            dropdownBtn.textContent = this.textContent;
+            
+            // Записываем значение в hidden input
+            hiddenInput.value = this.getAttribute('value');
+            
+            // Если выбрано "Создать новую должность"
+            if (this.getAttribute('value') === 'create') {
+                const modal = new bootstrap.Modal(document.getElementById('spec_job_title_Modal'));
+                modal.show();
+            }
+            });
+        });
+        });
+
+        </script>
+
+        
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+        // Элементы для банков
+        const dropdownBtn = document.getElementById('BankBtn');
+        const searchInput = document.getElementById('BankSearch');
+        const hiddenInput = document.getElementById('selectedBank');
+        const dropdownItems = document.querySelectorAll('#BankBtn + .dropdown-menu .dropdown-item');
+        
+        // Поиск в dropdown
+        searchInput.addEventListener('input', function() {
+            const searchText = this.value.toLowerCase();
+            
+            dropdownItems.forEach(item => {
+            const text = item.textContent.toLowerCase();
+            item.style.display = text.includes(searchText) ? 'block' : 'none';
+            });
+        });
+        
+        // Обработка выбора
+        document.querySelectorAll('#BankBtn + .dropdown-menu .dropdown-item').forEach(item => {
+            item.addEventListener('click', function() {
+            // Обновляем текст кнопки
+            dropdownBtn.textContent = this.textContent;
+            
+            // Записываем значение в hidden input
+            hiddenInput.value = this.getAttribute('value');
+            
+            // Если выбрано "Создать новый банк"
+            if (this.getAttribute('value') === 'create') {
+                const modal = new bootstrap.Modal(document.getElementById('bank_Modal'));
+                modal.show();
+            }
+            });
+        });
+        });
+
+        </script>
+
+{% endblock %}

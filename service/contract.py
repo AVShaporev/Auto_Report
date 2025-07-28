@@ -8,6 +8,12 @@ def get_all() -> list[Contract]:
 def get_one(id: str) -> Contract:
     return data.get_one_by_id(id)
 
+def get_by_customer(id_organization: int) -> list[Contract]:
+    return data.get_by_customer(id_organization)
+
+def get_by_executor(id_organization: int) -> list[Contract]:
+    return data.get_by_executor(id_organization)
+
 def create(contract: Contract) -> Contract:
     return data.create(contract)
 

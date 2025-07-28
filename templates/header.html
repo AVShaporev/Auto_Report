@@ -22,14 +22,16 @@
         <div>
             <ul class="nav col-12 col-lg-auto me-lg-auto mb-2 justify-content-center mb-md-0 ">
 
-            <li class="nav-item text-white my-auto">Andrey</li>
-
             {% if user %}
-            <li class="nav-item m-auto mx-3">{{ user.name }}</li>
 
-              <h5>{{ user.name }}</h5>
+              <li class="nav-item m-auto mx-3">{{ user.name }}</li>
+              <li class="nav-item bg-soft m-auto mx-3"><a class="nav-link text-body" href="/logout">Выйти</a></li>
+            
+            {% else %}
+              
+              <li class="nav-item bg-soft m-auto mx-3"><a class="nav-link text-body" href="/login">Войти</a></li>
+            
             {% endif %}
-            <li class="nav-item bg-soft m-auto mx-3"><a class="nav-link text-body" href="/login">Войти</a></li>
 
               </ul>
         </div>

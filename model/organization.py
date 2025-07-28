@@ -1,3 +1,4 @@
+from typing import List
 from datetime import date
 
 from sqlalchemy import ForeignKey, Text
@@ -16,35 +17,35 @@ from database.database import (
 )
 from model.bank import Bank
 from model.region import Region
-# from model.arial import Arial
 from model.locality import Locality
 from model.street import Street
 from model.spec_build import Spec_Build
 from model.spec_room import Spec_Room
 from model.spec_job_title import Spec_Job_Title
-
+from model.contract import Contract
 
 
 class Organization(Base):
 
-    id: Mapped[int_pk]
-    name: Mapped[str_uniq]
-    short_name: Mapped[str_uniq]
-    inn: Mapped[str_uniq]
-    kpp: Mapped[str]
-    director_first_name: Mapped[str]
-    drector_last_name: Mapped[str]
-    drector_surname: Mapped[str]
-    email: Mapped[str_null_true]
-    telephone: Mapped[str_null_true]
-    site: Mapped[str_null_true]
-    corr_check: Mapped[str]
-    acc_check: Mapped[str]
-    build_number: Mapped[str_null_true]
-    room_number: Mapped[str_null_true]
-    customer: Mapped[bool]
-    executor: Mapped[bool]
-    postal_code: Mapped[str_null_true] = None
+    id: Mapped[int_pk]                                                          # id
+    name: Mapped[str_uniq]                                                      # Наименование
+    short_name: Mapped[str_uniq]                                                # Сокращенное наименование
+    inn: Mapped[str_uniq]                                                       # ИНН 
+    kpp: Mapped[str]                                                            # КПП
+    director_first_name: Mapped[str]                                            # Имя рукводителя (подписанта)
+    drector_last_name: Mapped[str]                                              # Фамилия рукводителя (подписанта)
+    drector_surname: Mapped[str]                                                # Отчество рукводителя (подписанта)
+    email: Mapped[str_null_true]                                                # Электронная почта
+    telephone: Mapped[str_null_true]                                            # Телефон
+    site: Mapped[str_null_true]                                                 # Веб-сайт
+    corr_check: Mapped[str]                                                     # Корреспонтенсткий счет
+    acc_check: Mapped[str]                                                      # Расчетный счет
+    pers_check: Mapped[str]                                                     # Лицевой счет
+    build_number: Mapped[str_null_true]                                         # Номер дома
+    room_number: Mapped[str_null_true]                                          # Номер помещения
+    customer: Mapped[bool]                                                      # Признак(Флаг) Заказчика 
+    executor: Mapped[bool]                                                      # Признак(Флаг) Подрядчика
+    postal_code: Mapped[str_null_true] = None                                   # Индекс
     bank_id: Mapped[int] = mapped_column(ForeignKey("banks.id"))                # банк
     region_id: Mapped[int] = mapped_column(ForeignKey("regions.id"))            # субъект РФ
     arial_id: Mapped[int] = mapped_column(ForeignKey("arials.id"))              # район

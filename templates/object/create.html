@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block title %}
+    Добавить объект
+{% endblock %}
+
+{% block content %}
+
+    <body align="center">
+        
+        <h3>
+        
+            Добавить объект в {{ contract.spec_contract.name }}
+            №{{ contract.number}}
+            от {{ contract.date_of_consclusion.strftime('%d.%m.%Y') }} г.</h3>
+        
+        </h3>
+
+        <div>
+
+            <form action='/object/create' method='POST'>
+                
+                
+                <input type='submit' value='Сохранить'>
+
+            </form>
+
+        </div>
+
+    </body>
+
+{% endblock %}

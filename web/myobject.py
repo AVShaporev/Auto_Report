@@ -6,6 +6,8 @@ from service.object import (get_one,
                                     create,
                                     delete,
                                     modify)
+from service.contract import get_one
+
 from model.object import Object
 from model.user import User
 from errors import Duplicate, Missing, BaseLocking
@@ -23,6 +25,22 @@ async def get_objects_html(request: Request, user: User = Depends(get_current_us
             'request': request,
             'objects': myobjects, 
             'user': user})
+
+@router.post('/create_form')
+async def get_create_object(request: Request,
+                            contract_id: int = Form(),
+                            user: User = Depends(get_current_user)):
+    # if user is None:
+    #     return templates.TemplateResponse(name='index.html',
+    #                                         context={'request': request, 
+    #                                                     'user': user})
+
+    contract = await get_one(contract_id)
+
+    return templates.TemplateResponse(name='object/create.html',
+                                            context={'request': request,
+                                                        'contract': contract,
+                                                        'user': user})
 
 @router.get('/{object_id}')
 async def get_one_web(request: Request,

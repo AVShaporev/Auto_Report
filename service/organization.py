@@ -5,6 +5,12 @@ import data.organization as data
 def get_all() -> list[Organization]:
     return data.get_all()
 
+def get_all_customers() -> list[Organization]:
+    return data.get_all_customers()
+
+def get_all_executors() -> list[Organization]:
+    return data.get_all_executors()
+
 def get_one(id: str) -> Organization:
     return data.get_one_by_id(id)
 

@@ -36,6 +36,10 @@ from model.spec_room import Spec_Room
 from model.spec_street import Spec_Street
 from model.street import Street
 from model.sub_contract import Sub_Contract
+from model.report import Report
+from model.spec_order import Spec_Order
+from model.order import Order
+
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

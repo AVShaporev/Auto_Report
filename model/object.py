@@ -24,6 +24,8 @@ from model.spec_room import Spec_Room
 from model.period import Period
 from model.contract import Contract
 from model.objects_equipment import Objects_Equipment
+from model.report import Report
+from model.order import Order
 
 
 class Object(Base):
@@ -84,6 +86,16 @@ class Object(Base):
     objects_equipments: Mapped[List[Objects_Equipment]] = relationship(Objects_Equipment,
                                                                         back_populates="objects",
                                                                         lazy="selectin")
+
+    # отчеты по объекту (один объект много отчетов - один ко многим)
+    reports: Mapped[List[Report]] = relationship(Report,
+                                                    back_populates="object_report",
+                                                    lazy="selectin")
+
+    # заявки по объекту (один объект много заявок - один ко многим)
+    orders: Mapped[List[Order]] = relationship(Order,
+                                                back_populates="object_order",
+                                                lazy="selectin")
 
     def __str__(self):
         return f"{self.__class__.__name__}(id={self.id}, name={self.name})"

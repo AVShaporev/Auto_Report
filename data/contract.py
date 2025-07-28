@@ -38,6 +38,20 @@ async def get_one_by_id(id: int) -> Contract:
         contract = res.scalars().all()[0]
         return contract
 
+async def get_by_customer(id: int) -> list[Contract]:
+    async with new_session() as session:
+        query = select(Contract).filter(Contract.customer_id == id)
+        res = await session.execute(query)
+        contracts = res.scalars().all()
+    return contracts
+
+async def get_by_executor(id: int) -> list[Contract]:
+    async with new_session() as session:
+        query = select(Contract).filter(Contract.executor_id == id)
+        res = await session.execute(query)
+        contracts = res.scalars().all()
+    return contracts
+
 # Функция запроса списка организаций из БД
 async def get_all() -> list[Contract] | None:
     async with new_session() as session:

@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}
+    Информация о заявке
+{% endblock %}
+
+{% block content %}
+
+    <body align="center">
+        
+        <h3>Заявка № {{ order.number }}</h3>
+
+        <div>
+
+            <table class="table table-striped table-hover">
+
+                <tbody>
+                        <tr class="table-row">
+                                <th scope="row">ID</th>
+                                <td>{{ order.id }}</td>
+                        </tr>
+                        
+                        <tr class="table-row">
+                                <th scope="row">Номер контракта/договора</th>
+                                <td>{{ order.contract.number }}</td>
+                        </tr>                
+                </tbody>
+
+                
+            </table>
+
+        </div>
+
+    </body>
+
+{% endblock %}

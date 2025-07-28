@@ -1,0 +1,174 @@
+Вот **полный пример** с использованием **Bootstrap 5** и плагина **bootstrap-select** для поиска в выпадающем списке, интегрированный в FastAPI.  
+
+---
+
+## 🔹 **Структура проекта**  
+```
+project/  
+├── main.py            # FastAPI-сервер  
+├── database.py        # Настройка БД  
+├── models.py          # Модели SQLAlchemy  
+├── crud.py            # CRUD-операции  
+├── templates/  
+│   └── index.html     # HTML с Bootstrap 5 + bootstrap-select  
+└── static/            # (опционально) CSS/JS  
+```
+
+---
+
+## 1. **FastAPI-сервер (`main.py`)**
+```python
+from fastapi import FastAPI, Request, Depends
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
+from sqlalchemy.orm import Session
+import models
+import crud
+from database import engine, SessionLocal
+
+# Создаём таблицы
+models.Base.metadata.create_all(bind=engine)
+
+app = FastAPI()
+templates = Jinja2Templates(directory="templates")
+
+# Зависимость для БД
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+# Главная страница
+@app.get("/", response_class=HTMLResponse)
+async def read_root(request: Request, db: Session = Depends(get_db)):
+    items = crud.get_items(db)
+    return templates.TemplateResponse("index.html", {"request": request, "items": items})
+```
+
+---
+
+## 2. **HTML с Bootstrap 5 + bootstrap-select (`templates/index.html`)**
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Поиск в select</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap-select CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-select@1.14.0-beta3/dist/css/bootstrap-select.min.css">
+</head>
+<body>
+    <div class="container mt-5">
+        <h1>Поиск в выпадающем списке</h1>
+        
+        <!-- Выпадающий список с поиском -->
+        <select id="myDropdown" class="selectpicker" data-live-search="true" title="Выберите опцию...">
+            {% for item in items %}
+            <option value="{{ item.name }}">{{ item.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <!-- jQuery, Popper.js, Bootstrap JS -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Bootstrap-select JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap-select@1.14.0-beta3/dist/js/bootstrap-select.min.js"></script>
+    
+    <!-- Инициализация bootstrap-select -->
+    <script>
+        $(document).ready(function() {
+            $('.selectpicker').selectpicker();
+        });
+    </script>
+</body>
+</html>
+```
+
+---
+
+## 3. **Настройка БД (`database.py`, `models.py`, `crud.py`)**
+### `database.py`
+```python
+from sqlalchemy import create_engine
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
+
+SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
+
+engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+Base = declarative_base()
+```
+
+### `models.py`
+```python
+from sqlalchemy import Column, Integer, String
+from database import Base
+
+class Item(Base):
+    __tablename__ = "items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True)  # Значения для select
+```
+
+### `crud.py`
+```python
+from sqlalchemy.orm import Session
+from models import Item
+
+def get_items(db: Session):
+    return db.query(Item).all()
+```
+
+---
+
+## 🔹 **Как это работает?**
+1. **Bootstrap-select** добавляет поиск и улучшает UI `<select>`.  
+2. **`data-live-search="true"`** включает реальный поиск при вводе текста.  
+3. **FastAPI** передаёт список значений из БД в шаблон Jinja2.  
+
+---
+
+## 🔹 **Запуск проекта**
+```bash
+uvicorn main:app --reload
+```
+Откройте: [http://127.0.0.1:8000](http://127.0.0.1:8000)  
+
+---
+
+### 💡 **Дополнительные настройки bootstrap-select**
+Добавьте эти атрибуты в `<select>`, если нужно:  
+- `data-size="5"` — ограничить высоту списка.  
+- `multiple` — множественный выбор.  
+- `data-actions-box="true"` — кнопка "Выбрать всё/очистить".  
+
+Пример:  
+```html
+<select 
+    class="selectpicker" 
+    data-live-search="true" 
+    data-size="5" 
+    multiple
+    data-actions-box="true"
+>
+    <!-- options -->
+</select>
+```
+
+---
+
+### **Итог**  
+✅ **Поиск в реальном времени**  
+✅ **Адаптивный дизайн**  
+✅ **Интеграция с FastAPI и БД**  
+
+Нужна помощь с доработками? 😊

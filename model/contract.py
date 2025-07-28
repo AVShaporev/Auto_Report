@@ -19,6 +19,8 @@ from database.database import (
 from model.spec_contract import Spec_Contract
 from model.sub_contract import Sub_Contract
 # from model.object import Object
+from model.report import Report
+from model.order import Order
 
 
 # модель контракта
@@ -34,7 +36,7 @@ class Contract(Base):
     type_contract: Mapped[str]
     spec_contract_id: Mapped[int] = mapped_column(ForeignKey("spec_contracts.id"))   # тип контракта
     customer_id: Mapped[int] = mapped_column(ForeignKey("organizations.id"))        # заказчик
-    exeсutor_id: Mapped[int] = mapped_column(ForeignKey("organizations.id"))        # подрядчик
+    executor_id: Mapped[int] = mapped_column(ForeignKey("organizations.id"))        # подрядчик
 
     # Тип контракта (один контракт - один тип контракта)
     spec_contract: Mapped[Spec_Contract] = relationship(Spec_Contract,
@@ -49,10 +51,10 @@ class Contract(Base):
                                                         lazy="joined")
 
     # Подрядчик (один контракт - один подрядчик)
-    exeсutor: Mapped["Organization"] = relationship("Organization",
-                                                         backref="exeсutor_name",
+    executor: Mapped["Organization"] = relationship("Organization",
+                                                        backref="executor_name",
                                                         uselist=False,
-                                                        foreign_keys=[exeсutor_id],
+                                                        foreign_keys=[executor_id],
                                                         lazy="joined")
 
     # дополнительные соглашения (один контракт - ноль или много доп.соглашений)
@@ -66,8 +68,18 @@ class Contract(Base):
                                                     back_populates="contract",
                                                     lazy="subquery")
 
+    # отчеты по объекту (один контракт - много отчетов)
+    reports: Mapped[List[Report]] = relationship(Report,
+                                                    back_populates="contract",
+                                                    lazy="selectin")
+
+    # заявки по объекту (один контракт - много заявок)
+    orders: Mapped[List[Order]] = relationship(Order,
+                                                back_populates="contract",
+                                                lazy="selectin")
+
     def __str__(self):
-        return f"{self.__class__.__name__}(id={self.id}, name={self.number})"
+        return f"{self.__class__.__name__}(id={self.id}, number={self.number})"
 
     def __repr__(self):
         return str(self)
