@@ -7,6 +7,7 @@ from service.object import (get_one,
                                     delete,
                                     modify)
 from service.contract import get_one
+from service.region import get_all as get_all_regions
 
 from model.object import Object
 from model.user import User
@@ -36,10 +37,12 @@ async def get_create_object(request: Request,
     #                                                     'user': user})
 
     contract = await get_one(contract_id)
+    regions = await get_all_regions()
 
     return templates.TemplateResponse(name='object/create.html',
                                             context={'request': request,
                                                         'contract': contract,
+                                                        'regions': regions,
                                                         'user': user})
 
 @router.get('/{object_id}')

@@ -130,80 +130,15 @@
             
         </form>
 
+        <!-- Подключаемые библиотеки -->
         <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.9.0/js/bootstrap-datepicker.min.js"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.9.0/locales/bootstrap-datepicker.ru.min.js"></script>
 
-        <script>
-            $(document).ready(function() {
-                $('.datepicker').datepicker({
-                    format: 'dd.mm.yyyy',
-                    language: 'ru',
-                    autoclose: true,
-                    todayHighlight: true
-                });
-            });
-        </script>
-
-        <!-- Скрипт для открытия модалки -->
-        <script>
-            document.getElementById('action-select-spec_contract').addEventListener('change', function() {
-                const selectedValue = this.value;
-                
-                if (selectedValue === 'create') {
-                    const modal = new bootstrap.Modal(document.getElementById('spec_contract_Modal'));
-                    modal.show();
-                }
-                
-                // Сброс выбора (чтобы можно было выбрать снова)
-                //this.value = '';
-            });
-
-             // Отправка данных формы
-            async function submitSpec_Contract() {
-            const name = document.getElementById('name').value;
-            const description = document.getElementById('description').value;
-
-            // Проверка на пустые поля
-            if (!name.trim()) {
-                alert("Пожалуйста, введите наименование контракта");
-                return;
-    }
-
-            const response = await fetch('/spec_contract/create', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    name: name,
-                    description: description
-                })
-            });
-
-            if (response.ok) {
-                const select_spec_contract = await response.json();
-
-                // Добавить новое значение в select
-                const dropdown = document.getElementById("action-select-spec_contract")
-                const option = document.createElement("option");
-                option.value = select_spec_contract.id;
-                option.textContent = select_spec_contract.name;
-                dropdown.appendChild(option);
-
-                // Закрыть модальное окно
-                const modal = bootstrap.Modal.getInstance(document.getElementById('spec_contract_Modal'));
-                modal.hide();
-                
-                // Очистить форму
-                document.getElementById('spec_contract_Form').reset();
-                
-                // Обновить таблицу
-                // loadNotes();
-            }
-        }
-        </script>
+        <!-- Подключаемые локальные скрипты -->
+        <script src="{{ url_for('static', path='/js/datepicker_init.js') }}"></script>
+        <script src="{{ url_for('static', path='/js/spec_contract_modal.js') }}"></script>
 
     </body>
 

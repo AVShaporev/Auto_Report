@@ -10,7 +10,7 @@
         
         <h3>
         
-            Добавить объект в {{ contract.spec_contract.name }}
+            Новый объект - {{ contract.spec_contract.name }}
             №{{ contract.number}}
             от {{ contract.date_of_consclusion.strftime('%d.%m.%Y') }} г.</h3>
         
@@ -20,19 +20,224 @@
 
             <form action='/object/create' method='POST'>
 
-            <div class="mb-3 row ps-5">
-                <label for="name_of_object" class="col-sm-2 col-form-label">Наименование объекта</label>
-                <div class="col-sm-10 pe-5">
-                    <input type="text" class="form-control" id="name_of_object" name='name_of_object'>
+                <div class="mb-3 row ps-5">
+                    <label for="name_of_object" class="col-sm-2 col-form-label  ps-5">Наименование объекта</label>
+                    <div class="col-sm-10 pe-5">
+                        <input type="text" class="form-control" id="name_of_object" name='name_of_object'>
+                    </div>
                 </div>
-            </div>
-                
-                
+
+                <!-- Выпадающий список регионов -->
+                <div class="mb-3 ps-5 pe-5">
+                    <label class="form-label">Регион</label>
+
+                    <!-- Основной dropdown -->
+                    <div class="dropdown">
+
+                        <!-- Кнопка для открытия списка регионов -->
+                        <button class="btn btn-outline-secondary dropdown-toggle w-100 text-start" 
+                                type="button" 
+                                id="regionBtn" 
+                                data-bs-toggle="dropdown" 
+                                aria-expanded="false">
+                        Выбрать регион
+                        </button>
+
+                        <!-- Выпадающее меню с поиском региона -->
+                        <div class="dropdown-menu w-100 p-2">
+
+                        <!-- Поле поиска -->
+                        <div class="px-2 mb-2">
+                            <input type="text" 
+                                class="form-control" 
+                                placeholder="Поиск..." 
+                                id="regionSearch">
+                        </div>
+
+                        <div class="dropdown-divider"></div>
+
+                            <!-- Список наиманований регионов с прокруткой -->
+                            <div class="overflow-auto" id="regions-list" style="max-height: 200px;">
+                                <button class="dropdown-item" type="button" value="create">
+                                    Создать новый регион
+                                </button>
+                                {% for region in regions %}
+                                    <button class="dropdown-item" type="button" value="{{ region.id }}">
+                                        {{ region.spec_region.name }} {{ region.name }}
+                                        </button>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Скрытое поле для формы -->
+                    <input type="hidden" name="region_id" id="selectedRegion">
+
+                </div>
+
+                <script>
+                // Обработка кнопки "Сохранить" в модальном окне создания региона
+                async function submitRegion() {
+                    const name = document.getElementById('name_of_region').value.trim();
+                    const description = document.getElementById('description').value.trim();
+
+                    if (!name) {
+                        alert("Введите название региона");
+                        return;
+                    }
+
+                    try {
+                        // Отправка данных на сервер
+                        const response = await fetch('/api/region/create', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({name, spec_region_id, description})
+                        });
+
+                        if (!response.ok) {
+                            throw new Error(`Ошибка сервера: ${response.status}`);
+                        }
+
+                        const data = await response.json();
+
+                        // Контейнер списка наименования регионов
+                        const regionList = document.getElementById('region-list');
+
+                        // Создание новой кнопки-элемента
+                        const newButton = document.createElement('button');
+                        newButton.className = 'dropdown-item';
+                        newButton.type = 'button';
+                        newButton.value = data.id;
+                        newButton.textContent = data.name;
+
+                        // Добавление обработчика клика
+                        // newButton.addEventListener('click', function() {
+                        //     document.getElementById('regionBtn').textContent = this.textContent;
+                        //     document.getElementById('selectedRegion').value = this.value;
+                        // });
+
+                        // Вставка новой кнопки перед разделителем или в конец списка
+                        const divider = document.querySelector('.dropdown-divider');
+                        if (divider) {
+                            divider.insertAdjacentElement('afterend', newButton);
+                        } else {
+                            dropdownList.appendChild(newButton);
+                        }
+
+                        // Обновление выбранного значения
+                        document.getElementById('regionBtn').textContent = data.name;
+                        document.getElementById('selectedRegione').value = data.id;
+
+                        // Закрытие модального окна
+                        bootstrap.Modal.getInstance(document.getElementById('region_Modal')).hide();
+
+                        // Очистка полей формы модельного окна
+                        document.getElementById('name_of_region').value = '';
+                        document.getElementById('description').value = '';
+
+                        } catch (error) {
+                            console.error("Ошибка:", error);
+                            alert("Не удалось сохранить регион: " + error.message);
+                        }
+
+                    }
+                </script>
+
+                <!-- Модальное окно добавление новой должности руководителя-->
+                <div class="modal fade" id="spec_job_title_Modal" tabindex="-1">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">Новое наименование должности руководителя (подписанта)</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                    <div class="mb-3">
+                                        <label for="name_of_job_title" class="form-label">Наименование</label>
+                                        <input type="text" class="form-control" id="name_of_job_title" name="name_of_job_title" autocomplete="spec_job_title">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="description" class="form-label">Описание</label>
+                                        <textarea class="form-control" id="description" name="description" autocomplete="description"></textarea>
+                                    </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+                                <button type="button" class="btn btn-primary" onclick="submitSpec_Job_Title()">Сохранить</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>                
+                    
                 <input type='submit' value='Сохранить'>
 
             </form>
 
         </div>
+
+        <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.9.0/js/bootstrap-datepicker.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.9.0/locales/bootstrap-datepicker.ru.min.js"></script>
+
+        <!-- Скрипт для открытия модалки -->
+        <script>
+            document.getElementById('action-select-region').addEventListener('change', function() {
+                const selectedValue = this.value;
+                
+                if (selectedValue === 'create') {
+                    const modal = new bootstrap.Modal(document.getElementById('region_Modal'));
+                    modal.show();
+                }
+                
+                // Сброс выбора (чтобы можно было выбрать снова)
+                //this.value = '';
+            });
+
+             // Отправка данных формы
+            async function submitRegion() {
+            const name = document.getElementById('name').value;
+            const description = document.getElementById('description').value;
+
+            // Проверка на пустые поля
+            if (!name.trim()) {
+                alert("Пожалуйста, введите наименование региона");
+                return;
+            }
+
+            const response = await fetch('/region/create', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    name: name,
+                    description: description
+                })
+            });
+
+            if (response.ok) {
+                const select_region = await response.json();
+
+                // Добавить новое значение в select
+                const dropdown = document.getElementById("action-select-region")
+                const option = document.createElement("option");
+                option.value = select_region.id;
+                option.textContent = select_region.name;
+                dropdown.appendChild(option);
+
+                // Закрыть модальное окно
+                const modal = bootstrap.Modal.getInstance(document.getElementById('region_Modal'));
+                modal.hide();
+                
+                // Очистить форму
+                document.getElementById('region_Form').reset();
+                
+                // Обновить таблицу
+                // loadNotes();
+            }
+        }
+        </script>
 
     </body>
 
