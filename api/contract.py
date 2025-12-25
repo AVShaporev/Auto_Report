@@ -3,10 +3,10 @@ from datetime import datetime
 from fastapi import APIRouter, Request, Depends, Form, Depends
 
 from service.contract import (get_one,
-                                    get_all,
-                                    create,
-                                    delete,
-                                    modify)
+                                get_all,
+                                create,
+                                delete,
+                                modify)
 # from service.spec_contract import get_all
 # from service.organization import get_all_customers
 # from service.organization import get_all_executors

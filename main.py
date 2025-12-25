@@ -27,6 +27,7 @@ from web import spec_contract as web_spec_contract
 
 from api import spec_contract as api_spec_contract
 from api import spec_job_title as api_spec_job_title
+from api import spec_equipment as api_spec_equipment
 from api import bank as api_bank
 
 from service.user import get_all as get_all_users
@@ -66,6 +67,7 @@ app.include_router(web_spec_contract.router)
 # # добавление субмаршрутов из уровня api
 app.include_router(api_spec_contract.router)
 app.include_router(api_spec_job_title.router)
+app.include_router(api_spec_equipment.router)
 app.include_router(api_bank.router)
 
 # настройка приложения FastAPI для обслуживания статических файлов

@@ -53,7 +53,7 @@ async def modify(spec_contract: Spec_Contract):
         res = await session.execute(query)
         orig_spec_contract = res.scalars(res).one()
         orig_spec_contract.id = spec_contract.id
-        orig_lspec_contract.description = spec_contract.description
+        orig_spec_contract.description = spec_contract.description
         await session.commit()
         return await get_one(spec_contract.id)
 
