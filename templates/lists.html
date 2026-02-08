@@ -15,6 +15,19 @@
 
                 <tbody>
 
+                    {% if user.name == 'superadmin' %}
+
+                        <tr class="table-row">
+                            <td>
+                                <a href="/user/list"
+                                        class="text-decoration-none text-dark p-3">
+                                        Пользователи
+                                    </a>
+                            </td>
+                        </tr>
+
+                    {% endif %}
+
                     <tr class="table-row">
                         <td>
                             <a href="/organization/list"

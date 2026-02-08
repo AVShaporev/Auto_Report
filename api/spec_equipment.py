@@ -1,8 +1,7 @@
 from datetime import datetime
 
-from fastapi import APIRouter, Request, Depends, Form, Depends\
+from fastapi import APIRouter, Request, Depends, Form, Depends
 
-\
 from service.spec_equipment import (get_one,
                                         get_all,
                                         create,

@@ -16,9 +16,12 @@ class User(Base):
     hash: Mapped[str]
     telegram_id: Mapped[str] = None
     role_id: Mapped[int] = mapped_column(ForeignKey("roles.id"))
+    is_active: Mapped[bool] = mapped_column(default=True)
 
     # Определяем отношения: один пользователь относится к одной роли
-    role: Mapped[Role] = relationship(Role, back_populates="users")
+    role: Mapped[Role] = relationship(Role, 
+                                        back_populates="users",
+                                        lazy="selectin")
 
     # отчеты пользователя (один пользователь - много отчетов)
     reports: Mapped[List[Report]] = relationship(Report,

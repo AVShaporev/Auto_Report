@@ -16,7 +16,7 @@ from errors import Duplicate, Missing, BaseLocking
 from service.auth import (get_current_user)
 
 router = APIRouter(prefix='/api/bank', tags=['API'])
-templates = Jinja2Templates(directory='templates')
+
 
 @router.get('/list')
 async def get_spec_job_titles_html(request: Request, user: User = Depends(get_current_user)):

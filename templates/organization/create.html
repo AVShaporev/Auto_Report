@@ -70,6 +70,7 @@
                 
                 <!-- Выпадающее меню с поиском -->
                 <div class="dropdown-menu w-100 p-2">
+
                 <!-- Поле поиска -->
                 <div class="px-2 mb-2">
                     <input type="text" 
@@ -79,17 +80,18 @@
                 </div>
                 <div class="dropdown-divider"></div>
                 
-                <!-- Список наиманований должностей с прокруткой -->
-                <div class="overflow-auto" id="job-titles-list" style="max-height: 200px;">
-                    <button class="dropdown-item" type="button" value="create">
-                        Создать новую должность
-                    </button>
-                    {% for spec_job_title in spec_job_titles %}
-                        <button class="dropdown-item" type="button" value="{{ spec_job_title.id }}">
-                            {{ spec_job_title.name }}
-                            </button>
-                    {% endfor %}
-                </div>
+                    <!-- Список наиманований должностей с прокруткой -->
+                    <div class="overflow-auto" id="job-titles-list" style="max-height: 200px;">
+                        <button class="dropdown-item" type="button" value="create">
+                            Создать новую должность
+                        </button>
+                        {% for spec_job_title in spec_job_titles %}
+                            <button class="dropdown-item" type="button" value="{{ spec_job_title.id }}">
+                                {{ spec_job_title.name }}
+                                </button>
+                        {% endfor %}
+                    </div>
+                    
                 </div>
             </div>
             

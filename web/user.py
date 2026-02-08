@@ -16,6 +16,7 @@ from service.user import (create,
                             get_all,
                             get_one)
 from service.role import get_all as get_all_roles
+from service.user import get_all as get_all_users
 
 from service.auth import (create_access_token,
                             authenticate_user,
@@ -81,6 +82,9 @@ async def get_explorers_html(request: Request,
     
     if user.name == 'superadmin':
         del_flag = True
+
+    users = await get_all_users()
+    print(users)
 
     return templates.TemplateResponse(name='user/list.html',
                                         context={'request': request,

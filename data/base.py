@@ -5,7 +5,18 @@ from database.database import async_session_maker
 
 
 class BaseDAO:
-    model = None
+    def __init__(self, model):
+        print('initiation BaseDAO!!!')
+        self.model = model
+
+    @classmethod
+    async def get_all(cls):
+        async with async_session_maker() as session:
+            print(cls)
+            query = select(cls.model)
+            result = await session.execute(query)
+            print(result.scalars().all())
+            return result.scalars().all()
     
     @classmethod
     async def find_all(cls, **filter_by):
@@ -76,3 +87,9 @@ class BaseDAO:
                     await session.rollback()
                     raise e
                 return result.rowcount
+
+    # async def get_all(self):
+    #     async with async_session_maker() as session:
+    #         query = select(self.model)
+    #         result = await session.execute(query)
+    #         return result.scalars().all()

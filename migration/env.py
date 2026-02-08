@@ -40,6 +40,10 @@ from model.report import Report
 from model.spec_order import Spec_Order
 from model.order import Order
 
+print(Base.metadata.tables['users']._columns)
+
+
+# print("Tables in metadata:", list(Base.metadata.tables.keys()))
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -62,6 +66,8 @@ target_metadata = Base.metadata
 # can be acquired:
 # my_important_option = config.get_main_option("my_important_option")
 # ... etc.
+
+
 
 
 def run_migrations_offline() -> None:
