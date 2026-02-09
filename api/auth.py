@@ -42,8 +42,11 @@ async def login(
     
     # # Сохраняем refresh токен в БД (опционально)
     # crud_user.update_refresh_token(db, user.id, refresh_token)
-    
+
+    username = user[0].name
+
     return {
+        "username": username,
         "access_token": access_token,
         "refresh_token": refresh_token,
         "token_type": "bearer"
@@ -70,6 +73,9 @@ async def refresh_token(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid refresh token"
         )
+
+
+    
     
     new_access_token = security.create_access_token(user.username)
     return {

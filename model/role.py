@@ -9,6 +9,10 @@ class Role(Base):
     id: Mapped[int_pk]
     name: Mapped[str_uniq]
 
+    # признак админитративной роли
+    is_admin: Mapped[bool] = mapped_column(default=False)
+    is_superadmin: Mapped[bool] = mapped_column(default=False)
+
     # права на пользователей
     user_read: Mapped[bool] = mapped_column(default=False)
     user_modify: Mapped[bool] = mapped_column(default=False)
