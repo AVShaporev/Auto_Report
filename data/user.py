@@ -44,7 +44,9 @@ async def get_all():
 
 async def get_one(name: str) -> User:
     async with new_session() as session:
-        query = select(User).filter(User.name == name)
+        query = select(User).filter(
+                                User.name == name
+                                )
         res = await session.execute(query)
         user = res.scalars().one_or_none()
         return user

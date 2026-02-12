@@ -9,7 +9,7 @@ from service import auth as security
 from config import settings
 from service import user as crud_user
 from schema import token as token_schema
-from schema import user as user_schema
+from schema.user import UserBase, LoginResponse
 
 from service.auth import (create_access_token,
                             authenticate_user,
@@ -18,7 +18,7 @@ from service.auth import (create_access_token,
 
 router = APIRouter(prefix='/api/auth', tags=['API'])
 
-@router.post("/login", response_model=token_schema.Token)
+@router.post("/login", response_model=LoginResponse)
 async def login(
     db: Session = Depends(get_db),
     form_data: OAuth2PasswordRequestForm = Depends()
@@ -43,14 +43,13 @@ async def login(
     # # Сохраняем refresh токен в БД (опционально)
     # crud_user.update_refresh_token(db, user.id, refresh_token)
 
-    username = user[0].name
+    user = UserBase.model_validate(user[0])
 
-    return {
-        "username": username,
-        "access_token": access_token,
-        "refresh_token": refresh_token,
-        "token_type": "bearer"
-    }
+    response_auth_user = LoginResponse(user=user,
+                                        access_token=access_token,
+                                        refresh_token=refresh_token)
+
+    return response_auth_user
 
 @router.post("/refresh", response_model=token_schema.Token)
 async def refresh_token(

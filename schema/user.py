@@ -4,6 +4,7 @@ from typing import Optional
 from pydantic import ConfigDict, BaseModel, Field, EmailStr
 
 from model.user import User
+from schema.role import RoleResponse
 
 
 # модель чтения пользователя из БД
@@ -19,8 +20,13 @@ class SUserAuth(BaseModel):
 
 
 class UserBase(BaseModel):
-    username: str = None
-    role: int = None
+    id:int
+    name: str = None
+    role_id: int = None
+    is_active: bool = None
+    role: Optional[RoleResponse] = None
+
+    model_config = ConfigDict(from_attributes=True)
 
 class UserCreate(UserBase):
     password: str
@@ -35,3 +41,9 @@ class UserInDB(UserBase):
     
     class Config:
         from_attributes = True
+
+class LoginResponse(BaseModel):
+    user: UserBase
+    access_token: str
+    refresh_token: str
+
