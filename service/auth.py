@@ -122,7 +122,8 @@ async def authenticate_user(login: str, password: str):
     return user
 
 def get_token(request: Request):
-    token = request.cookies.get('users_access_token')
+    # token = request.cookies.get('users_access_token')
+    token = request.headers.get('authorization')
     if not token:
         return None
         # raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Token not found')
@@ -141,12 +142,12 @@ async def get_current_user(token: str | None = Depends(get_token)):
         if (not expire) or (expire_time < datetime.now(timezone.utc)):
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Токен истек')
 
-        user_id = payload.get('sub')
+        user_name = payload.get('sub')
 
-        if not user_id:
+        if not user_name:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Не найден ID пользователя')
 
-        user = await UsersDAO.find_one_or_none_by_id(int(user_id))
+        user = await UsersDAO.find_one_or_none_by_name(str(user_name))
 
         if not user:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='User not found')

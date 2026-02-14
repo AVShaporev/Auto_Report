@@ -13,7 +13,10 @@ class User(Base):
 
     id: Mapped[int_pk]
     name: Mapped[str_uniq]
+    full_name: Mapped[str] = None
     hash: Mapped[str]
+    email: Mapped[str] = None
+    phone: Mapped[str] = None
     telegram_id: Mapped[str] = None
     role_id: Mapped[int] = mapped_column(ForeignKey("roles.id"))
     is_active: Mapped[bool] = mapped_column(default=True)

@@ -1,16 +1,44 @@
 from datetime import datetime
 from typing import Annotated
+import contextlib
 
 from sqlalchemy import func
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncAttrs
-from sqlalchemy.orm import DeclarativeBase, declared_attr, Mapped, mapped_column
+from sqlalchemy.ext.asyncio import (
+                                    create_async_engine,
+                                    async_sessionmaker, 
+                                    AsyncAttrs,
+                                    AsyncSession
+                                    )
+from sqlalchemy.orm import (
+                            DeclarativeBase,
+                            declared_attr,
+                            Mapped,
+                            mapped_column
+                            )
 
 from config import get_db_url
 
 DATABASE_URL = get_db_url()
 
+# Создаем engine и sessionmaker
 engine = create_async_engine(DATABASE_URL)
 async_session_maker = async_sessionmaker(engine, expire_on_commit=False)
+
+AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False)
+
+# # Правильная зависимость для FastAPI
+# async def get_async_session() -> AsyncSession:
+#     """
+#     Зависимость для получения сессии БД
+#     """
+#     async with AsyncSessionLocal() as session:
+#         yield session  # Важно: yield, не return!
+#         # Сессия автоматически закроется после завершения запроса
+
+@contextlib.asynccontextmanager
+async def new_session():
+    async with AsyncSessionLocal() as session:
+        yield session
 
 # настройка аннотаций
 int_pk = Annotated[int, mapped_column(primary_key=True)]

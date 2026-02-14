@@ -31,6 +31,7 @@ from api import spec_job_title as api_spec_job_title
 from api import spec_equipment as api_spec_equipment
 from api import bank as api_bank
 from api import auth as api_user_auth
+from api import role as api_role
 
 from service.user import get_all as get_all_users
 from service.auth import (
@@ -73,6 +74,7 @@ app.include_router(api_spec_job_title.router)
 app.include_router(api_spec_equipment.router)
 app.include_router(api_bank.router)
 app.include_router(api_user_auth.router)
+app.include_router(api_role.router)
 
 # настройка приложения FastAPI для обслуживания статических файлов
 staticfiles = StaticFiles(directory='templates/static/')
