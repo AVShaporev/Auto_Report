@@ -7,6 +7,7 @@ from jose import jwt
 from passlib.context import CryptContext
 
 from model.user import User
+from schema.user import UserRequest
 from data import user as data
 from errors import Duplicate, Missing, BaseLocking
 from service.auth import (get_password_hash,
@@ -79,19 +80,41 @@ def create_access_token(data: dict,
     return encoded_jwt
 
 def get_one(name: str):
-    return data.get_one(name)
+    try:
+        id = int(name)
+        return data.get_one_by_id(name)
+    except:
+        name = str(name)
+        return data.get_one_by_name(name)
 
-async def create(name: str,
-                    password: str,
-                    role_id: int) -> bool:
 
-    user = User(name=name,
-                hash=get_password_hash(password),
-                telegram_id="123",
-                role_id=role_id)
-
-    res = await data.create(user)
-
+async def create(user_create: UserRequest) -> bool:
+    """
+    Создание пользователя из Pydantic схемы
+    
+    Args:
+        user_create: Pydantic схема с данными пользователя
+    
+    Returns:
+        bool: True если создан успешно
+    """
+    # 1. Преобразуем Pydantic модель в SQLAlchemy модель
+    user_data = user_create.dict(exclude={'password'})  # исключаем пароль
+    
+    # 2. Создаем SQLAlchemy модель User
+    user = User(
+        name=user_data['name'],
+        full_name=user_data.get('full_name'),
+        email=user_data.get('email'),
+        phone=user_data.get('phone'),
+        telegram_id=user_data.get('telegram_id'),
+        role_id=user_data['role_id'],
+        is_active=user_data['is_active'],
+        hash=get_password_hash(user_create.password)  # хешируем пароль отдельно
+    )
+    
+    # 3. Передаем SQLAlchemy модель в data слой
+    res = await data.create_user(user)
     return res
 
 async def get_all():
@@ -106,8 +129,12 @@ async def get_all():
     users = await data.get_all()
     return users
 
-def delete(name:str):
+def delete_by_name(name:str):
     pass
+
+def delete_by_id(name:str):
+    pass
+
 
 def modify(user: User):
     pass

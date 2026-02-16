@@ -9,7 +9,7 @@ from service import auth as security
 from config import settings
 from service import user as crud_user
 from schema import token as token_schema
-from schema.user import UserBase, LoginResponse
+from schema.user import UserBase, LoginResponse, UserLogin
 
 from service.auth import (create_access_token,
                             authenticate_user,
@@ -28,8 +28,6 @@ async def login(
         form_data.username, form_data.password
     )
 
-    
-
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -42,8 +40,10 @@ async def login(
     
     # # Сохраняем refresh токен в БД (опционально)
     # crud_user.update_refresh_token(db, user.id, refresh_token)
+    
+    user = UserLogin.model_validate(user[0])
 
-    user = UserBase.model_validate(user[0])
+    print(user)
 
     response_auth_user = LoginResponse(user=user,
                                         access_token=access_token,

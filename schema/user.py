@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 
 from pydantic import ConfigDict, BaseModel, Field, EmailStr
 
@@ -10,30 +10,74 @@ from schema.role import RoleResponse
 # модель чтения пользователя из БД
 class Read_User(BaseModel):
     # id: int
-    model_config = ConfigDict(from_attribures=True)
+    model_config = ConfigDict(from_attributes=True)
 
 # модель аунтентификации
 class SUserAuth(BaseModel):
     login: str = Field(..., description="Имя пользователя")
     password: str = Field(..., min_length=5, max_length=50, description="Пароль, от 5 до 50 знаков")
 
-
-
+# Базовая схема пользователя
 class UserBase(BaseModel):
-    id:int
-    name: str = None
-    role_id: int = None
-    is_active: bool = None
-    role: Optional[RoleResponse] = None
+    name: str = Field(..., min_length=3, max_length=50)
+    full_name: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    telegram_id: Optional[str] = None
+    role_id: int = Field(..., ge=1)
+    is_active: bool = True
 
     model_config = ConfigDict(from_attributes=True)
 
+# Схема для создания пользователя
 class UserCreate(UserBase):
-    password: str
+    password: str = Field(..., min_length=6)
 
+# Схема для обновления пользователя (все поля опциональны)
 class UserUpdate(BaseModel):
-    username: str = None
-    password: str = None
+    name: Optional[str] = Field(None, min_length=3, max_length=50)
+    full_name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    phone: Optional[str] = None
+    telegram_id: Optional[str] = None
+    role_id: Optional[int] = Field(None, ge=1)
+    is_active: Optional[bool] = None
+    password: Optional[str] = Field(None, min_length=6)
+
+# Схема для ответа (с ID и отношениями)
+class UserResponse(UserBase):
+    id: int
+    name: str
+    full_name: Optional[str] = None
+    email: Optional[str] = None
+    role_id: int
+    is_active: bool
+    role: Optional['RoleResponse'] = None
+    
+    model_config = ConfigDict(from_attributes=True)
+
+class UserRequest(UserBase):
+    name: str
+    password: str
+    full_name: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    role_id: int
+    is_active: bool
+
+    model_config = ConfigDict(from_attributes=True)
+
+# Схема для списка пользователей (без чувствительных данных)
+class UserListResponse(BaseModel):
+    id: int
+    name: str
+    full_name: Optional[str] = None
+    email: Optional[str] = Field(None, validate_default=True)
+    role_name: Optional[str] = None
+    is_active: bool
+    
+    class Config:
+        from_attributes = True
 
 class UserInDB(UserBase):
     id: int
@@ -42,8 +86,20 @@ class UserInDB(UserBase):
     class Config:
         from_attributes = True
 
+class UserLogin(BaseModel):
+    name: str = Field(..., min_length=3, max_length=50)
+    full_name: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    telegram_id: Optional[str] = None
+    role_id: int = Field(..., ge=1)
+    is_active: bool = True
+    role: RoleResponse
+
+    model_config = ConfigDict(from_attributes=True)
+
 class LoginResponse(BaseModel):
-    user: UserBase
+    user: UserLogin
     access_token: str
     refresh_token: str
 
