@@ -166,7 +166,7 @@ async def modify(user: User):
         return await get_one(orig_user.name)
 
 
-async def delete(name: str) -> bool:
+async def delete_by_name(name: str) -> bool:
     """
         Удалить пользователи по имени (name)
     """
@@ -338,9 +338,9 @@ async def patch_user(
         )
         return result.scalar_one()
 
-async def delete_user(
-    user_id: int,
-    soft_delete: bool = True
+async def delete_by_id(
+    user_id: int
+    # soft_delete: bool = True
 ) -> bool:
     """
     Удалить пользователя
@@ -354,17 +354,17 @@ async def delete_user(
         True если успешно, False если пользователь не найден
     """
     async with new_session() as session:
-        user = await get_user(session, user_id, load_relations=False)
+        user = await get_one_by_id(user_id)
         if not user:
             return False
         
-        if soft_delete:
-            # Мягкое удаление (деактивация)
-            user.is_active = False
-            await session.commit()
-        else:
-            # Полное удаление
-            await session.delete(user)
-            await session.commit()
+        # if soft_delete:
+        #     # Мягкое удаление (деактивация)
+        #     user.is_active = False
+        #     await session.commit()
+        # else:
+        # Полное удаление
+        await session.delete(user)
+        await session.commit()
         
         return True

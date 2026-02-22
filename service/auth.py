@@ -4,6 +4,7 @@ import json
 from uuid import uuid4
 
 from fastapi import Depends, Request, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from passlib.context import CryptContext
 from jose import jwt
 from jose.exceptions import JWTError
@@ -13,6 +14,9 @@ from config import get_auth_data
 from model.dao import UsersDAO
 from model.user import User
 
+
+# Встроенный обработчик Bearer
+security = HTTPBearer()
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -129,7 +133,11 @@ def get_token(request: Request):
         # raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Token not found')
     return token
 
-async def get_current_user(token: str | None = Depends(get_token)):
+async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+
+    # Извлекает и валидирует пользователя из Bearer-токена
+    token = credentials.credentials  # Получаем токен без "Bearer "
+
     if token:
         try:
             auth_data = get_auth_data()

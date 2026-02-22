@@ -15,6 +15,8 @@ from service.auth import (create_access_token,
                             authenticate_user,
                             get_current_user)
 
+from model.user import User
+
 
 router = APIRouter(prefix='/api/auth', tags=['API'])
 
@@ -42,8 +44,6 @@ async def login(
     # crud_user.update_refresh_token(db, user.id, refresh_token)
     
     user = UserLogin.model_validate(user[0])
-
-    print(user)
 
     response_auth_user = LoginResponse(user=user,
                                         access_token=access_token,
@@ -82,6 +82,15 @@ async def refresh_token(
         "refresh_token": refresh_token,
         "token_type": "bearer"
     }
+
+
+@router.get("/me")
+async def login(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    return user
+
 
 # @router.post("/register", response_model=user_schema.UserInDB)
 # async def register(

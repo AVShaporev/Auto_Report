@@ -1,6 +1,11 @@
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 from os import getcwd
+import sys
+
+import logging
+from logging.handlers import RotatingFileHandler
+from pathlib import Path
 
 from fastapi import (
                     FastAPI,
@@ -42,18 +47,74 @@ from service.auth import (
 
 from model.user import User
 
+# настройка файлов логирования
+LOG_DIR = Path("logs")
+LOG_DIR.mkdir(exist_ok=True)
+
+# Удаляем стандартный вывод
+logger.remove()
+
+# Добавляем вывод в консоль
+logger.add(
+    sys.stdout,
+    format="{time:YYYY-MM-DD HH:mm:ss} - {level} - {message}",
+    level="INFO",
+    colorize=True
+)
+
+# Добавляем вывод в файл с ротацией
+logger.add(
+    LOG_DIR / "app.log",
+    format="{time:YYYY-MM-DD HH:mm:ss} - {name} - {level} - {message}",
+    level="INFO",
+    rotation="10 MB",  # Ротация при достижении 10 MB
+    retention="30 days",  # Хранить 30 дней
+    compression="zip",  # Сжимать старые файлы
+    encoding="utf-8"
+)
+
+logger.info("🚀 Логирование Loguru настроено")
+
+# # логирование
+# def setup_logging():
+#     log_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+#     # Корневой логгер
+#     root_logger = logging.getLogger()
+#     root_logger.setLevel(logging.INFO)
+    
+#     # Хендлер для файла с ротацией
+#     file_handler = RotatingFileHandler(
+#         LOG_DIR / "app.log",
+#         maxBytes=10*1024*1024, # 10 MB
+#         backupCount=5
+#     )
+#     file_handler.setFormatter(logging.Formatter(log_format))
+#     root_logger.addHandler(file_handler)
+    
+#     # Хендлер для консоли (полезно для разработки)
+#     console_handler = logging.StreamHandler()
+#     console_handler.setFormatter(logging.Formatter(log_format))
+#     root_logger.addHandler(console_handler)
+    
+#     # Логгер для SQLAlchemy (чтобы видеть запросы в DEBUG режиме)
+#     logging.getLogger('sqlalchemy.engine').setLevel(logging.WARNING)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[dict, None]:
     """Управление жизненным циклом приложения."""
     logger.info("Инициализация приложения...")
     res = await get_all_users()
-    # print(res)
     yield
     logger.info("Завершение работы приложения...")
 
 # объект приложения FastAPI
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(lifespan=lifespan,
+                title="AutoReport API",
+                description="API с Bearer-аутентификацией",
+                swagger_ui_init_oauth={
+                    "usePkceWithAuthorizationCodeGrant": True,
+                    "clientId": "swagger"
+                })
 
 # добавление субмаршрутов из уровня web
 app.include_router(web_organization.router)
@@ -68,7 +129,7 @@ app.include_router(web_locality.router)
 app.include_router(web_user.router)
 app.include_router(web_spec_contract.router)
 
-# # добавление субмаршрутов из уровня api
+# добавление субмаршрутов из уровня api
 app.include_router(api_spec_contract.router)
 app.include_router(api_contract.router)
 app.include_router(api_spec_job_title.router)

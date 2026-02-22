@@ -129,11 +129,12 @@ async def get_all():
     users = await data.get_all()
     return users
 
-def delete_by_name(name:str):
-    pass
+async def delete_by_name(name:str):
+    return data.delete_by_name(name)
 
-def delete_by_id(name:str):
-    pass
+async def delete_by_id(id: int):
+    res = await data.delete_by_id(id)
+    return res
 
 
 def modify(user: User):

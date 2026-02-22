@@ -22,15 +22,14 @@ from service.auth import (get_current_user)
 
 router = APIRouter(prefix='/api/user', tags=['API'])
 
-
 @router.get('/list', response_model=List[UserResponse])
 async def get_all_users(request: Request, user_auth: User = Depends(get_current_user)):
+    
     if not user_auth:
         return None
     
     if not user_auth.role.user_read:
         return None
-    
     users = await get_all()
     
     # FastAPI автоматически преобразует в список схем
@@ -43,15 +42,13 @@ async def post_create_user(
                             user_auth: User = Depends(get_current_user)
                             ):
     error_msg = None
-    print()
     if user_auth:
-        if user_auth.role.role_create:
+        print(f'{user_auth.role.user_create=}')
+        if user_auth.role.user_create:
             try:
                 user = await create(user_create = user)
                 create_ok = True
                 return create_ok
-                        # JSONResponse({"id": user.id,
-                        #             "name": user.name})
 
             except Duplicate:
                 error_msg = "Пользователь с таким именем уже существует!"
@@ -73,8 +70,18 @@ async def delete(request: Request, user: User = Depends(get_current_user), user_
                 return res
             except BaseLocking:
                 error_msg = "База данных недоступна для записи!"
-                users = get_all()
+                users = await get_all()
                 return False
+        else:
+            raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="У Вас недостаточно прав для удаления ролей"
+            )
+    else:
+        raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="У Вас недостаточно прав для удаления ролей"
+        )
     return None
 
 @router.put('/{user_id}')
