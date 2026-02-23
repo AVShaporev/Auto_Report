@@ -20,6 +20,7 @@ from config import get_db_url
 
 DATABASE_URL = get_db_url()
 
+
 # Создаем engine и sessionmaker
 engine = create_async_engine(DATABASE_URL)
 async_session_maker = async_sessionmaker(engine, expire_on_commit=False)
@@ -38,7 +39,11 @@ AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False)
 @contextlib.asynccontextmanager
 async def new_session():
     async with AsyncSessionLocal() as session:
-        yield session
+        try:
+            yield session
+
+        finally:
+            await session.close()
 
 # настройка аннотаций
 int_pk = Annotated[int, mapped_column(primary_key=True)]

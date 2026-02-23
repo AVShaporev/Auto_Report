@@ -1,7 +1,7 @@
-from typing import List
+from typing import List, Optional
 from datetime import datetime
 
-from fastapi import APIRouter, Response, Request, Depends, Form, Depends
+from fastapi import APIRouter, Response, Request, Depends, Form, Depends, Query
 from fastapi.responses import HTMLResponse, JSONResponse
 
 from service.user import (get_all,
@@ -9,31 +9,73 @@ from service.user import (get_all,
                             create,
                             modify,
                             delete_by_name,
-                            delete_by_id)
+                            delete_by_id,
+                            get_users_paginated)
 
 from model.user import User
+
+from service.auth import (get_current_user)
+
 from schema.user import UserResponse, UserRequest
+from schema.pagination import PaginationParams, PaginatedResponse
+
 from model.role import Role
 
-from schema.user import UserResponse
-
 from errors import Duplicate, Missing, BaseLocking
-from service.auth import (get_current_user)
+
 
 router = APIRouter(prefix='/api/user', tags=['API'])
 
-@router.get('/list', response_model=List[UserResponse])
-async def get_all_users(request: Request, user_auth: User = Depends(get_current_user)):
+# @router.get('/list', response_model=List[UserResponse])
+# async def get_all_users(request: Request, user_auth: User = Depends(get_current_user)):
     
-    if not user_auth:
-        return None
+#     if not user_auth:
+#         return None
     
-    if not user_auth.role.user_read:
-        return None
-    users = await get_all()
+#     if not user_auth.role.user_read:
+#         return None
+#     users = await get_all()
     
-    # FastAPI автоматически преобразует в список схем
-    return users
+#     # FastAPI автоматически преобразует в список схем
+#     return users
+
+@router.get("/list", response_model=PaginatedResponse[UserResponse])
+async def get_users(
+    pagination: PaginationParams = Depends(),
+    search: Optional[str] = Query(None, description="Поиск"),
+    role_id: Optional[int] = Query(None, ge=1, description="Фильтр по роли"),
+    is_active: Optional[bool] = Query(None, description="Только активные"),
+    sort_by: str = Query("id", description="Поле сортировки"),
+    sort_order: str = Query("asc", regex="^(asc|desc)$"),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Получить список пользователей с пагинацией
+    """
+    # Проверка прав
+    if not current_user.role.user_read:
+        raise HTTPException(status_code=403, detail="Недостаточно прав")
+    
+    # Получаем данные
+    users, total = await get_users_paginated(
+        pagination=pagination,
+        search=search,
+        role_id=role_id,
+        is_active=is_active,
+        sort_by=sort_by,
+        sort_order=sort_order
+    )
+    
+    # Формируем ответ
+    pages = (total + pagination.limit - 1) // pagination.limit
+    
+    return PaginatedResponse(
+        items=users,
+        total=total,
+        page=pagination.page,
+        per_page=pagination.limit,
+        pages=pages
+    )
 
 @router.post('/create')
 async def post_create_user(
