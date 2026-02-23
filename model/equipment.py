@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, TYPE_CHECKING
 from datetime import date
 
 from sqlalchemy import (
@@ -23,6 +23,7 @@ from database.database import (
 from model.spec_equipment import Spec_Equipment
 # from model.objects_equipment import Objects_Equipment
 
+
 class Equipment(Base):
     
     __table_args__ = {"extend_existing":True}
@@ -32,9 +33,11 @@ class Equipment(Base):
     spec_equipment_id: Mapped[int] = mapped_column(ForeignKey("spec_equipments.id"))   # тип оборудования
 
     # одно наименование оборудования относится к одному типу оборудования
-    spec_equipment: Mapped[Spec_Equipment] = relationship(Spec_Equipment,
-                                                            lazy="selectin",
-                                                            back_populates="equipments")
+    spec_equipment: Mapped["Spec_Equipment"] = relationship(
+                                                                "Spec_Equipment",
+                                                                back_populates="equipments",  # ✅ Должно совпадать с полем в Spec_Equipment
+                                                                lazy="selectin"
+                                                            )
 
     # наименование оборудования на объекте
     objects_equipment: Mapped["Objects_Equipment"] = relationship("Objects_Equipment",

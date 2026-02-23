@@ -1,34 +1,21 @@
-from typing import List
-from datetime import date
+# model/spec_region.py
+from typing import List, TYPE_CHECKING
+from sqlalchemy.orm import Mapped, relationship
+from database.database import Base, int_pk, str_uniq
 
-from sqlalchemy import ForeignKey, Text
-from sqlalchemy.orm import (
-                            DeclarativeBase, 
-                            Mapped, 
-                            mapped_column, 
-                            relationship
-)
-
-from database.database import (
-                                Base, 
-                                int_pk, 
-                                str_uniq, 
-                                str_null_true
-)
-# from model.region import Region
-
+if TYPE_CHECKING:
+    from model.region import Region
 
 class Spec_Region(Base):
-
+    
     id: Mapped[int_pk]
     name: Mapped[str_uniq]
-
-    # к одному типу региона может относится много регионов
-    regions: Mapped[List["Region"]] = relationship("Region",
-                                                    back_populates="spec_region")
-
+    
+    regions: Mapped[List["Region"]] = relationship(
+        "Region",
+        back_populates="spec_region",
+        lazy="selectin"
+    )
+    
     def __str__(self):
-        return f"{self.__class__.__name__}(id={self.id}, name={self.name})"
-
-    def __repr__(self):
-        return str(self)
+        return f"Spec_Region(id={self.id}, name={self.name})"

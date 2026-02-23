@@ -69,9 +69,11 @@ class Contract(Base):
                                                     lazy="subquery")
 
     # отчеты по объекту (один контракт - много отчетов)
-    reports: Mapped[List[Report]] = relationship(Report,
-                                                    back_populates="contract",
-                                                    lazy="selectin")
+    reports: Mapped[List["Report"]] = relationship(
+                                                        "Report",
+                                                        back_populates="contract",  # Должно совпадать с Report.contract
+                                                        lazy="selectin"
+                                                    )
 
     # заявки по объекту (один контракт - много заявок)
     orders: Mapped[List[Order]] = relationship(Order,

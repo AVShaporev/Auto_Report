@@ -23,11 +23,10 @@ async def create(
     """
         Создать пользователя в БД
     """
-    async with new_session() as session:
-        session.add(user)
-        await session.flush()
-        await session.commit()
-        return True
+    session.add(user)
+    await session.flush()
+    await session.commit()
+    return True
 
 # Функция проверки на наличие уникальности полей 
 #   при создании или изменении пользователя
@@ -176,13 +175,12 @@ async def get_one_by_id(
     """
         Получить пользователя по id
     """
-    async with new_session() as session:
-        query = select(User).filter(
-                                User.id == id
-                                )
-        res = await session.execute(query)
-        user = res.scalars().one_or_none()
-        return user
+    query = select(User).filter(
+                            User.id == id
+                            )
+    res = await session.execute(query)
+    user = res.scalars().one_or_none()
+    return user
 
 async def get_one_by_email(
                             session: AsyncSession,

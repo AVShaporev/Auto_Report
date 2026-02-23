@@ -1,21 +1,38 @@
+from typing import Optional, List, Tuple
+from schema.pagination import PaginationParams
+from database.database import new_session
+from fastapi import HTTPException
+
 from model.spec_contract import Spec_Contract
 import data.spec_contract as data
 
 
-def get_all() -> list[Spec_Contract]:
-    return data.get_all()
+async def get_all() -> list[Spec_Contract]:
+    async with new_session() as session:
+        res = await data.get_all(session)
+        return res
 
-def get_one(id: str) -> Spec_Contract:
-    return data.get_one_by_id(id)
+async def get_one(id: str) -> Spec_Contract:
+    async with new_session() as session:
+        res = await data.get_one_by_id(session, id)
+        return res
 
-def create(spec_contract: Spec_Contract) -> Spec_Contract:
-    return data.create(spec_contract)
+async def create(spec_contract: Spec_Contract) -> Spec_Contract:
+    async with new_session() as session:
+        res = await data.create(session, spec_contract)
+        return res
 
-def replace(spec_contract: Spec_Contract) -> Spec_Contract:
-    return data.replace(spec_contract)
+async def replace(spec_contract: Spec_Contract) -> Spec_Contract:
+    async with new_session() as session:
+        res = await data.replace(session, spec_contract)
+        return res
 
-def modify(spec_contract: Spec_Contract) -> Spec_Contract:
-    return data.modify(spec_contract)
+async def modify(spec_contract: Spec_Contract) -> Spec_Contract:
+    async with new_session() as session:
+        res = await data.modify(session, spec_contract)
+        return res
 
-def delete(name: str) -> bool:
-    return data.delete(name)
+async def delete(name: str) -> bool:
+    async with new_session() as session:
+        res = await data.delete(session, name)
+        return res

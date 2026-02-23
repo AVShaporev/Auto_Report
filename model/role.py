@@ -1,3 +1,5 @@
+from typing import List
+
 from sqlalchemy import ForeignKey, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -146,4 +148,12 @@ class Role(Base):
     operation_delete: Mapped[bool] = mapped_column(default=False)
             
     # Определяем отношения: одна роль может принаддлежать нескольким пользователям
-    users: Mapped[list["User"]] = relationship("User", back_populates="role")
+    # Отношение через строку
+    users: Mapped[List["User"]] = relationship(
+                                                    "User",
+                                                    back_populates="role",
+                                                    lazy="selectin"
+                                                )
+
+    def __repr__(self):
+        return f"Role(id={self.id}, name={self.name})"

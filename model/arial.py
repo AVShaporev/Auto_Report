@@ -34,8 +34,11 @@ class Arial(Base):
 
 
     # в одном районе может находиться несколько объектов
-    objects: Mapped[List["Object"]] = relationship("Object",
-                                                    back_populates="arial")
+    objects: Mapped[List["Object"]] = relationship(
+                                                    "Object",
+                                                    back_populates="arial",  # ✅ Должно быть
+                                                    lazy="selectin"
+                                                )
 
     def __str__(self):
         return f"{self.__class__.__name__}(id={self.id}, name={self.name})"

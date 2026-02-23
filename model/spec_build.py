@@ -27,8 +27,18 @@ class Spec_Build(Base):
     name:Mapped[str_uniq]
 
     # в одном типе строения может находится несколько организаций
-    organizations: Mapped[List["Organization"]] = relationship("Organization",
-                                                                back_populates="spec_build")
+    organizations: Mapped[List["Organization"]] = relationship(
+                                                                "Organization",
+                                                                back_populates="spec_build",
+                                                                lazy="selectin"
+                                                                )
+
+    # в одном типе строения может находится несколько объектов
+    objects: Mapped[List["Object"]] = relationship(
+                                                        "Object",
+                                                        back_populates="spec_build",  # Должно совпадать с Object.spec_build
+                                                        lazy="selectin"
+                                                    )
 
     def __str__(self):
         return (f"{self.__class__.__name__}(id={self.id}, name={self.name}")

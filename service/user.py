@@ -29,17 +29,7 @@ from config import settings
 SECRET_KEY = settings.SECRET_KEY
 ALGORITM = settings.ALGORITHM
 
-# pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-# def get_hash(plain: str) -> str:
-#     """Возврат хеша строки <plain>"""
-#     return pwd_context.hash(plain)
-
-# def verify_password(plain: str, hash: str) -> bool:
-#     """Хеширование строки <plain> и сравнение ее с
-#     записьюю <hash> в БД"""
-#     return pwd_context.verify(plain, hash)
-
+# возврат имени пользователя из токена
 def get_jwt_username(token: str) -> str | None:
     """Возврат имени пользователя из jwt-доступа <token>"""
     try:
@@ -185,4 +175,3 @@ async def get_users_paginated(
             sort_order=sort_order
         )
         return users, total
-

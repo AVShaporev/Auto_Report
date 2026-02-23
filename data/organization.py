@@ -1,83 +1,245 @@
-from sqlalchemy import select, update
-
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, func, or_, and_, update, delete
+from sqlalchemy.orm import selectinload
+from typing import Optional, List, Tuple
 from model.organization import Organization
-from schema.organization import Read_Organization
-from database.database import async_session_maker as new_session
+from schema.organization import OrganizationCreate, OrganizationUpdate
 
+# ========== ПОЛУЧЕНИЕ ==========
 
-def row_to_model(row: tuple) -> Organization:
-    name, country, description = row
-    return Organization(name=name,
-                    country=country,
-                    description=description)
+async def get_by_id(
+    session: AsyncSession,
+    org_id: int,
+    load_relations: bool = True
+) -> Optional[Organization]:
+    """
+    Получить организацию по ID
+    
+    Args:
+        session: Сессия БД
+        org_id: ID организации
+        load_relations: Загружать связанные объекты
+    """
+    query = select(Organization).where(Organization.id == org_id)
+    
+    if load_relations:
+        query = query.options(
+            selectinload(Organization.bank),
+            selectinload(Organization.region),
+            selectinload(Organization.arial),
+            selectinload(Organization.locality),
+            selectinload(Organization.street),
+            selectinload(Organization.spec_build),
+            selectinload(Organization.spec_room),
+            selectinload(Organization.spec_job_title)
+        )
+    
+    result = await session.execute(query)
+    return result.scalar_one_or_none()
 
-def model_to_dict(organization: Organization) -> dict:
-    return organization.dict()
+async def get_by_name(
+    session: AsyncSession,
+    name: str
+) -> Optional[Organization]:
+    """
+    Получить организацию по названию
+    """
+    query = select(Organization).where(Organization.name == name)
+    result = await session.execute(query)
+    return result.scalar_one_or_none()
 
-# Функция добавления организации в БД
-async def create(organization: Organization) -> bool:
-    async with new_session() as session:
-        session.add(organization)
-        await session.flush()
-        await session.commit()
-        return True
- 
-# Функция запроса одного организации по имени
-async def get_one(name: str) -> Organization:
-    async with new_session() as session:
-        query = select(Organization).filter(Organization.name == name)
-        res = await session.execute(query)
-        organization = res.scalars().all()[0]
-        return organization
+async def get_by_inn(
+    session: AsyncSession,
+    inn: str
+) -> Optional[Organization]:
+    """
+    Получить организацию по ИНН
+    """
+    query = select(Organization).where(Organization.inn == inn)
+    result = await session.execute(query)
+    return result.scalar_one_or_none()
 
-# Функция запроса одного организации по id
-async def get_one_by_id(id: int) -> Organization:
-    async with new_session() as session:
-        query = select(Organization).filter(Organization.id == id)
-        res = await session.execute(query)
-        organization = res.scalars().all()[0]
-        return organization
+async def get_all(
+    session: AsyncSession,
+    load_relations: bool = False
+) -> List[Organization]:
+    """
+    Получить все организации
+    """
+    query = select(Organization).order_by(Organization.name)
+    
+    if load_relations:
+        query = query.options(
+            selectinload(Organization.bank),
+            selectinload(Organization.region)
+        )
+    
+    result = await session.execute(query)
+    return result.scalars().all()
 
-# Функция запроса списка организаций из БД
-async def get_all() -> list[Organization] | None:
-    async with new_session() as session:
-        query = select(Organization)
-        res = await session.execute(query)
-        organizations = res.scalars().all()
-    return organizations
+async def get_paginated(
+    session: AsyncSession,
+    skip: int = 0,
+    limit: int = 20,
+    search: Optional[str] = None,
+    customer: Optional[bool] = None,
+    executor: Optional[bool] = None,
+    region_id: Optional[int] = None,
+    bank_id: Optional[int] = None,
+    sort_by: str = "name",
+    sort_order: str = "asc"
+) -> Tuple[List[Organization], int]:
+    """
+    Получить список организаций с пагинацией и фильтрацией
+    """
+    # Базовый запрос
+    query = select(Organization)
+    count_query = select(func.count()).select_from(Organization)
+    
+    # Поиск по нескольким полям
+    if search:
+        search_filter = or_(
+            Organization.name.ilike(f"%{search}%"),
+            Organization.short_name.ilike(f"%{search}%"),
+            Organization.inn.ilike(f"%{search}%")
+        )
+        query = query.where(search_filter)
+        count_query = count_query.where(search_filter)
+    
+    # Фильтры
+    if customer is not None:
+        query = query.where(Organization.customer == customer)
+        count_query = count_query.where(Organization.customer == customer)
+    
+    if executor is not None:
+        query = query.where(Organization.executor == executor)
+        count_query = count_query.where(Organization.executor == executor)
+    
+    if region_id:
+        query = query.where(Organization.region_id == region_id)
+        count_query = count_query.where(Organization.region_id == region_id)
+    
+    if bank_id:
+        query = query.where(Organization.bank_id == bank_id)
+        count_query = count_query.where(Organization.bank_id == bank_id)
+    
+    # Сортировка
+    if sort_by and hasattr(Organization, sort_by):
+        column = getattr(Organization, sort_by)
+        if sort_order == "desc":
+            query = query.order_by(column.desc())
+        else:
+            query = query.order_by(column.asc())
+    else:
+        query = query.order_by(Organization.name)
+    
+    # Пагинация
+    query = query.offset(skip).limit(limit)
+    
+    # Выполнение
+    result = await session.execute(query)
+    items = result.scalars().all()
+    
+    total_result = await session.execute(count_query)
+    total = total_result.scalar()
+    
+    return items, total
 
-# Функция запроса всех Заказчиков
-async def get_all_customers() -> Organization:
-    async with new_session() as session:
-        query = select(Organization).filter(Organization.customer)
-        res = await session.execute(query)
-        organizations = res.scalars().all()
-        return organizations
+# ========== ПРОВЕРКА УНИКАЛЬНОСТИ ==========
 
-# Функция запроса всех Подрядчиков
-async def get_all_executors() -> Organization:
-    async with new_session() as session:
-        query = select(Organization).filter(Organization.executor)
-        res = await session.execute(query)
-        organizations = res.scalars().all()
-        return organizations
+async def check_name_exists(
+    session: AsyncSession,
+    name: str,
+    exclude_id: Optional[int] = None
+) -> bool:
+    """Проверить, существует ли организация с таким названием"""
+    query = select(Organization).where(Organization.name == name)
+    if exclude_id:
+        query = query.where(Organization.id != exclude_id)
+    
+    result = await session.execute(query)
+    return result.scalar_one_or_none() is not None
 
-# Функция изменения данных организации
-async def modify(organization: Organization):
-    async with new_session() as session:
-        query = select(Organization).where(Organization.name == organization.name)
-        res = await session.execute(query)
-        orig_organization = res.scalars(res).one()
-        orig_organization.name = organization.name
-        # orig_organization.country = organization.country
-        orig_organization.description = organization.description
-        await session.commit()
-        return await get_one(orig_organizationr.name)
+async def check_short_name_exists(
+    session: AsyncSession,
+    short_name: str,
+    exclude_id: Optional[int] = None
+) -> bool:
+    """Проверить, существует ли организация с таким сокращенным названием"""
+    query = select(Organization).where(Organization.short_name == short_name)
+    if exclude_id:
+        query = query.where(Organization.id != exclude_id)
+    
+    result = await session.execute(query)
+    return result.scalar_one_or_none() is not None
 
-# Функция удаления записи об организации из БД
-async def delete(name: str) -> bool:
-    organization = await get_one(name)
-    async with new_session() as session:
-        await session.delete(organization)
-        await session.commit()
-        return True
+async def check_inn_exists(
+    session: AsyncSession,
+    inn: str,
+    exclude_id: Optional[int] = None
+) -> bool:
+    """Проверить, существует ли организация с таким ИНН"""
+    query = select(Organization).where(Organization.inn == inn)
+    if exclude_id:
+        query = query.where(Organization.id != exclude_id)
+    
+    result = await session.execute(query)
+    return result.scalar_one_or_none() is not None
+
+# ========== СОЗДАНИЕ ==========
+
+async def create(
+    session: AsyncSession,
+    org_create: OrganizationCreate
+) -> Organization:
+    """
+    Создать новую организацию
+    """
+    organization = Organization(**org_create.dict())
+    session.add(organization)
+    await session.commit()
+    await session.refresh(organization)
+    return organization
+
+# ========== ОБНОВЛЕНИЕ ==========
+
+async def update(
+    session: AsyncSession,
+    org_id: int,
+    org_update: OrganizationUpdate
+) -> Optional[Organization]:
+    """
+    Обновить организацию
+    """
+    organization = await get_by_id(session, org_id, load_relations=False)
+    if not organization:
+        return None
+    
+    # Получаем данные для обновления (только переданные поля)
+    update_data = org_update.dict(exclude_unset=True)
+    
+    # Обновляем поля
+    for field, value in update_data.items():
+        if hasattr(organization, field):
+            setattr(organization, field, value)
+    
+    await session.commit()
+    await session.refresh(organization)
+    return organization
+
+# ========== УДАЛЕНИЕ ==========
+
+async def delete(
+    session: AsyncSession,
+    org_id: int
+) -> bool:
+    """
+    Удалить организацию
+    """
+    organization = await get_by_id(session, org_id, load_relations=False)
+    if not organization:
+        return False
+    
+    await session.delete(organization)
+    await session.commit()
+    return True

@@ -35,8 +35,11 @@ class Street(Base):
                                                                 back_populates="street")
 
     # на одной улице может быть много объектов
-    objects: Mapped[List["Object"]] = relationship("Object",
-                                                    back_populates="street")
+    objects: Mapped[List["Object"]] = relationship(
+                                                        "Object",
+                                                        back_populates="street",  # ✅ Должно быть
+                                                        lazy="selectin"
+                                                    )
 
     def __str__(self):
         return f"{self.__class__.__name__}(id={self.id}, name={self.name})"

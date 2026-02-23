@@ -15,14 +15,6 @@ from database.database import (
                                 str_uniq, 
                                 str_null_true
 )
-from model.bank import Bank
-from model.region import Region
-from model.locality import Locality
-from model.street import Street
-from model.spec_build import Spec_Build
-from model.spec_room import Spec_Room
-from model.spec_job_title import Spec_Job_Title
-from model.contract import Contract
 
 
 class Organization(Base):
@@ -56,12 +48,12 @@ class Organization(Base):
     spec_job_title_id: Mapped[int] = mapped_column(ForeignKey("spec_job_titles.id"))    # должность руководителя
 
     # банк
-    bank: Mapped[Bank] = relationship(Bank,
+    bank: Mapped["Bank"] = relationship("Bank",
                                         back_populates="organizations",
                                         lazy="selectin")
     
     # регион
-    region: Mapped[Region] = relationship(Region,
+    region: Mapped["Region"] = relationship("Region",
                                             back_populates="organizations",
                                             lazy="selectin")
 
@@ -71,29 +63,39 @@ class Organization(Base):
                                             lazy="selectin")
 
     # нас. пункт
-    locality: Mapped[Locality] = relationship(Locality,
+    locality: Mapped["Locality"] = relationship(
+                                                "Locality",
                                                 back_populates="organizations",
-                                                lazy="selectin")
+                                                lazy="selectin"
+                                                )
 
     # улица
-    street: Mapped[Street] = relationship(Street,
+    street: Mapped["Street"] = relationship(
+                                            "Street",
                                             back_populates="organizations",
-                                            lazy="selectin")
+                                            lazy="selectin"
+                                            )
     
     # тип строения
-    spec_build: Mapped[Spec_Build] = relationship(Spec_Build,
-                                            back_populates="organizations",
-                                            lazy="selectin")
+    spec_build: Mapped["Spec_Build"] = relationship(
+                                                    "Spec_Build",
+                                                    back_populates="organizations",
+                                                    lazy="selectin"
+                                                    )
 
     # тип помещения
-    spec_room: Mapped[Spec_Room] = relationship(Spec_Room,
-                                            back_populates="organizations",
-                                            lazy="selectin")
+    spec_room: Mapped["Spec_Room"] = relationship(
+                                                    "Spec_Room",
+                                                    back_populates="organizations",
+                                                    lazy="selectin"
+                                                    )
 
     # должность руководителя
-    spec_job_title: Mapped[Spec_Job_Title] = relationship(Spec_Job_Title,
+    spec_job_title: Mapped["Spec_Job_Title"] = relationship(
+                                                            "Spec_Job_Title",
                                                             back_populates="organizations",
-                                                            lazy="selectin")
+                                                            lazy="selectin"
+                                                            )
 
     def __str__(self):
         return f"{self.__class__.__name__}(id={self.id}, name={self.name})"

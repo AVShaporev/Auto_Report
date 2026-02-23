@@ -26,19 +26,6 @@ from errors import Duplicate, Missing, BaseLocking
 
 router = APIRouter(prefix='/api/user', tags=['API'])
 
-# @router.get('/list', response_model=List[UserResponse])
-# async def get_all_users(request: Request, user_auth: User = Depends(get_current_user)):
-    
-#     if not user_auth:
-#         return None
-    
-#     if not user_auth.role.user_read:
-#         return None
-#     users = await get_all()
-    
-#     # FastAPI автоматически преобразует в список схем
-#     return users
-
 @router.get("/list", response_model=PaginatedResponse[UserResponse])
 async def get_users(
     pagination: PaginationParams = Depends(),
@@ -85,7 +72,6 @@ async def post_create_user(
                             ):
     error_msg = None
     if user_auth:
-        print(f'{user_auth.role.user_create=}')
         if user_auth.role.user_create:
             try:
                 user = await create(user_create = user)

@@ -22,7 +22,12 @@ DATABASE_URL = get_db_url()
 
 
 # Создаем engine и sessionmaker
-engine = create_async_engine(DATABASE_URL)
+engine = create_async_engine(
+                                DATABASE_URL,
+                                # echo=True,  # Показывает все SQL запросы
+                                # pool_size=5,
+                                # max_overflow=10
+                                )
 async_session_maker = async_sessionmaker(engine, expire_on_commit=False)
 
 AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False)

@@ -1,21 +1,39 @@
+from typing import Optional, List, Tuple
+from schema.role import RoleCreate, RoleUpdate
+from schema.pagination import PaginationParams
+from database.database import new_session
+from fastapi import HTTPException
+
 from model.report import Report
 import data.report as data
 
 
-def get_all() -> list[Report]:
-    return data.get_all()
+async def get_all() -> list[Report]:
+    async with new_session() as session:
+        res = await data.get_all(session)
+        return res
 
-def get_one(id: str) -> Report:
-    return data.get_one_by_id(id)
+async def get_one(id: int) -> Report:
+    async with new_session() as session:
+        res = await data.get_one_by_id(session, id)
+        return res
 
-def create(report: Report) -> Report:
-    return data.create(report)
+async def create(report: Report) -> Report:
+    async with new_session() as session:
+        res = await data.create(session, report)
+        return res
 
-def replace(report: Report) -> Report:
-    return data.replace(report)
+async def replace(report: Report) -> Report:
+    async with new_session() as session:
+        res = await data.replace(session, report)
+        return res
 
-def modify(report: Report) -> Report:
-    return data.modify(report)
+async def modify(report: Report) -> Report:
+    async with new_session() as session:
+        res = await data.modify(session, report)
+        return res
 
-def delete(name: str) -> bool:
-    return data.delete(name)
+async def delete(id: int) -> bool:
+    async with new_session() as session:
+        res = await data.delete(session, id)
+        return res

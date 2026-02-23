@@ -39,9 +39,11 @@ class Locality(Base):
                                                                 lazy="selectin")
 
     # в одном насленном пункте может быть несколько объектов
-    objects: Mapped[List["Object"]] = relationship("Object",
-                                                    back_populates="locality",
-                                                    lazy="selectin")
+    objects: Mapped[List["Object"]] = relationship(
+                                                        "Object",
+                                                        back_populates="locality",  # ✅ Должно быть
+                                                        lazy="selectin"
+                                                    )
 
     def __str__(self):
         return f"{self.__class__.__name__}(id={self.id}, name={self.name})"
