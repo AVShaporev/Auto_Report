@@ -286,6 +286,12 @@ class RoleUpdate(BaseModel):
     operation_modify: bool = Field(False, description="Право на изменение операций для оборудования")
     operation_create: bool = Field(False, description="Право на создание операций для оборудования")
     operation_delete: bool = Field(False, description="Право на удаление операций для оборудования")
+
+    # Права на должности руководителей для контрактов
+    spec_job_title_read: bool = Field(False, description="Право на чтение должности руководителей")
+    spec_job_title_modify: bool = Field(False, description="Право на изменение должности руководителей")
+    spec_job_title_create: bool = Field(False, description="Право на создание должности руководителей")
+    operation_delete: bool = Field(False, description="Право на удаление должности руководителей")
     
     model_config = ConfigDict(from_attributes=True)
 

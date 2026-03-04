@@ -59,6 +59,71 @@ async def get_organization_by_id(
         
         return organization
 
+
+async def get_organizations_executor_paginated(
+    pagination: PaginationParams,
+    current_user: User,
+                                                search: Optional[str] = None,
+                                                customer: Optional[bool] = None,
+                                                executor: Optional[bool] = None,
+                                                region_id: Optional[int] = None,
+                                                bank_id: Optional[int] = None,
+                                                sort_by: str = "name",
+                                                sort_order: str = "asc"
+                                                ) -> Tuple[List[Organization], int]:
+    """
+    Получить список подрядчиков с пагинацией и проверкой прав
+    """
+    # Проверка права на чтение
+    await check_permission(current_user, "organization_read", "просмотра списка организаций")
+    
+    async with new_session() as session:
+        organizations, total = await org_data.get_paginated(
+                                                            session=session,
+                                                            skip=pagination.skip,
+                                                            limit=pagination.limit,
+                                                            search=search,
+                                                            executor=True,
+                                                            region_id=region_id,
+                                                            bank_id=bank_id,
+                                                            sort_by=sort_by,
+                                                            sort_order=sort_order
+                                                            )
+        
+        return organizations, total
+
+async def get_organizations_customer_paginated(
+    pagination: PaginationParams,
+    current_user: User,
+                                                search: Optional[str] = None,
+                                                customer: Optional[bool] = None,
+                                                executor: Optional[bool] = None,
+                                                region_id: Optional[int] = None,
+                                                bank_id: Optional[int] = None,
+                                                sort_by: str = "name",
+                                                sort_order: str = "asc"
+                                                ) -> Tuple[List[Organization], int]:
+    """
+    Получить список заказчиков с пагинацией и проверкой прав
+    """
+    # Проверка права на чтение
+    await check_permission(current_user, "organization_read", "просмотра списка организаций")
+    
+    async with new_session() as session:
+        organizations, total = await org_data.get_paginated(
+                                                                session=session,
+                                                                skip=pagination.skip,
+                                                                limit=pagination.limit,
+                                                                search=search,
+                                                                customer=True,
+                                                                region_id=region_id,
+                                                                bank_id=bank_id,
+                                                                sort_by=sort_by,
+                                                                sort_order=sort_order
+                                                            )
+        
+        return organizations, total
+
 async def get_organizations_paginated(
     pagination: PaginationParams,
     current_user: User,

@@ -20,7 +20,7 @@ from database.database import (
 )
 # from model.organization import Organization
 
-
+# модель типа строения
 class Spec_Build(Base):
 
     id: Mapped[int_pk]

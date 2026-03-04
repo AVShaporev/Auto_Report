@@ -1,0 +1,46 @@
+from pydantic import BaseModel, Field, ConfigDict
+from typing import Optional, List
+
+# Базовая схема типа региона
+class SpecRegionBase(BaseModel):
+    """Базовая схема типа региона"""
+    name: str = Field(..., min_length=2, max_length=100, description="Наименование типа региона")
+    
+    model_config = ConfigDict(from_attributes=True)
+
+# Схема для создания типа региона
+class SpecRegionCreate(SpecRegionBase):
+    """Схема для создания типа региона"""
+    pass
+
+# Схема для обновления типа региона (все поля опциональны)
+class SpecRegionUpdate(BaseModel):
+    """Схема для обновления типа региона"""
+    name: Optional[str] = Field(None, min_length=2, max_length=100)
+    
+    model_config = ConfigDict(from_attributes=True)
+
+# Схема для ответа (с ID)
+class SpecRegionResponse(SpecRegionBase):
+    """Полная информация о типе региона"""
+    id: int
+    regions_count: Optional[int] = Field(0, description="Количество регионов этого типа")
+    
+    model_config = ConfigDict(from_attributes=True)
+
+# Краткая схема для списка
+class SpecRegionListResponse(BaseModel):
+    """Краткая информация о типе региона для списков"""
+    id: int
+    name: str
+    regions_count: int = 0
+    
+    model_config = ConfigDict(from_attributes=True)
+
+# Схема для выпадающего списка
+class SpecRegionOptionResponse(BaseModel):
+    """Минимальная информация о типе региона для выпадающих списков"""
+    id: int
+    name: str
+    
+    model_config = ConfigDict(from_attributes=True)

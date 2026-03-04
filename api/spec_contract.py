@@ -1,99 +1,171 @@
-from datetime import datetime
+from fastapi import APIRouter, Depends, Query, HTTPException
+from typing import Optional, List
 
-from fastapi import APIRouter, Request, Depends, Form, Depends
-# from fastapi.templating import Jinja2Templates
-
-# from service.contract import (get_one,
-#                                     get_all,
-#                                     create,
-#                                     delete,
-#                                     modify)
-from service.spec_contract import get_all
-# from service.organization import get_all_customers
-# from service.organization import get_all_executors
-
-from model.spec_contract import Spec_Contract
 from model.user import User
+from schema.spec_contract import (
+    SpecContractCreate,
+    SpecContractUpdate,
+    SpecContractResponse,
+    SpecContractListResponse
+)
+from schema.pagination import PaginationParams, PaginatedResponse
+from service import spec_contract as spec_contract_service
+from core.dependencies import get_current_active_user
 
-from errors import Duplicate, Missing, BaseLocking
-from service.auth import (get_current_user)
+router = APIRouter(prefix="/api/spec_contract", tags=["spec_contract"])
 
-router = APIRouter(prefix='/api/spec_contract', tags=['API'])
-# templates = Jinja2Templates(directory='templates')
+@router.get("/list", response_model=PaginatedResponse[SpecContractListResponse])
+async def get_spec_contract_list(
+    pagination: PaginationParams = Depends(),
+    search: Optional[str] = Query(None, description="Поиск по названию"),
+    sort_by: str = Query("name", description="Поле сортировки"),
+    sort_order: str = Query("asc", regex="^(asc|desc)$"),
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Получить список типов договоров с пагинацией
+    
+    Требуется право: spec_contract_read
+    """
+    items, total = await spec_contract_service.get_spec_contracts_paginated(
+        pagination=pagination,
+        current_user=current_user,
+        search=search,
+        sort_by=sort_by,
+        sort_order=sort_order
+    )
+    
+    # Преобразуем в список для ответа
+    result_items = []
+    for item in items:
+        # Получаем количество связанных договоров
+        contracts_count = len(item.contracts) if item.contracts else 0
+        
+        result_items.append({
+            "id": item.id,
+            "name": item.name,
+            "contracts_count": contracts_count
+        })
+    
+    pages = (total + pagination.limit - 1) // pagination.limit
+    
+    return PaginatedResponse(
+        items=result_items,
+        total=total,
+        page=pagination.page,
+        per_page=pagination.limit,
+        pages=pages
+    )
 
-@router.get('/list')
-async def get_contracts_html(request: Request, user: User = Depends(get_current_user)):
-    spec_contracts = await get_all()
-    return spec_contracts
+@router.get("/all", response_model=List[SpecContractListResponse])
+async def get_all_spec_contracts(
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Получить все типы договоров (без пагинации)
+    
+    Требуется право: spec_contract_read
+    """
+    items = await spec_contract_service.get_all_spec_contracts(
+        current_user,
+        load_contracts=True
+    )
+    
+    return [
+        {
+            "id": item.id,
+            "name": item.name,
+            "contracts_count": len(item.contracts) if item.contracts else 0
+        }
+        for item in items
+    ]
 
-# @router.get('/create')
-# async def get_create_spec_contract(request: Request,
-#                         user: User = Depends(get_current_user)):
-#     spec_contracts = await get_all_spec_contracts()
-#     customers = await get_all_customers()
-#     executors = await get_all_executors()
-#     return templates.TemplateResponse(name='contract/create.html', 
-#                                         context={
-#                                             'request': request,
-#                                             'spec_contracts': spec_contracts,
-#                                             'customers': customers,
-#                                             'executors': executors,
-#                                             'user': user})
+@router.get("/{spec_contract_id}", response_model=SpecContractResponse)
+async def get_spec_contract_by_id(
+    spec_contract_id: int,
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Получить тип договора по ID
+    
+    Требуется право: spec_contract_read
+    """
+    spec_contract = await spec_contract_service.get_spec_contract_by_id(
+        spec_contract_id,
+        current_user,
+        load_contracts=True
+    )
+    
+    # Формируем ответ
+    return {
+        "id": spec_contract.id,
+        "name": spec_contract.name,
+        "contracts_count": len(spec_contract.contracts) if spec_contract.contracts else 0
+    }
 
-@router.post('/create')
-async def post_create_spec_contract(name,
-                                        description,
-                                        user: User = Depends(get_current_user)):
-    print(name, description)
-    return {"name": name, "description": description}
-#     error_msg = None
-#     contract = Contract(spec_contract_id=spec_contract,
-#                         number=number, 
-#                         date_of_consclusion=datetime.strptime(date_of_consclusion, "%d.%m.%Y").date(),
-#                         date_of_completion=datetime.strptime(date_of_completion, "%d.%m.%Y").date(),
-#                         summ=float(summ),
-#                         subject=subject,
-#                         short_subject=short_subject,
-#                         type_contract=type_contract,
-#                         customer_id=customer_id, 
-#                         executor_id=executor_id,
-#                         description=description)
-#     try:
-#         await create(contract = contract)
-#         contracts = await get_all()
-#         create_ok = True
-#         return templates.TemplateResponse(name='contract/list.html', 
-#                                             context={
-#                                                 'request': request,
-#                                                 'contracts': contracts, 
-#                                                 'user': user})
-#     except Duplicate:
-#         error_msg = "Контракт с таким номером уже существует!"
-#         contracts = get_all()
-#         return templates.TemplateResponse(name='contract/create.html', 
-#                                         context={
-#                                             'request': request,
-#                                             'spec_contracts': spec_contracts,
-#                                             'customers': customers,
-#                                             'executors': executors,
-#                                             'user': user})
-#     except BaseLocking:
-#         error_msg = "База данных недоступна для записи!"
-#         contracts = get_all()
-#         return templates.TemplateResponse(name='contract/create.html', 
-#                                         context={
-#                                             'request': request,
-#                                             'spec_contracts': spec_contracts,
-#                                             'customers': customers,
-#                                             'executors': executors,
-#                                             'user': user})
+@router.post("/create", response_model=SpecContractResponse)
+async def create_spec_contract(
+    spec_contract_data: SpecContractCreate,
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Создать новый тип договора
+    
+    Требуется право: spec_contract_create
+    """
+    spec_contract = await spec_contract_service.create_spec_contract(
+        spec_contract_data,
+        current_user
+    )
+    
+    return {
+        "id": spec_contract.id,
+        "name": spec_contract.name,
+        "contracts_count": 0
+    }
 
-# @router.get('/{contract_id}')
-# async def get_one_web(request: Request,
-#                     user: User = Depends(get_current_user),
-#                     contract_id: str = ''):
-#     contract = await get_one(int(contract_id))
-#     return templates.TemplateResponse(
-#         name='contract/info.html',
-#         context={'request': request,
-#                 'contract': contract})
+@router.put("/{spec_contract_id}", response_model=SpecContractResponse)
+async def update_spec_contract(
+    spec_contract_id: int,
+    spec_contract_data: SpecContractUpdate,
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Обновить тип договора
+    
+    Требуется право: spec_contract_modify
+    """
+    spec_contract = await spec_contract_service.update_spec_contract(
+        spec_contract_id,
+        spec_contract_data,
+        current_user
+    )
+    
+    # Получаем количество связанных договоров
+    contracts_count = len(spec_contract.contracts) if spec_contract.contracts else 0
+    
+    return {
+        "id": spec_contract.id,
+        "name": spec_contract.name,
+        "contracts_count": contracts_count
+    }
+
+@router.delete("/{spec_contract_id}")
+async def delete_spec_contract(
+    spec_contract_id: int,
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Удалить тип договора
+    
+    Требуется право: spec_contract_delete
+    """
+    await spec_contract_service.delete_spec_contract(
+        spec_contract_id,
+        current_user
+    )
+    
+    return {
+        "status": "success",
+        "message": f"Тип договора с id {spec_contract_id} успешно удален"
+    }

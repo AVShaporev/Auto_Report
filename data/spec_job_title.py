@@ -1,58 +1,206 @@
-from sqlalchemy import select, update
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, func, or_
+from sqlalchemy.orm import selectinload
+from typing import Optional, List, Tuple
 
 from model.spec_job_title import Spec_Job_Title
-from database.database import async_session_maker as new_session
+from schema.spec_job_title import SpecJobTitleCreate, SpecJobTitleUpdate
 
 
-# Функция перевода из строки в модель
-def row_to_model(row: tuple) -> Spec_Job_Title:
-    name, description = row
-    return Spec_Job_Title(name=name,
-                            description=description)
 
-# Функция из модели в строку
-def model_to_dict(spec_job_title: Spec_Job_Title) -> dict:
-    return spec_job_title.dict()
+# ========== ПОДСЧЕТ СВЯЗАННЫХ ОБЪЕКТОВ ==========
 
-# Функция добавления строки в БД
-async def create(spec_job_title: Spec_Job_Title) -> Spec_Job_Title:
-    async with new_session() as session:
-        session.add(spec_job_title)
-        await session.flush()
-        await session.commit()
-        return await get_one(spec_job_title.name)
+async def count_organizations(
+    session: AsyncSession,
+    spec_job_title_id: int
+) -> int:
+    """
+    Посчитать количество организаций с данной должностью руководителя
+    
+    Это эффективнее, чем загружать все объекты через relationship
+    """
+    from model.organization import Organization
+    
+    query = select(func.count()).select_from(Organization).where(
+        Organization.spec_job_title_id == spec_job_title_id
+    )
+    result = await session.execute(query)
+    return result.scalar() or 0
+    
+# ========== ПОЛУЧЕНИЕ ==========
 
-# Функция выбора всех регионов  из БД
-async def get_all():
-    async with new_session() as session:
-        spec_job_titles = None
-        query = select(Spec_Job_Title)
-        res = await session.execute(query)
-        spec_job_titles = res.scalars().all()
-    return spec_job_titles
+async def get_by_id(
+    session: AsyncSession,
+    spec_job_title_id: int,
+    *,
+    load_organizations: bool = False  # Флаг для загрузки связанных организаций
+) -> Optional[Spec_Job_Title]:
+    """
+    Получить должность руководителя по ID
+    
+    Args:
+        session: Сессия БД
+        spec_job_title_id: ID должности
+        load_organizations: Если True, немедленно загрузить связанные организации
+    """
+    query = select(Spec_Job_Title).where(Spec_Job_Title.id == spec_job_title_id)
+    
+    if load_organizations:
+        # Загружаем связанные организации в этом же запросе
+        query = query.options(selectinload(Spec_Job_Title.organizations))
+    
+    result = await session.execute(query)
+    return result.scalar_one_or_none()
 
-# Функция выбора банка по имени
-async def get_one(name: str) -> Spec_Job_Title:
-    async with new_session() as session:
-        query = select(Spec_Job_Title).filter(Spec_Job_Title.name == name)
-        res = await session.execute(query)
-        spec_job_title = res.scalars().one_or_none()
-        return spec_job_title
+async def get_by_name(
+    session: AsyncSession,
+    name: str
+) -> Optional[Spec_Job_Title]:
+    """
+    Получить должность руководителя по названию
+    """
+    query = select(Spec_Job_Title).where(Spec_Job_Title.name == name)
+    result = await session.execute(query)
+    return result.scalar_one_or_none()
 
-# Функция модификации банка
-async def modify(spec_job_title: Spec_Job_Title):
-    async with new_session() as session:
-        query = select(Spec_Job_Title).where(Spec_Job_Title.name == spec_job_title.name)
-        res = await session.execute(query)
-        orig_spec_job_title = res.scalars(res).one()
-        orig_spec_job_title.name = spec_job_title.name
-        await session.commit()
-        return await get_one(orig_spec_job_title.name)
+async def get_all(
+    session: AsyncSession,
+    *,
+    load_organizations: bool = False
+) -> List[Spec_Job_Title]:
+    """
+    Получить все должности руководителей
+    """
+    query = select(Spec_Job_Title).order_by(Spec_Job_Title.name)
+    
+    if load_organizations:
+        query = query.options(selectinload(Spec_Job_Title.organizations))
+    
+    result = await session.execute(query)
+    return result.scalars().all()
 
-# Функция удаления записи о банке по имени
-async def delete(name: str) -> bool:
-    spec_job_title = await get_one(name)
-    async with new_session() as session:
-        await session.delete(spec_job_title)
-        await session.commit()
-        return True
+async def get_paginated(
+    session: AsyncSession,
+    skip: int = 0,
+    limit: int = 20,
+    search: Optional[str] = None,
+    sort_by: str = "name",
+    sort_order: str = "asc",
+    *,
+    load_organizations: bool = False
+) -> Tuple[List[Spec_Job_Title], int]:
+    """
+    Получить список должностей руководителей с пагинацией
+    """
+    # Базовый запрос
+    query = select(Spec_Job_Title)
+    count_query = select(func.count()).select_from(Spec_Job_Title)
+    
+    # Поиск
+    if search:
+        search_filter = or_(
+            Spec_Job_Title.name.ilike(f"%{search}%")
+        )
+        query = query.where(search_filter)
+        count_query = count_query.where(search_filter)
+    
+    # Сортировка
+    if sort_by and hasattr(Spec_Job_Title, sort_by):
+        column = getattr(Spec_Job_Title, sort_by)
+        if sort_order == "desc":
+            query = query.order_by(column.desc())
+        else:
+            query = query.order_by(column.asc())
+    else:
+        query = query.order_by(Spec_Job_Title.name)
+    
+    # Загрузка связанных данных (если запрошено)
+    if load_organizations:
+        query = query.options(selectinload(Spec_Job_Title.organizations))
+    
+    # Пагинация
+    query = query.offset(skip).limit(limit)
+    
+    # Выполнение
+    result = await session.execute(query)
+    items = result.scalars().all()
+    
+    total_result = await session.execute(count_query)
+    total = total_result.scalar()
+    
+    return items, total
+
+# ========== ПРОВЕРКА СУЩЕСТВОВАНИЯ ==========
+
+async def check_name_exists(
+    session: AsyncSession,
+    name: str,
+    exclude_id: Optional[int] = None
+) -> bool:
+    """
+    Проверить, существует ли должность с таким названием
+    """
+    query = select(Spec_Job_Title).where(Spec_Job_Title.name == name)
+    if exclude_id:
+        query = query.where(Spec_Job_Title.id != exclude_id)
+    
+    result = await session.execute(query)
+    return result.scalar_one_or_none() is not None
+
+# ========== СОЗДАНИЕ ==========
+
+async def create(
+    session: AsyncSession,
+    spec_job_title_create: SpecJobTitleCreate
+) -> Spec_Job_Title:
+    """
+    Создать новую должность руководителя
+    """
+    spec_job_title = Spec_Job_Title(**spec_job_title_create.dict())
+    session.add(spec_job_title)
+    await session.commit()
+    await session.refresh(spec_job_title)
+    return spec_job_title
+
+# ========== ОБНОВЛЕНИЕ ==========
+
+async def update(
+    session: AsyncSession,
+    spec_job_title_id: int,
+    spec_job_title_update: SpecJobTitleUpdate
+) -> Optional[Spec_Job_Title]:
+    """
+    Обновить должность руководителя
+    """
+    spec_job_title = await get_by_id(session, spec_job_title_id, load_organizations=False)
+    if not spec_job_title:
+        return None
+    
+    # Получаем данные для обновления (только переданные поля)
+    update_data = spec_job_title_update.dict(exclude_unset=True)
+    
+    # Обновляем поля
+    for field, value in update_data.items():
+        if hasattr(spec_job_title, field):
+            setattr(spec_job_title, field, value)
+    
+    await session.commit()
+    await session.refresh(spec_job_title)
+    return spec_job_title
+
+# ========== УДАЛЕНИЕ ==========
+
+async def delete(
+    session: AsyncSession,
+    spec_job_title_id: int
+) -> bool:
+    """
+    Удалить должность руководителя
+    """
+    spec_job_title = await session.get(Spec_Job_Title, spec_job_title_id)
+    if not spec_job_title:
+        return False
+    
+    await session.delete(spec_job_title)
+    await session.commit()
+    return True

@@ -20,7 +20,7 @@ from database.database import (
 )
 # from model.locality import Locality
 
-
+# модель типа населенного пункта
 class Spec_Locality(Base):
 
     id: Mapped[int_pk]

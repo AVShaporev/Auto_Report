@@ -146,6 +146,12 @@ class Role(Base):
     operation_modify: Mapped[bool] = mapped_column(default=False)
     operation_create: Mapped[bool] = mapped_column(default=False)
     operation_delete: Mapped[bool] = mapped_column(default=False)
+
+    # права на должности руководителей
+    spec_job_title_read: Mapped[bool] = mapped_column(default=False)
+    spec_job_title_modify: Mapped[bool] = mapped_column(default=False)
+    spec_job_title_create: Mapped[bool] = mapped_column(default=False)
+    spec_job_title_delete: Mapped[bool] = mapped_column(default=False)
             
     # Определяем отношения: одна роль может принаддлежать нескольким пользователям
     # Отношение через строку

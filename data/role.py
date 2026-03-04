@@ -240,6 +240,7 @@ async def get_permissions_matrix(
             "create": role.region_create,
             "delete": role.region_delete
         },
+        
         # ... добавить остальные категории по аналогии
     }
     

@@ -14,11 +14,11 @@ from database.database import (
                                 int_pk, 
                                 str_uniq, 
                                 str_null_true
-)
-# from model.organization import Organization
-from model.spec_street import Spec_Street
-# from model.object import Object
+                                )
 
+from model.spec_street import Spec_Street
+
+# модель улицы
 class Street(Base):
 
     id: Mapped[int_pk]
@@ -37,7 +37,7 @@ class Street(Base):
     # на одной улице может быть много объектов
     objects: Mapped[List["Object"]] = relationship(
                                                         "Object",
-                                                        back_populates="street",  # ✅ Должно быть
+                                                        back_populates="street", 
                                                         lazy="selectin"
                                                     )
 

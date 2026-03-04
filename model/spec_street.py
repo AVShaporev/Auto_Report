@@ -17,7 +17,7 @@ from database.database import (
 )
 # from model.street import Street
 
-
+# модель типа улицы
 class Spec_Street(Base):
 
     id: Mapped[int_pk]
@@ -25,4 +25,5 @@ class Spec_Street(Base):
 
     # к одному типу улицы может относится несколько улиц
     streets: Mapped[List["Street"]] = relationship("Street",
-                                                    back_populates="spec_street")
+                                                    back_populates="spec_street",
+                                                    lazy="selectin")
