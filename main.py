@@ -36,6 +36,8 @@ from api import role as api_role
 from api import user as api_user
 from api import organization as api_organization
 from api import spec_job_title as api_spec_job_title
+from api import period as api_period
+from api import object as api_object
 
 
 # настройка файлов логирования
@@ -104,7 +106,8 @@ app.include_router(api_role.router)
 app.include_router(api_user.router)
 app.include_router(api_organization.router)
 app.include_router(api_spec_job_title.router)
-
+app.include_router(api_period.router)
+app.include_router(api_object.router)
 
 
 # запуск приложения fastapi

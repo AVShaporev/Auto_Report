@@ -7,19 +7,8 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from database.database import Base, int_pk, str_uniq, str_null_true
 
-# if TYPE_CHECKING:
-#     from model.region import Region
-#     from model.arial import Arial
-#     from model.locality import Locality
-#     from model.street import Street
-#     from model.spec_build import Spec_Build
-#     from model.spec_room import Spec_Room
-#     from model.period import Period
-#     from model.contract import Contract
-#     from model.objects_equipment import Objects_Equipment
-#     from model.report import Report
-#     from model.order import Order
 
+# модель объекта
 class Object(Base):
     
     id: Mapped[int_pk]

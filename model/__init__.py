@@ -27,6 +27,7 @@ from model.spec_locality import Spec_Locality
 from model.spec_street import Spec_Street
 from model.spec_build import Spec_Build
 from model.spec_room import Spec_Room
+from model.period import Period
 
 # Затем модели, зависящие от других
 from model.equipment import Equipment  # Зависит от Spec_Equipment
@@ -43,6 +44,7 @@ from model.region import Region
 from model.arial import Arial
 from model.locality import Locality
 from model.street import Street
+from model.object import Object
 
 # Экспортируем все модели для удобства
 __all__ = [

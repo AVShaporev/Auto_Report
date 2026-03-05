@@ -6,6 +6,8 @@ from database.database import Base, int_pk, str_uniq
 if TYPE_CHECKING:
     from model.object import Object
 
+
+# модель периода обслуживания
 class Period(Base):
     
     id: Mapped[int_pk]
