@@ -51,7 +51,7 @@ async def get_contract_by_id(
     await check_permission(current_user, "contract_read", "просмотра контрактов")
     
     async with new_session() as session:
-        contract = await contract_data.get_by_id(
+        contract = await contract_data.get_contract_by_id(
             session, 
             contract_id, 
             load_relations=load_relations
@@ -84,7 +84,7 @@ async def get_contracts_paginated(
     await check_permission(current_user, "contract_read", "просмотра списка контрактов")
     
     async with new_session() as session:
-        items, total = await contract_data.get_paginated(
+        items, total = await contract_data.get_contract_paginated(
             session=session,
             skip=pagination.skip,
             limit=pagination.limit,
@@ -112,7 +112,7 @@ async def get_all_contracts(
     await check_permission(current_user, "contract_read", "просмотра контрактов")
     
     async with new_session() as session:
-        return await contract_data.get_all(session, load_relations=load_relations)
+        return await contract_data.get_contract_all(session, load_relations=load_relations)
 
 async def get_contract_options(
     current_user: User
@@ -123,7 +123,7 @@ async def get_contract_options(
     await check_permission(current_user, "contract_read", "просмотра контрактов")
     
     async with new_session() as session:
-        return await contract_data.get_options(session)
+        return await contract_data.get_contract_options(session)
 
 # ========== ПОЛУЧЕНИЕ СО СТАТИСТИКОЙ ==========
 
@@ -140,7 +140,7 @@ async def get_contract_with_stats(
     
     async with new_session() as session:
         # Получаем контракт с загрузкой связанных данных
-        contract = await contract_data.get_by_id(
+        contract = await contract_data.get_contract_by_id(
             session, 
             contract_id,
             load_relations=True
@@ -153,10 +153,10 @@ async def get_contract_with_stats(
             )
         
         # Получаем статистику
-        sub_contracts_count = await contract_data.count_sub_contracts(session, contract_id)
-        objects_count = await contract_data.count_objects(session, contract_id)
-        reports_count = await contract_data.count_reports(session, contract_id)
-        orders_count = await contract_data.count_orders(session, contract_id)
+        sub_contracts_count = await contract_data.count_contract_sub_contracts(session, contract_id)
+        objects_count = await contract_data.count_contract_objects(session, contract_id)
+        reports_count = await contract_data.count_contract_reports(session, contract_id)
+        orders_count = await contract_data.count_contract_orders(session, contract_id)
         
         # Возвращаем готовый словарь для ответа
         return {
@@ -200,7 +200,7 @@ async def get_contracts_paginated_with_stats(
     
     async with new_session() as session:
         # Получаем контракты с загрузкой связанных данных
-        items, total = await contract_data.get_paginated(
+        items, total = await contract_data.get_contract_paginated(
             session=session,
             skip=pagination.skip,
             limit=pagination.limit,
@@ -248,28 +248,28 @@ async def create_contract(
     
     async with new_session() as session:
         # Проверка уникальности номера
-        if await contract_data.check_number_exists(session, contract_create.number):
+        if await contract_data.check_number_contract_exists(session, contract_create.number):
             raise HTTPException(
                 status_code=400,
                 detail=f"Контракт с номером '{contract_create.number}' уже существует"
             )
         
         # Проверка существования типа контракта
-        if not await contract_data.check_spec_contract_exists(session, contract_create.spec_contract_id):
+        if not await contract_data.check_contract_spec_contract_exists(session, contract_create.spec_contract_id):
             raise HTTPException(
                 status_code=400,
                 detail=f"Тип контракта с id {contract_create.spec_contract_id} не существует"
             )
         
         # Проверка существования заказчика
-        if not await contract_data.check_organization_exists(session, contract_create.customer_id):
+        if not await contract_data.check_contract_organization_exists(session, contract_create.customer_id):
             raise HTTPException(
                 status_code=400,
                 detail=f"Организация-заказчик с id {contract_create.customer_id} не существует"
             )
         
         # Проверка существования подрядчика
-        if not await contract_data.check_organization_exists(session, contract_create.executor_id):
+        if not await contract_data.check_contract_organization_exists(session, contract_create.executor_id):
             raise HTTPException(
                 status_code=400,
                 detail=f"Организация-подрядчик с id {contract_create.executor_id} не существует"
@@ -283,7 +283,7 @@ async def create_contract(
             )
         
         # Создание
-        contract = await contract_data.create(session, contract_create)
+        contract = await contract_data.create_contract(session, contract_create)
         
         return contract
 
@@ -301,7 +301,7 @@ async def update_contract(
     
     async with new_session() as session:
         # Проверяем существование
-        existing = await contract_data.get_by_id(session, contract_id)
+        existing = await contract_data.get_contract_by_id(session, contract_id)
         if not existing:
             raise HTTPException(
                 status_code=404,
@@ -310,7 +310,7 @@ async def update_contract(
         
         # Проверка уникальности номера, если он меняется
         if contract_update.number and contract_update.number != existing.number:
-            if await contract_data.check_number_exists(session, contract_update.number, contract_id):
+            if await contract_data.check_number_contract_exists(session, contract_update.number, contract_id):
                 raise HTTPException(
                     status_code=400,
                     detail=f"Контракт с номером '{contract_update.number}' уже существует"
@@ -318,7 +318,7 @@ async def update_contract(
         
         # Проверка существования типа контракта, если он меняется
         if contract_update.spec_contract_id and contract_update.spec_contract_id != existing.spec_contract_id:
-            if not await contract_data.check_spec_contract_exists(session, contract_update.spec_contract_id):
+            if not await contract_data.check_contract_spec_contract_exists(session, contract_update.spec_contract_id):
                 raise HTTPException(
                     status_code=400,
                     detail=f"Тип контракта с id {contract_update.spec_contract_id} не существует"
@@ -326,7 +326,7 @@ async def update_contract(
         
         # Проверка существования заказчика, если он меняется
         if contract_update.customer_id and contract_update.customer_id != existing.customer_id:
-            if not await contract_data.check_organization_exists(session, contract_update.customer_id):
+            if not await contract_data.check_contract_organization_exists(session, contract_update.customer_id):
                 raise HTTPException(
                     status_code=400,
                     detail=f"Организация-заказчик с id {contract_update.customer_id} не существует"
@@ -334,7 +334,7 @@ async def update_contract(
         
         # Проверка существования подрядчика, если он меняется
         if contract_update.executor_id and contract_update.executor_id != existing.executor_id:
-            if not await contract_data.check_organization_exists(session, contract_update.executor_id):
+            if not await contract_data.check_contract_organization_exists(session, contract_update.executor_id):
                 raise HTTPException(
                     status_code=400,
                     detail=f"Организация-подрядчик с id {contract_update.executor_id} не существует"
@@ -350,7 +350,7 @@ async def update_contract(
             )
         
         # Обновление
-        contract = await contract_data.update(session, contract_id, contract_update)
+        contract = await contract_data.update_contract(session, contract_id, contract_update)
         
         return contract
 
@@ -367,7 +367,7 @@ async def delete_contract(
     
     async with new_session() as session:
         # Проверяем существование и связанные объекты
-        contract = await contract_data.get_by_id(
+        contract = await contract_data.get_contract_by_id(
             session, 
             contract_id, 
             load_relations=True
@@ -405,6 +405,6 @@ async def delete_contract(
             )
         
         # Удаление
-        success = await contract_data.delete(session, contract_id)
+        success = await contract_data.delete_contract(session, contract_id)
         
         return success

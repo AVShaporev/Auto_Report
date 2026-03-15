@@ -31,187 +31,177 @@ async def get_organization_executor_list(
     Требуется право: organization_read
     """
     organizations, total = await org_service.get_organizations_executor_paginated(
-                                                                                pagination=pagination,
-                                                                                current_user=current_user,
-                                                                                search=search,
-                                                                                customer=customer,
-                                                                                executor=executor,
-                                                                                region_id=region_id,
-                                                                                bank_id=bank_id,
-                                                                                sort_by=sort_by,
-                                                                                sort_order=sort_order
-                                                                                )
+                                                                                    pagination=pagination,
+                                                                                    current_user=current_user,
+                                                                                    search=search,
+                                                                                    customer=customer,
+                                                                                    executor=executor,
+                                                                                    region_id=region_id,
+                                                                                    bank_id=bank_id,
+                                                                                    sort_by=sort_by,
+                                                                                    sort_order=sort_order
+                                                                                    )
     
     # Преобразуем в список для ответа
     items = []
     for org in organizations:
         items.append({
-            "id": org.id,
-            "name": org.name,
-            "short_name": org.short_name,
-            "inn": org.inn,
-            "customer": org.customer,
-            "executor": org.executor,
-            "bank_name": org.bank.name if org.bank else None,
-            "region_name": org.region.name if org.region else None
-        })
+                        "id": org.id,
+                        "name": org.name,
+                        "short_name": org.short_name,
+                        "inn": org.inn,
+                        "customer": org.customer,
+                        "executor": org.executor,
+                        "bank_name": org.bank.name if org.bank else None,
+                        "region_name": org.region.name if org.region else None
+                    })
     
     pages = (total + pagination.limit - 1) // pagination.limit
     
     return PaginatedResponse(
-        items=items,
-        total=total,
-        page=pagination.page,
-        per_page=pagination.limit,
-        pages=pages
-    )
+                                items=items,
+                                total=total,
+                                page=pagination.page,
+                                per_page=pagination.limit,
+                                pages=pages
+                                )
 
 @router.get("/customer/list", response_model=PaginatedResponse[OrganizationListResponse])
 async def get_organization_executor_list(
-                                        pagination: PaginationParams = Depends(),
-                                        search: Optional[str] = Query(None, description="Поиск по названию, ИНН"),
-                                        customer: Optional[bool] = Query(None, description="Только заказчики"),
-                                        executor: Optional[bool] = Query(None, description="Только подрядчики"),
-                                        region_id: Optional[int] = Query(None, ge=1, description="Фильтр по региону"),
-                                        bank_id: Optional[int] = Query(None, ge=1, description="Фильтр по банку"),
-                                        sort_by: str = Query("name", description="Поле сортировки"),
-                                        sort_order: str = Query("asc", regex="^(asc|desc)$"),
-                                        current_user: User = Depends(get_current_active_user)
-                                        ):
+                                            pagination: PaginationParams = Depends(),
+                                            search: Optional[str] = Query(None, description="Поиск по названию, ИНН"),
+                                            customer: Optional[bool] = Query(None, description="Только заказчики"),
+                                            executor: Optional[bool] = Query(None, description="Только подрядчики"),
+                                            region_id: Optional[int] = Query(None, ge=1, description="Фильтр по региону"),
+                                            bank_id: Optional[int] = Query(None, ge=1, description="Фильтр по банку"),
+                                            sort_by: str = Query("name", description="Поле сортировки"),
+                                            sort_order: str = Query("asc", regex="^(asc|desc)$"),
+                                            current_user: User = Depends(get_current_active_user)
+                                            ):
     """
     Получить список организаций с пагинацией
     
     Требуется право: organization_read
     """
     organizations, total = await org_service.get_organizations_customer_paginated(
-                                                                                pagination=pagination,
-                                                                                current_user=current_user,
-                                                                                search=search,
-                                                                                customer=customer,
-                                                                                executor=executor,
-                                                                                region_id=region_id,
-                                                                                bank_id=bank_id,
-                                                                                sort_by=sort_by,
-                                                                                sort_order=sort_order
-                                                                                )
+                                                                                    pagination=pagination,
+                                                                                    current_user=current_user,
+                                                                                    search=search,
+                                                                                    customer=customer,
+                                                                                    executor=executor,
+                                                                                    region_id=region_id,
+                                                                                    bank_id=bank_id,
+                                                                                    sort_by=sort_by,
+                                                                                    sort_order=sort_order
+                                                                                    )
     
     # Преобразуем в список для ответа
     items = []
     for org in organizations:
         items.append({
-            "id": org.id,
-            "name": org.name,
-            "short_name": org.short_name,
-            "inn": org.inn,
-            "customer": org.customer,
-            "executor": org.executor,
-            "bank_name": org.bank.name if org.bank else None,
-            "region_name": org.region.name if org.region else None
-        })
+                        "id": org.id,
+                        "name": org.name,
+                        "short_name": org.short_name,
+                        "inn": org.inn,
+                        "customer": org.customer,
+                        "executor": org.executor,
+                        "bank_name": org.bank.name if org.bank else None,
+                        "region_name": org.region.name if org.region else None
+                    })
     
     pages = (total + pagination.limit - 1) // pagination.limit
     
     return PaginatedResponse(
-        items=items,
-        total=total,
-        page=pagination.page,
-        per_page=pagination.limit,
-        pages=pages
-    )
+                                items=items,
+                                total=total,
+                                page=pagination.page,
+                                per_page=pagination.limit,
+                                pages=pages
+                            )
 
 @router.get("/list", response_model=PaginatedResponse[OrganizationListResponse])
 async def get_organization_list(
-    pagination: PaginationParams = Depends(),
-    search: Optional[str] = Query(None, description="Поиск по названию, ИНН"),
-    customer: Optional[bool] = Query(None, description="Только заказчики"),
-    executor: Optional[bool] = Query(None, description="Только подрядчики"),
-    region_id: Optional[int] = Query(None, ge=1, description="Фильтр по региону"),
-    bank_id: Optional[int] = Query(None, ge=1, description="Фильтр по банку"),
-    sort_by: str = Query("name", description="Поле сортировки"),
-    sort_order: str = Query("asc", regex="^(asc|desc)$"),
-    current_user: User = Depends(get_current_active_user)
-):
+                                pagination: PaginationParams = Depends(),
+                                search: Optional[str] = Query(None, description="Поиск по названию, ИНН"),
+                                customer: Optional[bool] = Query(None, description="Только заказчики"),
+                                executor: Optional[bool] = Query(None, description="Только подрядчики"),
+                                region_id: Optional[int] = Query(None, ge=1, description="Фильтр по региону"),
+                                bank_id: Optional[int] = Query(None, ge=1, description="Фильтр по банку"),
+                                sort_by: str = Query("name", description="Поле сортировки"),
+                                sort_order: str = Query("asc", regex="^(asc|desc)$"),
+                                current_user: User = Depends(get_current_active_user)
+                                ):
     """
     Получить список организаций с пагинацией
     
     Требуется право: organization_read
     """
     organizations, total = await org_service.get_organizations_paginated(
-                                                    pagination=pagination,
-                                                    current_user=current_user,
-                                                    search=search,
-                                                    customer=customer,
-                                                    executor=executor,
-                                                    region_id=region_id,
-                                                    bank_id=bank_id,
-                                                    sort_by=sort_by,
-                                                    sort_order=sort_order
-                                                )
+                                                                        pagination=pagination,
+                                                                        current_user=current_user,
+                                                                        search=search,
+                                                                        customer=customer,
+                                                                        executor=executor,
+                                                                        region_id=region_id,
+                                                                        bank_id=bank_id,
+                                                                        sort_by=sort_by,
+                                                                        sort_order=sort_order
+                                                                        )
     
     # Преобразуем в список для ответа
     items = []
     for org in organizations:
         items.append({
-            "id": org.id,
-            "name": org.name,
-            "short_name": org.short_name,
-            "inn": org.inn,
-            "customer": org.customer,
-            "executor": org.executor,
-            "bank_name": org.bank.name if org.bank else None,
-            "region_name": org.region.name if org.region else None
-        })
+                    "id": org.id,
+                    "name": org.name,
+                    "short_name": org.short_name,
+                    "inn": org.inn,
+                    "customer": org.customer,
+                    "executor": org.executor,
+                    "bank_name": org.bank.name if org.bank else None,
+                    "region_name": org.region.name if org.region else None
+                    })
     
     pages = (total + pagination.limit - 1) // pagination.limit
     
     return PaginatedResponse(
-        items=items,
-        total=total,
-        page=pagination.page,
-        per_page=pagination.limit,
-        pages=pages
-    )
+                            items=items,
+                            total=total,
+                            page=pagination.page,
+                            per_page=pagination.limit,
+                            pages=pages
+                            )
 
 @router.get("/all", response_model=List[OrganizationListResponse])
 async def get_all_organizations(
-    current_user: User = Depends(get_current_active_user)
-):
+                                current_user: User = Depends(get_current_active_user)
+                                ):
     """
     Получить все организации (без пагинации)
     
     Требуется право: organization_read
     """
-    organizations = await org_service.get_all_organizations(current_user)
+    organizations = await org_service.get_all_organizations(
+                                                            current_user,
+                                                            load_relations = False)
     
-    return [
-        {
-            "id": org.id,
-            "name": org.name,
-            "short_name": org.short_name,
-            "inn": org.inn,
-            "customer": org.customer,
-            "executor": org.executor,
-            "bank_name": org.bank.name if org.bank else None,
-            "region_name": org.region.name if org.region else None
-        }
-        for org in organizations
-    ]
+    return organizations
 
 @router.get("/{organization_id}", response_model=OrganizationResponse)
 async def get_organization_by_id(
-    organization_id: int,
-    current_user: User = Depends(get_current_active_user)
-):
+                                organization_id: int,
+                                current_user: User = Depends(get_current_active_user)
+                                ):
     """
     Получить организацию по ID
     
     Требуется право: organization_read
     """
     organization = await org_service.get_organization_by_id(
-        organization_id,
-        current_user,
-        load_relations=True
-    )
+                                                            organization_id,
+                                                            current_user,
+                                                            load_relations=True
+                                                            )
     
     # Преобразуем в dict для ответа
     org_dict = {

@@ -16,6 +16,9 @@ from schema.user import (
                         )
 
 
+from utils.timer import timer
+
+@timer
 # Функция добавления строки в БД
 async def create(
                     session: AsyncSession,
@@ -28,6 +31,7 @@ async def create(
     await session.commit()
     return True
 
+@timer
 # Функция проверки на наличие уникальности полей 
 #   при создании или изменении пользователя
 async def check_user_exists(
@@ -79,6 +83,7 @@ async def check_user_exists(
     
     return None
 
+@timer
 # Функция проверки существования роли для пользователя
 async def check_role_exists(
                             session: AsyncSession,
@@ -88,6 +93,7 @@ async def check_role_exists(
     result = await session.execute(select(Role).where(Role.id == role_id))
     return result.scalar_one_or_none() is not None
 
+@timer
 # Функция получения списка всех пользователй из БД
 async def get_all(session: AsyncSession):
     """
@@ -100,6 +106,7 @@ async def get_all(session: AsyncSession):
     # users = [user for user in users if user.name != 'superadmin']
     return users
 
+@timer
 async def get_all_paginated(
     session: AsyncSession,
     skip: int = 0,
@@ -156,6 +163,7 @@ async def get_all_paginated(
     
     return items, total
 
+@timer
 async def get_one_by_name(
                             session: AsyncSession,
                             name: str) -> User:
@@ -169,6 +177,7 @@ async def get_one_by_name(
     user = res.scalars().one_or_none()
     return user
 
+@timer
 async def get_one_by_id(
                         session: AsyncSession,
                         id: int) -> User:
@@ -182,6 +191,7 @@ async def get_one_by_id(
     user = res.scalars().one_or_none()
     return user
 
+@timer
 async def get_one_by_email(
                             session: AsyncSession,
                             email: str) -> User:
@@ -195,6 +205,7 @@ async def get_one_by_email(
     user = res.scalars().one_or_none()
     return user
 
+@timer
 async def modify(
                     session: AsyncSession,
                     user: User
@@ -208,7 +219,7 @@ async def modify(
     await session.commit()
     return await get_one(orig_user.name)
 
-
+@timer
 async def delete_by_name(
                             session: AsyncSession,
                             name: str
@@ -221,6 +232,7 @@ async def delete_by_name(
     await session.commit()
     return True
 
+@timer
 async def create_user(
                         session: AsyncSession,
                         user_create: UserRequest
@@ -277,6 +289,7 @@ async def create_user(
     )
     return result.scalar_one()
 
+@timer
 async def update_user(
                         session: AsyncSession,
                         user_id: int,
@@ -345,6 +358,7 @@ async def update_user(
     )
     return result.scalar_one()
 
+@timer
 async def patch_user(
                         session: AsyncSession,
                         user_id: int,
@@ -383,6 +397,7 @@ async def patch_user(
     )
     return result.scalar_one()
 
+@timer
 async def delete_by_id(
                         session: AsyncSession,
                         user_id: int

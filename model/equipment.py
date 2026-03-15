@@ -1,54 +1,81 @@
 from typing import List, TYPE_CHECKING
 from datetime import date
 
-from sqlalchemy import (
-                        ForeignKey,
-                        text, 
-                        Text
-)
-from sqlalchemy.orm import (
-                            DeclarativeBase, 
-                            Mapped, 
-                            mapped_column, 
-                            relationship
-)
-from database.database import (
-                                Base, 
-                                int_pk, 
-                                str_uniq, 
-                                str_null_true
-)
+from sqlalchemy import ForeignKey, UniqueConstraint
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-
-from model.spec_equipment import Spec_Equipment
-# from model.objects_equipment import Objects_Equipment
+from database.database import Base, int_pk, str_uniq
 
 
 class Equipment(Base):
+    """
+    Модель оборудования - упрощенная версия для первой итерации
     
-    __table_args__ = {"extend_existing":True}
+    Связана с:
+    - spec_equipment (тип оборудования)
+    - objects_equipments (связка с объектами)
+    """
+    
+    __tablename__ = "equipments"
+    
+    __table_args__ = (
+        UniqueConstraint('inventory_number', name='uq_equipments_inventory_number'),
+        UniqueConstraint('serial_number', name='uq_equipments_serial_number'),
+    )
 
     id: Mapped[int_pk]
-    name: Mapped[str_uniq]
-    spec_equipment_id: Mapped[int] = mapped_column(ForeignKey("spec_equipments.id"))   # тип оборудования
+    name: Mapped[str_uniq] = mapped_column(
+        comment="Наименование оборудования"
+    )
+    
+    # Уникальные идентификаторы (обязательные)
+    inventory_number: Mapped[str] = mapped_column(
+        unique=True, 
+        nullable=False, 
+        comment="Инвентарный номер (уникальный)"
+    )
+    serial_number: Mapped[str] = mapped_column(
+        unique=True, 
+        nullable=False, 
+        comment="Серийный (заводской) номер (уникальный)"
+    )
+    
+    # Дата установки (обязательная)
+    installation_date: Mapped[date] = mapped_column(
+        nullable=False, 
+        comment="Дата установки/ввода в эксплуатацию"
+    )
+    
+    # Статус (упрощенный)
+    is_active: Mapped[bool] = mapped_column(
+        default=True,
+        comment="Активно (true) / списано (false)"
+    )
+    
+    # Внешние ключи
+    spec_equipment_id: Mapped[int] = mapped_column(
+        ForeignKey("spec_equipments.id"), 
+        nullable=False,
+        comment="ID типа оборудования"
+    )
 
-    # одно наименование оборудования относится к одному типу оборудования
+    # Отношения
     spec_equipment: Mapped["Spec_Equipment"] = relationship(
-                                                                "Spec_Equipment",
-                                                                back_populates="equipments",  # ✅ Должно совпадать с полем в Spec_Equipment
-                                                                lazy="selectin"
-                                                            )
+        "Spec_Equipment",
+        back_populates="equipments",
+        lazy="selectin"
+    )
 
-    # наименование оборудования на объекте
-    objects_equipment: Mapped["Objects_Equipment"] = relationship("Objects_Equipment",
-                                                                    lazy="selectin",
-                                                                    back_populates="equipments")
+    # Связь с объектами через промежуточную таблицу
+    objects_equipments: Mapped[List["Objects_Equipment"]] = relationship(
+        "Objects_Equipment",
+        back_populates="equipment",
+        lazy="selectin",
+        cascade="all, delete-orphan"
+    )
 
     def __str__(self):
-        return f"{self.__class__.__name__}(id={self.id}, name={self.name})"
+        return f"Equipment(id={self.id}, name={self.name}, inv={self.inventory_number})"
 
     def __repr__(self):
         return str(self)
-
-
-

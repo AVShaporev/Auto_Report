@@ -1,19 +1,43 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, or_
 from sqlalchemy.orm import selectinload
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, Dict
 
 from model.region import Region
+from model.organization import Organization
+from model.object import Object
 from schema.region import RegionCreate, RegionUpdate
+
+from utils.timer import timer
+
+@timer
+async def get_organizations_count_by_region(session: AsyncSession) -> Dict[int, int]:
+    """Возвращает словарь {region_id: количество организаций}."""
+    query = select(Region.id, func.count(Organization.id)).join(
+                                                                    Organization, Organization.region_id == Region.id, isouter=True
+                                                                ).group_by(Region.id)
+    result = await session.execute(query)
+    return dict(result.all())
+
+@timer
+async def get_objects_count_by_region(session: AsyncSession) -> Dict[int, int]:
+    """Возвращает словарь {region_id: количество объектов}."""
+    query = select(Region.id, func.count(Object.id)).join(
+                                                            Object, Object.region_id == Region.id, isouter=True
+                                                        ).group_by(Region.id)
+    result = await session.execute(query)
+    return dict(result.all())
+
 
 # ========== ПОЛУЧЕНИЕ ==========
 
-async def get_by_id(
-    session: AsyncSession,
-    region_id: int,
-    *,
-    load_relations: bool = False
-) -> Optional[Region]:
+@timer
+async def get_region_by_id(
+                            session: AsyncSession,
+                            region_id: int,
+                            *,
+                            load_relations: bool = False
+                            ) -> Optional[Region]:
     """
     Получить регион по ID
     
@@ -34,53 +58,54 @@ async def get_by_id(
     result = await session.execute(query)
     return result.scalar_one_or_none()
 
-async def get_by_name(
-    session: AsyncSession,
-    name: str
-) -> Optional[Region]:
+@timer
+async def get_region_by_name(
+                            session: AsyncSession,
+                            name: str
+                            ) -> Optional[Region]:
     """Получить регион по названию"""
     query = select(Region).where(Region.name == name)
     result = await session.execute(query)
     return result.scalar_one_or_none()
 
-async def get_by_symbol(
-    session: AsyncSession,
-    symbol: str
-) -> Optional[Region]:
+@timer
+async def get_region_by_symbol(
+                                session: AsyncSession,
+                                symbol: str
+                                ) -> Optional[Region]:
     """Получить регион по символьному коду"""
     query = select(Region).where(Region.symbol == symbol)
     result = await session.execute(query)
     return result.scalar_one_or_none()
 
-async def get_all(
-    session: AsyncSession,
-    *,
-    load_relations: bool = False
-) -> List[Region]:
+@timer
+async def get_region_all(
+                        session: AsyncSession,
+                        *,
+                        load_relations: bool = False
+                        ) -> List[Region]:
     """Получить все регионы"""
     query = select(Region).order_by(Region.name)
     
     if load_relations:
-        query = query.options(
-            selectinload(Region.spec_region),
-            selectinload(Region.organizations),
-            selectinload(Region.objects)
-        )
+        # загружаем только spec_region (отношение многие-к-одному)
+        query = query.options(selectinload(Region.spec_region))
     
     result = await session.execute(query)
     return result.scalars().all()
 
-async def get_paginated(
-    session: AsyncSession,
-    skip: int = 0,
-    limit: int = 20,
-    search: Optional[str] = None,
-    spec_region_id: Optional[int] = None,
-    sort_by: str = "name",
-    sort_order: str = "asc",
-    *,
-    load_relations: bool = False
-) -> Tuple[List[Region], int]:
+@timer
+async def get_region_paginated(
+                                session: AsyncSession,
+                                skip: int = 0,
+                                limit: int = 20,
+                                search: Optional[str] = None,
+                                spec_region_id: Optional[int] = None,
+                                sort_by: str = "name",
+                                sort_order: str = "asc",
+                                *,
+                                load_relations: bool = False
+                                ) -> Tuple[List[Region], int]:
     """
     Получить список регионов с пагинацией и фильтрацией
     """
@@ -134,9 +159,10 @@ async def get_paginated(
 
 # ========== ПОЛУЧЕНИЕ ДЛЯ ВЫПАДАЮЩИХ СПИСКОВ ==========
 
-async def get_options(
-    session: AsyncSession
-) -> List[Region]:
+@timer
+async def get_region_options(
+                            session: AsyncSession
+                            ) -> List[Region]:
     """
     Получить минимальную информацию о регионах для выпадающих списков
     """
@@ -146,11 +172,12 @@ async def get_options(
 
 # ========== ПРОВЕРКА УНИКАЛЬНОСТИ ==========
 
-async def check_name_exists(
-    session: AsyncSession,
-    name: str,
-    exclude_id: Optional[int] = None
-) -> bool:
+@timer
+async def check_region_name_exists(
+                                    session: AsyncSession,
+                                    name: str,
+                                    exclude_id: Optional[int] = None
+                                    ) -> bool:
     """Проверить, существует ли регион с таким названием"""
     query = select(Region).where(Region.name == name)
     if exclude_id:
@@ -159,11 +186,12 @@ async def check_name_exists(
     result = await session.execute(query)
     return result.scalar_one_or_none() is not None
 
-async def check_symbol_exists(
-    session: AsyncSession,
-    symbol: str,
-    exclude_id: Optional[int] = None
-) -> bool:
+@timer
+async def check_region_symbol_exists(
+                                    session: AsyncSession,
+                                    symbol: str,
+                                    exclude_id: Optional[int] = None
+                                    ) -> bool:
     """Проверить, существует ли регион с таким символьным кодом"""
     query = select(Region).where(Region.symbol == symbol)
     if exclude_id:
@@ -174,10 +202,11 @@ async def check_symbol_exists(
 
 # ========== ПРОВЕРКА СУЩЕСТВОВАНИЯ ТИПА РЕГИОНА ==========
 
-async def check_spec_region_exists(
-    session: AsyncSession,
-    spec_region_id: int
-) -> bool:
+@timer
+async def check_region_spec_region_exists(
+                                            session: AsyncSession,
+                                            spec_region_id: int
+                                            ) -> bool:
     """Проверить, существует ли тип региона с указанным ID"""
     from model.spec_region import Spec_Region
     
@@ -187,10 +216,11 @@ async def check_spec_region_exists(
 
 # ========== ПОДСЧЕТ СВЯЗАННЫХ ОБЪЕКТОВ ==========
 
-async def count_organizations(
-    session: AsyncSession,
-    region_id: int
-) -> int:
+@timer
+async def count_region_organizations(
+                                    session: AsyncSession,
+                                    region_id: int
+                                    ) -> int:
     """
     Посчитать количество организаций в регионе
     """
@@ -202,10 +232,11 @@ async def count_organizations(
     result = await session.execute(query)
     return result.scalar() or 0
 
-async def count_objects(
-    session: AsyncSession,
-    region_id: int
-) -> int:
+@timer
+async def count_region_objects(
+                                session: AsyncSession,
+                                region_id: int
+                                ) -> int:
     """
     Посчитать количество объектов в регионе
     """
@@ -219,10 +250,11 @@ async def count_objects(
 
 # ========== СОЗДАНИЕ ==========
 
-async def create(
-    session: AsyncSession,
-    region_create: RegionCreate
-) -> Region:
+@timer
+async def create_region(
+                        session: AsyncSession,
+                        region_create: RegionCreate
+                        ) -> Region:
     """Создать новый регион"""
     region = Region(**region_create.dict())
     session.add(region)
@@ -232,11 +264,12 @@ async def create(
 
 # ========== ОБНОВЛЕНИЕ ==========
 
-async def update(
-    session: AsyncSession,
-    region_id: int,
-    region_update: RegionUpdate
-) -> Optional[Region]:
+@timer
+async def update_region(
+                        session: AsyncSession,
+                        region_id: int,
+                        region_update: RegionUpdate
+                        ) -> Optional[Region]:
     """Обновить регион"""
     region = await get_by_id(session, region_id, load_relations=False)
     if not region:
@@ -253,10 +286,11 @@ async def update(
 
 # ========== УДАЛЕНИЕ ==========
 
-async def delete(
-    session: AsyncSession,
-    region_id: int
-) -> bool:
+@timer
+async def delete_region(
+                        session: AsyncSession,
+                        region_id: int
+                        ) -> bool:
     """Удалить регион"""
     region = await session.get(Region, region_id)
     if not region:

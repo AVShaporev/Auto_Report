@@ -152,7 +152,7 @@ async def update_spec_job_title(
             }
 
 @router.delete("/{spec_job_title_id}")
-async def delete_spec_job_title(
+async def delete_spec_job_title_api(
     spec_job_title_id: int,
     current_user: User = Depends(get_current_active_user)
 ):

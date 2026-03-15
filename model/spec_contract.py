@@ -15,7 +15,6 @@ from database.database import (
                                 str_uniq, 
                                 str_null_true
 )
-# from model.contract import Contract
 
 
 class Spec_Contract(Base):

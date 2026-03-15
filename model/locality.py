@@ -19,10 +19,6 @@ from database.database import (
                                 str_null_true
 )
 
-from model.spec_locality import Spec_Locality
-# from model.organization import Organization
-# from model.object import Object
-
 
 # модель типа населенного пункта
 class Locality(Base):
@@ -32,19 +28,16 @@ class Locality(Base):
     spec_locality_id: Mapped[int] = mapped_column(ForeignKey("spec_localitys.id"), nullable=True)
 
     # один населенный пункт - один тип населенного пункта
-    spec_locality: Mapped[Spec_Locality] = relationship(Spec_Locality,
-                                                            lazy="selectin")
+    spec_locality: Mapped["Spec_Locality"] = relationship("Spec_Locality")
 
     # в одном насленном пункте может быть несколько организаций
     organizations: Mapped[List["Organization"]] = relationship("Organization",
-                                                                back_populates="locality",
-                                                                lazy="selectin")
+                                                                back_populates="locality")
 
     # в одном насленном пункте может быть несколько объектов
     objects: Mapped[List["Object"]] = relationship(
-                                                        "Object",
-                                                        back_populates="locality",
-                                                        lazy="selectin"
+                                                    "Object",
+                                                    back_populates="locality"
                                                     )
 
     def __str__(self):

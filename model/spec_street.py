@@ -24,6 +24,13 @@ class Spec_Street(Base):
     name: Mapped[str_uniq]
 
     # к одному типу улицы может относится несколько улиц
-    streets: Mapped[List["Street"]] = relationship("Street",
-                                                    back_populates="spec_street",
-                                                    lazy="selectin")
+    streets: Mapped[List["Street"]] = relationship(
+                                                    "Street",
+                                                    back_populates="spec_street"
+                                                    )
+
+    def __str__(self):
+        return f"{self.__class__.__name__}(id={self.id}, name={self.name})"
+
+    def __repr__(self):
+        return str(self)

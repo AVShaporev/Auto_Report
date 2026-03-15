@@ -12,10 +12,6 @@ from database.database import (Base,
                                 str_null_true)
 
 
-from model.spec_arial import Spec_Arial
-
-
-
 # модель района
 class Arial(Base):
 
@@ -29,16 +25,17 @@ class Arial(Base):
                                                         lazy="selectin")
 
     # в одном районе может находиться несколько организаций
-    organizations: Mapped[List["Organization"]] = relationship("Organization",
-                                                                back_populates="arial")
+    organizations: Mapped[List["Organization"]] = relationship(
+                                                                "Organization",
+                                                                back_populates="arial"
+                                                                )
 
 
     # в одном районе может находиться несколько объектов
     objects: Mapped[List["Object"]] = relationship(
                                                     "Object",
-                                                    back_populates="arial",  # ✅ Должно быть
-                                                    lazy="selectin"
-                                                )
+                                                    back_populates="arial"
+                                                    )
 
     def __str__(self):
         return f"{self.__class__.__name__}(id={self.id}, name={self.name})"

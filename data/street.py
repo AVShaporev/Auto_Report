@@ -6,14 +6,18 @@ from typing import Optional, List, Tuple
 from model.street import Street
 from schema.street import StreetCreate, StreetUpdate
 
+from utils.timer import timer
+
+
 # ========== ПОЛУЧЕНИЕ ==========
 
-async def get_by_id(
-    session: AsyncSession,
-    street_id: int,
-    *,
-    load_relations: bool = False
-) -> Optional[Street]:
+@timer
+async def get_street_by_id(
+                            session: AsyncSession,
+                            street_id: int,
+                            *,
+                            load_relations: bool = False
+                            ) -> Optional[Street]:
     """
     Получить улицу по ID
     
@@ -34,44 +38,47 @@ async def get_by_id(
     result = await session.execute(query)
     return result.scalar_one_or_none()
 
-async def get_by_name(
-    session: AsyncSession,
-    name: str
-) -> Optional[Street]:
+@timer
+async def get_street_by_name(
+                            session: AsyncSession,
+                            name: str
+                            ) -> Optional[Street]:
     """Получить улицу по названию"""
     query = select(Street).where(Street.name == name)
     result = await session.execute(query)
     return result.scalar_one_or_none()
 
-async def get_all(
-    session: AsyncSession,
-    *,
-    load_relations: bool = False
-) -> List[Street]:
+@timer
+async def get_street_all(
+                        session: AsyncSession,
+                        *,
+                        load_relations: bool = False
+                        ) -> List[Street]:
     """Получить все улицы"""
     query = select(Street).order_by(Street.name)
     
     if load_relations:
         query = query.options(
-            selectinload(Street.spec_street),
-            selectinload(Street.organizations),
-            selectinload(Street.objects)
-        )
+                                selectinload(Street.spec_street),
+                                selectinload(Street.organizations),
+                                selectinload(Street.objects)
+                                )
     
     result = await session.execute(query)
     return result.scalars().all()
 
-async def get_paginated(
-    session: AsyncSession,
-    skip: int = 0,
-    limit: int = 20,
-    search: Optional[str] = None,
-    spec_street_id: Optional[int] = None,
-    sort_by: str = "name",
-    sort_order: str = "asc",
-    *,
-    load_relations: bool = False
-) -> Tuple[List[Street], int]:
+@timer
+async def get_street_paginated(
+                                session: AsyncSession,
+                                skip: int = 0,
+                                limit: int = 20,
+                                search: Optional[str] = None,
+                                spec_street_id: Optional[int] = None,
+                                sort_by: str = "name",
+                                sort_order: str = "asc",
+                                *,
+                                load_relations: bool = False
+                                ) -> Tuple[List[Street], int]:
     """
     Получить список улиц с пагинацией и фильтрацией
     """
@@ -103,10 +110,10 @@ async def get_paginated(
     # Загрузка связанных данных (если запрошено)
     if load_relations:
         query = query.options(
-            selectinload(Street.spec_street),
-            selectinload(Street.organizations),
-            selectinload(Street.objects)
-        )
+                                selectinload(Street.spec_street),
+                                selectinload(Street.organizations),
+                                selectinload(Street.objects)
+                                )
     
     # Пагинация
     query = query.offset(skip).limit(limit)
@@ -122,9 +129,10 @@ async def get_paginated(
 
 # ========== ПОЛУЧЕНИЕ ДЛЯ ВЫПАДАЮЩИХ СПИСКОВ ==========
 
-async def get_options(
-    session: AsyncSession
-) -> List[Street]:
+@timer
+async def get_street_options(
+                            session: AsyncSession
+                            ) -> List[Street]:
     """
     Получить минимальную информацию об улицах для выпадающих списков
     """
@@ -132,10 +140,11 @@ async def get_options(
     result = await session.execute(query)
     return result.scalars().all()
 
-async def get_options_by_spec_street(
-    session: AsyncSession,
-    spec_street_id: int
-) -> List[Street]:
+@timer
+async def get_street_options_by_spec_street(
+                                            session: AsyncSession,
+                                            spec_street_id: int
+                                            ) -> List[Street]:
     """
     Получить минимальную информацию об улицах для выпадающих списков по типу
     """
@@ -145,11 +154,12 @@ async def get_options_by_spec_street(
 
 # ========== ПРОВЕРКА УНИКАЛЬНОСТИ ==========
 
-async def check_name_exists(
-    session: AsyncSession,
-    name: str,
-    exclude_id: Optional[int] = None
-) -> bool:
+@timer
+async def check_street_name_exists(
+                                    session: AsyncSession,
+                                    name: str,
+                                    exclude_id: Optional[int] = None
+                                    ) -> bool:
     """Проверить, существует ли улица с таким названием"""
     query = select(Street).where(Street.name == name)
     if exclude_id:
@@ -160,10 +170,11 @@ async def check_name_exists(
 
 # ========== ПРОВЕРКА СУЩЕСТВОВАНИЯ ТИПА УЛИЦЫ ==========
 
-async def check_spec_street_exists(
-    session: AsyncSession,
-    spec_street_id: int
-) -> bool:
+@timer
+async def check_street_spec_street_exists(
+                                            session: AsyncSession,
+                                            spec_street_id: int
+                                            ) -> bool:
     """Проверить, существует ли тип улицы с указанным ID"""
     from model.spec_street import Spec_Street
     
@@ -173,10 +184,11 @@ async def check_spec_street_exists(
 
 # ========== ПОДСЧЕТ СВЯЗАННЫХ ОБЪЕКТОВ ==========
 
-async def count_organizations(
-    session: AsyncSession,
-    street_id: int
-) -> int:
+@timer
+async def count_street_organizations(
+                                    session: AsyncSession,
+                                    street_id: int
+                                    ) -> int:
     """
     Посчитать количество организаций на улице
     """
@@ -188,27 +200,29 @@ async def count_organizations(
     result = await session.execute(query)
     return result.scalar() or 0
 
-async def count_objects(
-    session: AsyncSession,
-    street_id: int
-) -> int:
+@timer
+async def count_street_objects(
+                                session: AsyncSession,
+                                street_id: int
+                                ) -> int:
     """
     Посчитать количество объектов на улице
     """
     from model.object import Object
     
     query = select(func.count()).select_from(Object).where(
-        Object.street_id == street_id
-    )
+                                                            Object.street_id == street_id
+                                                            )
     result = await session.execute(query)
     return result.scalar() or 0
 
 # ========== СОЗДАНИЕ ==========
 
-async def create(
-    session: AsyncSession,
-    street_create: StreetCreate
-) -> Street:
+@timer
+async def create_street(
+                        session: AsyncSession,
+                        street_create: StreetCreate
+                        ) -> Street:
     """Создать новую улицу"""
     street = Street(**street_create.dict())
     session.add(street)
@@ -218,11 +232,12 @@ async def create(
 
 # ========== ОБНОВЛЕНИЕ ==========
 
-async def update(
-    session: AsyncSession,
-    street_id: int,
-    street_update: StreetUpdate
-) -> Optional[Street]:
+@timer
+async def update_street(
+                        session: AsyncSession,
+                        street_id: int,
+                        street_update: StreetUpdate
+                        ) -> Optional[Street]:
     """Обновить улицу"""
     street = await get_by_id(session, street_id, load_relations=False)
     if not street:
@@ -239,10 +254,11 @@ async def update(
 
 # ========== УДАЛЕНИЕ ==========
 
-async def delete(
-    session: AsyncSession,
-    street_id: int
-) -> bool:
+@timer
+async def delete_street(
+                        session: AsyncSession,
+                        street_id: int
+                        ) -> bool:
     """Удалить улицу"""
     street = await session.get(Street, street_id)
     if not street:

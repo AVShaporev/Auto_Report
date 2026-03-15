@@ -37,13 +37,10 @@ async def login(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    access_token = security.create_access_token(user[0].name)
-    refresh_token = security.create_refresh_token(user[0].name)
+    access_token = security.create_access_token(user.name)
+    refresh_token = security.create_refresh_token(user.name)
     
-    # # Сохраняем refresh токен в БД (опционально)
-    # crud_user.update_refresh_token(db, user.id, refresh_token)
-    
-    user = UserLogin.model_validate(user[0])
+    user = UserLogin.model_validate(user)
 
     response_auth_user = LoginResponse(user=user,
                                         access_token=access_token,
@@ -72,10 +69,6 @@ async def refresh_token(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid refresh token"
         )
-
-
-    
-    
     new_access_token = security.create_access_token(user.username)
     return {
         "access_token": new_access_token,
@@ -84,34 +77,9 @@ async def refresh_token(
     }
 
 
-@router.get("/me")
+@router.get("/me", response_model=UserLogin)
 async def login(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user)
 ):
     return user
-
-
-# @router.post("/register", response_model=user_schema.UserInDB)
-# async def register(
-#     user_in: user_schema.UserCreate,
-#     db: Session = Depends(get_db)
-# ):
-#     user = crud_user.get_user_by_email(db, email=user_in.email)
-#     if user:
-#         raise HTTPException(
-#             status_code=status.HTTP_400_BAD_REQUEST,
-#             detail="Email already registered"
-#         )
-    
-#     user = crud_user.create_user(db=db, user=user_in)
-#     return user
-
-# @router.post("/logout")
-# async def logout(
-#     current_user = Depends(get_current_active_user),
-#     db: Session = Depends(get_db)
-# ):
-#     # Инвалидируем refresh токен
-#     crud_user.update_refresh_token(db, current_user.id, None)
-#     return {"message": "Successfully logged out"}

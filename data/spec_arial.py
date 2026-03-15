@@ -6,8 +6,12 @@ from typing import Optional, List, Tuple
 from model.spec_arial import Spec_Arial
 from schema.spec_arial import SpecArialCreate, SpecArialUpdate
 
+from utils.timer import timer
+
+
 # ========== ПОЛУЧЕНИЕ ==========
 
+@timer
 async def get_by_id(
     session: AsyncSession,
     spec_arial_id: int,
@@ -30,6 +34,7 @@ async def get_by_id(
     result = await session.execute(query)
     return result.scalar_one_or_none()
 
+@timer
 async def get_by_name(
     session: AsyncSession,
     name: str
@@ -39,6 +44,7 @@ async def get_by_name(
     result = await session.execute(query)
     return result.scalar_one_or_none()
 
+@timer
 async def get_all(
     session: AsyncSession,
     *,
@@ -53,6 +59,7 @@ async def get_all(
     result = await session.execute(query)
     return result.scalars().all()
 
+@timer
 async def get_paginated(
     session: AsyncSession,
     skip: int = 0,
@@ -104,6 +111,7 @@ async def get_paginated(
 
 # ========== ПОЛУЧЕНИЕ ДЛЯ ВЫПАДАЮЩИХ СПИСКОВ ==========
 
+@timer
 async def get_options(
     session: AsyncSession
 ) -> List[Spec_Arial]:
@@ -116,6 +124,7 @@ async def get_options(
 
 # ========== ПРОВЕРКА УНИКАЛЬНОСТИ ==========
 
+@timer
 async def check_name_exists(
     session: AsyncSession,
     name: str,
@@ -131,6 +140,7 @@ async def check_name_exists(
 
 # ========== ПОДСЧЕТ СВЯЗАННЫХ ОБЪЕКТОВ ==========
 
+@timer
 async def count_arials(
     session: AsyncSession,
     spec_arial_id: int
@@ -150,6 +160,7 @@ async def count_arials(
 
 # ========== СОЗДАНИЕ ==========
 
+@timer
 async def create(
     session: AsyncSession,
     spec_arial_create: SpecArialCreate
@@ -163,6 +174,7 @@ async def create(
 
 # ========== ОБНОВЛЕНИЕ ==========
 
+@timer
 async def update(
     session: AsyncSession,
     spec_arial_id: int,
@@ -184,6 +196,7 @@ async def update(
 
 # ========== УДАЛЕНИЕ ==========
 
+@timer
 async def delete(
     session: AsyncSession,
     spec_arial_id: int

@@ -6,8 +6,12 @@ from model.role import Role
 from model.user import User
 from schema.role import RoleCreate, RoleUpdate
 
+from utils.timer import timer
+
+
 # ========== ПОЛУЧЕНИЕ ==========
 
+@timer
 async def get_by_id(
     session: AsyncSession,
     role_id: int,
@@ -23,6 +27,7 @@ async def get_by_id(
     result = await session.execute(query)
     return result.scalar_one_or_none()
 
+@timer
 async def get_by_name(
     session: AsyncSession,
     name: str
@@ -34,6 +39,7 @@ async def get_by_name(
     result = await session.execute(query)
     return result.scalar_one_or_none()
 
+@timer
 async def get_all(
     session: AsyncSession,
     load_users: bool = False
@@ -48,6 +54,7 @@ async def get_all(
     result = await session.execute(query)
     return result.scalars().all()
 
+@timer
 async def get_paginated(
     session: AsyncSession,
     skip: int = 0,
@@ -104,6 +111,7 @@ async def get_paginated(
     
     return items, total
 
+@timer
 async def get_with_users_count(
     session: AsyncSession,
     role_id: int
@@ -120,6 +128,7 @@ async def get_with_users_count(
 
 # ========== ПРОВЕРКА СУЩЕСТВОВАНИЯ ==========
 
+@timer
 async def check_name_exists(
     session: AsyncSession,
     name: str,
@@ -137,6 +146,7 @@ async def check_name_exists(
 
 # ========== СОЗДАНИЕ ==========
 
+@timer
 async def create(
     session: AsyncSession,
     role_create: RoleCreate
@@ -152,6 +162,7 @@ async def create(
 
 # ========== ОБНОВЛЕНИЕ ==========
 
+@timer
 async def update(
     session: AsyncSession,
     role_id: int,
@@ -178,6 +189,7 @@ async def update(
 
 # ========== УДАЛЕНИЕ ==========
 
+@timer
 async def delete(
     session: AsyncSession,
     role_id: int
@@ -199,6 +211,7 @@ async def delete(
 
 # ========== ДОПОЛНИТЕЛЬНЫЕ ОПЕРАЦИИ ==========
 
+@timer
 async def get_permissions_matrix(
     session: AsyncSession,
     role_id: int

@@ -6,14 +6,18 @@ from typing import Optional, List, Tuple
 from model.spec_street import Spec_Street
 from schema.spec_street import SpecStreetCreate, SpecStreetUpdate
 
+from utils.timer import timer
+
+
 # ========== ПОЛУЧЕНИЕ ==========
 
-async def get_by_id(
-    session: AsyncSession,
-    spec_street_id: int,
-    *,
-    load_streets: bool = False
-) -> Optional[Spec_Street]:
+@timer
+async def get_spec_street_by_id(
+                                session: AsyncSession,
+                                spec_street_id: int,
+                                *,
+                                load_streets: bool = False
+                                ) -> Optional[Spec_Street]:
     """
     Получить тип улицы по ID
     
@@ -30,20 +34,22 @@ async def get_by_id(
     result = await session.execute(query)
     return result.scalar_one_or_none()
 
-async def get_by_name(
-    session: AsyncSession,
-    name: str
-) -> Optional[Spec_Street]:
+@timer
+async def get_spec_street_by_name(
+                                    session: AsyncSession,
+                                    name: str
+                                    ) -> Optional[Spec_Street]:
     """Получить тип улицы по названию"""
     query = select(Spec_Street).where(Spec_Street.name == name)
     result = await session.execute(query)
     return result.scalar_one_or_none()
 
-async def get_all(
-    session: AsyncSession,
-    *,
-    load_streets: bool = False
-) -> List[Spec_Street]:
+@timer
+async def get_spec_street_all(
+                                session: AsyncSession,
+                                *,
+                                load_streets: bool = False
+                                ) -> List[Spec_Street]:
     """Получить все типы улиц"""
     query = select(Spec_Street).order_by(Spec_Street.name)
     
@@ -53,16 +59,17 @@ async def get_all(
     result = await session.execute(query)
     return result.scalars().all()
 
-async def get_paginated(
-    session: AsyncSession,
-    skip: int = 0,
-    limit: int = 20,
-    search: Optional[str] = None,
-    sort_by: str = "name",
-    sort_order: str = "asc",
-    *,
-    load_streets: bool = False
-) -> Tuple[List[Spec_Street], int]:
+@timer
+async def get_spec_street_paginated(
+                                    session: AsyncSession,
+                                    skip: int = 0,
+                                    limit: int = 20,
+                                    search: Optional[str] = None,
+                                    sort_by: str = "name",
+                                    sort_order: str = "asc",
+                                    *,
+                                    load_streets: bool = False
+                                    ) -> Tuple[List[Spec_Street], int]:
     """
     Получить список типов улиц с пагинацией
     """
@@ -104,9 +111,10 @@ async def get_paginated(
 
 # ========== ПОЛУЧЕНИЕ ДЛЯ ВЫПАДАЮЩИХ СПИСКОВ ==========
 
-async def get_options(
-    session: AsyncSession
-) -> List[Spec_Street]:
+@timer
+async def get_spec_street_options(
+                        session: AsyncSession
+                        ) -> List[Spec_Street]:
     """
     Получить минимальную информацию о типах улиц для выпадающих списков
     """
@@ -116,11 +124,12 @@ async def get_options(
 
 # ========== ПРОВЕРКА УНИКАЛЬНОСТИ ==========
 
-async def check_name_exists(
-    session: AsyncSession,
-    name: str,
-    exclude_id: Optional[int] = None
-) -> bool:
+@timer
+async def check_spec_street_name_exists(
+                                        session: AsyncSession,
+                                        name: str,
+                                        exclude_id: Optional[int] = None
+                                        ) -> bool:
     """Проверить, существует ли тип улицы с таким названием"""
     query = select(Spec_Street).where(Spec_Street.name == name)
     if exclude_id:
@@ -131,10 +140,11 @@ async def check_name_exists(
 
 # ========== ПОДСЧЕТ СВЯЗАННЫХ ОБЪЕКТОВ ==========
 
-async def count_streets(
-    session: AsyncSession,
-    spec_street_id: int
-) -> int:
+@timer
+async def count_spec_street_streets(
+                                    session: AsyncSession,
+                                    spec_street_id: int
+                                    ) -> int:
     """
     Посчитать количество улиц данного типа
     
@@ -150,10 +160,11 @@ async def count_streets(
 
 # ========== СОЗДАНИЕ ==========
 
-async def create(
-    session: AsyncSession,
-    spec_street_create: SpecStreetCreate
-) -> Spec_Street:
+@timer
+async def create_spec_street(
+                            session: AsyncSession,
+                            spec_street_create: SpecStreetCreate
+                            ) -> Spec_Street:
     """Создать новый тип улицы"""
     spec_street = Spec_Street(**spec_street_create.dict())
     session.add(spec_street)
@@ -163,11 +174,12 @@ async def create(
 
 # ========== ОБНОВЛЕНИЕ ==========
 
-async def update(
-    session: AsyncSession,
-    spec_street_id: int,
-    spec_street_update: SpecStreetUpdate
-) -> Optional[Spec_Street]:
+@timer
+async def update_spec_street(
+                            session: AsyncSession,
+                            spec_street_id: int,
+                            spec_street_update: SpecStreetUpdate
+                            ) -> Optional[Spec_Street]:
     """Обновить тип улицы"""
     spec_street = await get_by_id(session, spec_street_id, load_streets=False)
     if not spec_street:
@@ -184,10 +196,11 @@ async def update(
 
 # ========== УДАЛЕНИЕ ==========
 
-async def delete(
-    session: AsyncSession,
-    spec_street_id: int
-) -> bool:
+@timer
+async def delete_spec_street(
+                            session: AsyncSession,
+                            spec_street_id: int
+                            ) -> bool:
     """Удалить тип улицы"""
     spec_street = await session.get(Spec_Street, spec_street_id)
     if not spec_street:

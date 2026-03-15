@@ -10,9 +10,12 @@ from schema.contract import (
     ContractListResponse,
     ContractOptionResponse
 )
+from schema.contract_dictionaries import ContractDictionariesResponse
 from schema.pagination import PaginationParams, PaginatedResponse
 from service import contract as contract_service
+from service import contract_dictionaries as contract_dictionaries_service
 from core.dependencies import get_current_active_user
+
 
 router = APIRouter(prefix="/api/contract", tags=["contract"])
 
@@ -78,6 +81,13 @@ async def get_contract_options(
         }
         for item in contracts
     ]
+
+@router.get("/dictionaries", response_model=ContractDictionariesResponse)
+async def get_contract_dictionaries(
+                current_user: User = Depends(get_current_active_user)
+            ):
+    """Получить все справочники для страницы договоров одним запросом"""
+    return await contract_dictionaries_service.get_contract_dictionaries(current_user)
 
 @router.get("/all", response_model=List[ContractListResponse])
 async def get_all_contracts(

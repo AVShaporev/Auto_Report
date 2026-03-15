@@ -5,13 +5,17 @@ from typing import Optional, List, Tuple
 from model.organization import Organization
 from schema.organization import OrganizationCreate, OrganizationUpdate
 
+from utils.timer import timer
+
+
 # ========== ПОЛУЧЕНИЕ ==========
 
-async def get_by_id(
-    session: AsyncSession,
-    org_id: int,
-    load_relations: bool = True
-) -> Optional[Organization]:
+@timer
+async def get_organization_by_id(
+                                session: AsyncSession,
+                                org_id: int,
+                                load_relations: bool = True
+                                ) -> Optional[Organization]:
     """
     Получить организацию по ID
     
@@ -24,23 +28,24 @@ async def get_by_id(
     
     if load_relations:
         query = query.options(
-            selectinload(Organization.bank),
-            selectinload(Organization.region),
-            selectinload(Organization.arial),
-            selectinload(Organization.locality),
-            selectinload(Organization.street),
-            selectinload(Organization.spec_build),
-            selectinload(Organization.spec_room),
-            selectinload(Organization.spec_job_title)
-        )
+                            selectinload(Organization.bank),
+                            selectinload(Organization.region),
+                            selectinload(Organization.arial),
+                            selectinload(Organization.locality),
+                            selectinload(Organization.street),
+                            selectinload(Organization.spec_build),
+                            selectinload(Organization.spec_room),
+                            selectinload(Organization.spec_job_title)
+                            )
     
     result = await session.execute(query)
     return result.scalar_one_or_none()
 
-async def get_by_name(
-    session: AsyncSession,
-    name: str
-) -> Optional[Organization]:
+@timer
+async def get_organization_by_name(
+                                    session: AsyncSession,
+                                    name: str
+                                    ) -> Optional[Organization]:
     """
     Получить организацию по названию
     """
@@ -48,10 +53,11 @@ async def get_by_name(
     result = await session.execute(query)
     return result.scalar_one_or_none()
 
-async def get_by_inn(
-    session: AsyncSession,
-    inn: str
-) -> Optional[Organization]:
+@timer
+async def get_organization_by_inn(
+                                        session: AsyncSession,
+                                        inn: str
+                                    ) -> Optional[Organization]:
     """
     Получить организацию по ИНН
     """
@@ -59,10 +65,11 @@ async def get_by_inn(
     result = await session.execute(query)
     return result.scalar_one_or_none()
 
-async def get_all(
-    session: AsyncSession,
-    load_relations: bool = False
-) -> List[Organization]:
+@timer
+async def get_organization_all(
+                                session: AsyncSession,
+                                load_relations: bool = False
+                                ) -> List[Organization]:
     """
     Получить все организации
     """
@@ -70,25 +77,26 @@ async def get_all(
     
     if load_relations:
         query = query.options(
-            selectinload(Organization.bank),
-            selectinload(Organization.region)
-        )
+                                selectinload(Organization.bank),
+                                selectinload(Organization.region)
+                                )
     
     result = await session.execute(query)
     return result.scalars().all()
 
-async def get_paginated(
-    session: AsyncSession,
-    skip: int = 0,
-    limit: int = 20,
-    search: Optional[str] = None,
-    customer: Optional[bool] = None,
-    executor: Optional[bool] = None,
-    region_id: Optional[int] = None,
-    bank_id: Optional[int] = None,
-    sort_by: str = "name",
-    sort_order: str = "asc"
-) -> Tuple[List[Organization], int]:
+@timer
+async def get_organization_paginated(
+                                        session: AsyncSession,
+                                        skip: int = 0,
+                                        limit: int = 20,
+                                        search: Optional[str] = None,
+                                        customer: Optional[bool] = None,
+                                        executor: Optional[bool] = None,
+                                        region_id: Optional[int] = None,
+                                        bank_id: Optional[int] = None,
+                                        sort_by: str = "name",
+                                        sort_order: str = "asc"
+                                        ) -> Tuple[List[Organization], int]:
     """
     Получить список организаций с пагинацией и фильтрацией
     """
@@ -99,10 +107,10 @@ async def get_paginated(
     # Поиск по нескольким полям
     if search:
         search_filter = or_(
-            Organization.name.ilike(f"%{search}%"),
-            Organization.short_name.ilike(f"%{search}%"),
-            Organization.inn.ilike(f"%{search}%")
-        )
+                            Organization.name.ilike(f"%{search}%"),
+                            Organization.short_name.ilike(f"%{search}%"),
+                            Organization.inn.ilike(f"%{search}%")
+                            )
         query = query.where(search_filter)
         count_query = count_query.where(search_filter)
     
@@ -123,6 +131,12 @@ async def get_paginated(
         query = query.where(Organization.bank_id == bank_id)
         count_query = count_query.where(Organization.bank_id == bank_id)
     
+    query = query.options(
+                            selectinload(Organization.bank),
+                            selectinload(Organization.region)
+                            )
+
+
     # Сортировка
     if sort_by and hasattr(Organization, sort_by):
         column = getattr(Organization, sort_by)
@@ -147,11 +161,12 @@ async def get_paginated(
 
 # ========== ПРОВЕРКА УНИКАЛЬНОСТИ ==========
 
-async def check_name_exists(
-    session: AsyncSession,
-    name: str,
-    exclude_id: Optional[int] = None
-) -> bool:
+@timer
+async def check_organization_name_exists(
+                                        session: AsyncSession,
+                                        name: str,
+                                        exclude_id: Optional[int] = None
+                                        ) -> bool:
     """Проверить, существует ли организация с таким названием"""
     query = select(Organization).where(Organization.name == name)
     if exclude_id:
@@ -160,11 +175,12 @@ async def check_name_exists(
     result = await session.execute(query)
     return result.scalar_one_or_none() is not None
 
-async def check_short_name_exists(
-    session: AsyncSession,
-    short_name: str,
-    exclude_id: Optional[int] = None
-) -> bool:
+@timer
+async def check_organization_short_name_exists(
+                                                session: AsyncSession,
+                                                short_name: str,
+                                                exclude_id: Optional[int] = None
+                                                ) -> bool:
     """Проверить, существует ли организация с таким сокращенным названием"""
     query = select(Organization).where(Organization.short_name == short_name)
     if exclude_id:
@@ -173,11 +189,12 @@ async def check_short_name_exists(
     result = await session.execute(query)
     return result.scalar_one_or_none() is not None
 
-async def check_inn_exists(
-    session: AsyncSession,
-    inn: str,
-    exclude_id: Optional[int] = None
-) -> bool:
+@timer
+async def check_organization_inn_exists(
+                                        session: AsyncSession,
+                                        inn: str,
+                                        exclude_id: Optional[int] = None
+                                        ) -> bool:
     """Проверить, существует ли организация с таким ИНН"""
     query = select(Organization).where(Organization.inn == inn)
     if exclude_id:
@@ -188,10 +205,11 @@ async def check_inn_exists(
 
 # ========== СОЗДАНИЕ ==========
 
-async def create(
-    session: AsyncSession,
-    org_create: OrganizationCreate
-) -> Organization:
+@timer
+async def create_organization(
+                                session: AsyncSession,
+                                org_create: OrganizationCreate
+                                ) -> Organization:
     """
     Создать новую организацию
     """
@@ -203,11 +221,12 @@ async def create(
 
 # ========== ОБНОВЛЕНИЕ ==========
 
-async def update(
-    session: AsyncSession,
-    org_id: int,
-    org_update: OrganizationUpdate
-) -> Optional[Organization]:
+@timer
+async def update_organization(
+                                session: AsyncSession,
+                                org_id: int,
+                                org_update: OrganizationUpdate
+                                ) -> Optional[Organization]:
     """
     Обновить организацию
     """
@@ -229,10 +248,11 @@ async def update(
 
 # ========== УДАЛЕНИЕ ==========
 
-async def delete(
-    session: AsyncSession,
-    org_id: int
-) -> bool:
+@timer
+async def delete_organization(
+                                session: AsyncSession,
+                                org_id: int
+                                ) -> bool:
     """
     Удалить организацию
     """

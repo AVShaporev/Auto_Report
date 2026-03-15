@@ -6,13 +6,8 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from database.database import Base, int_pk, str_uniq, str_null_true
 
-if TYPE_CHECKING:
-    from model.period import Period
-    from model.contract import Contract
-    from model.object import Object
-    from model.user import User
-    from model.order import Order
 
+# модель отчёта
 class Report(Base):
     
     id: Mapped[int_pk]
@@ -27,35 +22,35 @@ class Report(Base):
 
     # Все отношения через строки
     period: Mapped["Period"] = relationship(
-        "Period",
-        back_populates="reports",
-        lazy="selectin"
-    )
+                                                "Period",
+                                                back_populates="reports",
+                                                lazy="selectin"
+                                            )
 
     contract: Mapped["Contract"] = relationship(
-        "Contract",
-        back_populates="reports",
-        lazy="selectin"
-    )
+                                                    "Contract",
+                                                    back_populates="reports",
+                                                    lazy="selectin"
+                                                )
 
     object: Mapped["Object"] = relationship(
-        "Object",
-        back_populates="reports",
-        lazy="selectin"
-    )
+                                                "Object",
+                                                back_populates="reports",
+                                                lazy="selectin"
+                                            )
 
     user: Mapped["User"] = relationship(
-        "User",
-        back_populates="reports",
-        lazy="selectin"
-    )
+                                            "User",
+                                            back_populates="reports",
+                                            lazy="selectin"
+                                        )
 
     order: Mapped[Optional["Order"]] = relationship(
-        "Order",
-        back_populates="report",
-        lazy="selectin",
-        uselist=False
-    )
+                                                        "Order",
+                                                        back_populates="report",
+                                                        lazy="selectin",
+                                                        uselist=False
+                                                    )
 
     def __str__(self):
         return f"Report(id={self.id}, number={self.number})"

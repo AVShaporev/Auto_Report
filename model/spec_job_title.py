@@ -14,8 +14,7 @@ from database.database import (
                                 int_pk, 
                                 str_uniq, 
                                 str_null_true
-)
-# from model.organization import Organization
+                                )
 
 
 class Spec_Job_Title(Base):

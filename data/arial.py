@@ -1,14 +1,36 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, or_
 from sqlalchemy.orm import selectinload
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, Dict
 
 from model.arial import Arial
+from model.organization import Organization
+from model.object import Object
 from schema.arial import ArialCreate, ArialUpdate
 
-# ========== ПОЛУЧЕНИЕ ==========
+from utils.timer import timer
 
-async def get_by_id(
+@timer
+async def get_organizations_count_by_arial(session: AsyncSession) -> Dict[int, int]:
+    """Возвращает словарь {arial_id: количество организаций}."""
+    query = select(Arial.id, func.count(Organization.id)).join(
+        Organization, Organization.arial_id == Arial.id, isouter=True
+    ).group_by(Arial.id)
+    result = await session.execute(query)
+    return dict(result.all())
+
+@timer
+async def get_objects_count_by_arial(session: AsyncSession) -> Dict[int, int]:
+    """Возвращает словарь {arial_id: количество объектов}."""
+    query = select(Arial.id, func.count(Object.id)).join(
+        Object, Object.arial_id == Arial.id, isouter=True
+    ).group_by(Arial.id)
+    result = await session.execute(query)
+    return dict(result.all())
+
+# ========== ПОЛУЧЕНИЕ ==========
+@timer
+async def get_arial_by_id(
     session: AsyncSession,
     arial_id: int,
     *,
@@ -34,7 +56,8 @@ async def get_by_id(
     result = await session.execute(query)
     return result.scalar_one_or_none()
 
-async def get_by_name(
+@timer
+async def get_arial_by_name(
     session: AsyncSession,
     name: str
 ) -> Optional[Arial]:
@@ -43,11 +66,12 @@ async def get_by_name(
     result = await session.execute(query)
     return result.scalar_one_or_none()
 
-async def get_all(
-    session: AsyncSession,
-    *,
-    load_relations: bool = False
-) -> List[Arial]:
+@timer
+async def get_arial_all(
+                        session: AsyncSession,
+                        *,
+                        load_relations: bool = False
+                        ) -> List[Arial]:
     """Получить все районы"""
     query = select(Arial).order_by(Arial.name)
     
@@ -61,7 +85,8 @@ async def get_all(
     result = await session.execute(query)
     return result.scalars().all()
 
-async def get_paginated(
+@timer
+async def get_arial_paginated(
     session: AsyncSession,
     skip: int = 0,
     limit: int = 20,
@@ -121,8 +146,8 @@ async def get_paginated(
     return items, total
 
 # ========== ПОЛУЧЕНИЕ ДЛЯ ВЫПАДАЮЩИХ СПИСКОВ ==========
-
-async def get_options(
+@timer
+async def get_arial_options(
     session: AsyncSession
 ) -> List[Arial]:
     """
@@ -132,7 +157,7 @@ async def get_options(
     result = await session.execute(query)
     return result.scalars().all()
 
-async def get_options_by_spec_arial(
+async def get_arial_options_by_spec_arial(
     session: AsyncSession,
     spec_arial_id: int
 ) -> List[Arial]:
@@ -144,8 +169,8 @@ async def get_options_by_spec_arial(
     return result.scalars().all()
 
 # ========== ПРОВЕРКА УНИКАЛЬНОСТИ ==========
-
-async def check_name_exists(
+@timer
+async def check_arial_name_exists(
     session: AsyncSession,
     name: str,
     exclude_id: Optional[int] = None
@@ -159,7 +184,7 @@ async def check_name_exists(
     return result.scalar_one_or_none() is not None
 
 # ========== ПРОВЕРКА СУЩЕСТВОВАНИЯ ТИПА РАЙОНА ==========
-
+@timer
 async def check_spec_arial_exists(
     session: AsyncSession,
     spec_arial_id: int
@@ -172,8 +197,8 @@ async def check_spec_arial_exists(
     return result.scalar_one_or_none() is not None
 
 # ========== ПОДСЧЕТ СВЯЗАННЫХ ОБЪЕКТОВ ==========
-
-async def count_organizations(
+@timer
+async def count_arial_organizations(
     session: AsyncSession,
     arial_id: int
 ) -> int:
@@ -188,7 +213,8 @@ async def count_organizations(
     result = await session.execute(query)
     return result.scalar() or 0
 
-async def count_objects(
+@timer
+async def count_arial_objects(
     session: AsyncSession,
     arial_id: int
 ) -> int:
@@ -204,8 +230,8 @@ async def count_objects(
     return result.scalar() or 0
 
 # ========== СОЗДАНИЕ ==========
-
-async def create(
+@timer
+async def create_arial(
     session: AsyncSession,
     arial_create: ArialCreate
 ) -> Arial:
@@ -217,8 +243,8 @@ async def create(
     return arial
 
 # ========== ОБНОВЛЕНИЕ ==========
-
-async def update(
+@timer
+async def update_arial(
     session: AsyncSession,
     arial_id: int,
     arial_update: ArialUpdate
@@ -238,8 +264,8 @@ async def update(
     return arial
 
 # ========== УДАЛЕНИЕ ==========
-
-async def delete(
+@timer
+async def delete_arial(
     session: AsyncSession,
     arial_id: int
 ) -> bool:

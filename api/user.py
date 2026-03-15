@@ -1,8 +1,20 @@
 from typing import List, Optional
 from datetime import datetime
 
-from fastapi import APIRouter, Response, Request, Depends, Form, Depends, Query
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi import (
+                        APIRouter, 
+                        Response, 
+                        Request, 
+                        Depends,
+                        Form,
+                        Depends,
+                        Query,
+                        HTTPException
+                    )
+from fastapi.responses import (
+                                HTMLResponse,
+                                JSONResponse
+                                )
 
 from service.user import (get_all,
                             get_one,

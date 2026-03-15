@@ -15,11 +15,17 @@ from fastapi import (
                     )
 from loguru import logger
 
+from middleware import LogRequestsMiddleware
+
 from api import spec_contract as api_spec_contract
 from api import contract as api_contract
-from api import spec_contract as api_spec_contract
+from api import sub_contract as api_sub_contract
 from api import spec_job_title as api_spec_job_title
 from api import spec_equipment as api_spec_equipment
+from api import equipment as api_equipment
+from api import spec_order as api_spec_order
+from api import order as api_order
+from api import report as api_report
 from api import bank as api_bank
 from api import spec_region as api_spec_region
 from api import region as api_region
@@ -38,6 +44,10 @@ from api import organization as api_organization
 from api import spec_job_title as api_spec_job_title
 from api import period as api_period
 from api import object as api_object
+from api import issue as api_issue
+from api import objects_equipment as api_objects_equipment
+from api import dashboard  as api_dashboard
+
 
 
 # настройка файлов логирования
@@ -84,12 +94,19 @@ app = FastAPI(lifespan=lifespan,
                     "clientId": "swagger"
                 })
 
+# Добавляем middleware до подключения роутеров
+app.add_middleware(LogRequestsMiddleware)
+
 # добавление субмаршрутов из уровня api
 app.include_router(api_spec_contract.router)
 app.include_router(api_contract.router)
-app.include_router(api_spec_contract.router)
+app.include_router(api_sub_contract.router)
 app.include_router(api_spec_job_title.router)
 app.include_router(api_spec_equipment.router)
+app.include_router(api_equipment.router)
+app.include_router(api_spec_order.router)
+app.include_router(api_order.router)
+app.include_router(api_report.router)
 app.include_router(api_spec_region.router)
 app.include_router(api_spec_locality.router)
 app.include_router(api_locality.router)
@@ -108,7 +125,9 @@ app.include_router(api_organization.router)
 app.include_router(api_spec_job_title.router)
 app.include_router(api_period.router)
 app.include_router(api_object.router)
-
+app.include_router(api_issue.router)
+app.include_router(api_objects_equipment.router)
+app.include_router(api_dashboard.router)
 
 # запуск приложения fastapi
 if __name__ == "__main__":

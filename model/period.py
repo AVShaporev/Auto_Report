@@ -3,9 +3,6 @@ from typing import List, TYPE_CHECKING
 from sqlalchemy.orm import Mapped, relationship
 from database.database import Base, int_pk, str_uniq
 
-if TYPE_CHECKING:
-    from model.object import Object
-
 
 # модель периода обслуживания
 class Period(Base):
@@ -16,15 +13,15 @@ class Period(Base):
 
     # ✅ Правильное отношение с back_populates
     objects: Mapped[List["Object"]] = relationship(
-                                                        "Object",
-                                                        back_populates="period",  # Должно совпадать с именем поля в Object
-                                                        lazy="selectin"
+                                                    "Object",
+                                                    back_populates="period",
+                                                    lazy="selectin"
                                                     )
 
     reports: Mapped[List["Report"]] = relationship(
-                                                        "Report",
-                                                        back_populates="period",  # Должно совпадать с Report.period
-                                                        lazy="selectin"
+                                                    "Report",
+                                                    back_populates="period",
+                                                    lazy="selectin"
                                                     )
 
     def __str__(self):

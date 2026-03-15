@@ -16,7 +16,6 @@ from database.database import (
                                 str_null_true
                                 )
 
-from model.spec_street import Spec_Street
 
 # модель улицы
 class Street(Base):
@@ -26,19 +25,21 @@ class Street(Base):
     spec_street_id: Mapped[int] = mapped_column(ForeignKey("spec_streets.id")) # тип улицы
 
     # у улицы может быть только один тип улицы
-    spec_street: Mapped[Spec_Street] = relationship(Spec_Street,
-                                                        back_populates="streets",
-                                                        lazy="selectin")
+    spec_street: Mapped["Spec_Street"] = relationship(
+                                                        "Spec_Street",
+                                                        back_populates="streets"
+                                                        )
 
     # на одной улице может быть много организаций
-    organizations: Mapped[List["Organization"]] = relationship("Organization",
-                                                                back_populates="street")
+    organizations: Mapped[List["Organization"]] = relationship(
+                                                                "Organization",
+                                                                back_populates="street"
+                                                                )
 
     # на одной улице может быть много объектов
     objects: Mapped[List["Object"]] = relationship(
-                                                        "Object",
-                                                        back_populates="street", 
-                                                        lazy="selectin"
+                                                    "Object",
+                                                    back_populates="street"
                                                     )
 
     def __str__(self):

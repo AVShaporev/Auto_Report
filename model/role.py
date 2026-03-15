@@ -111,6 +111,12 @@ class Role(Base):
     contract_create: Mapped[bool] = mapped_column(default=False)
     contract_delete: Mapped[bool] = mapped_column(default=False)
 
+    # права на дополнительные соглашения
+    sub_contract_read: Mapped[bool] = mapped_column(default=False)
+    sub_contract_create: Mapped[bool] = mapped_column(default=False)
+    sub_contract_modify: Mapped[bool] = mapped_column(default=False)
+    sub_contract_delete: Mapped[bool] = mapped_column(default=False)
+
     # права на периоды
     period_read: Mapped[bool] = mapped_column(default=False)
     period_modify: Mapped[bool] = mapped_column(default=False)
@@ -152,6 +158,30 @@ class Role(Base):
     spec_job_title_modify: Mapped[bool] = mapped_column(default=False)
     spec_job_title_create: Mapped[bool] = mapped_column(default=False)
     spec_job_title_delete: Mapped[bool] = mapped_column(default=False)
+
+    # права на типы заявок
+    spec_order_read: Mapped[bool] = mapped_column(default=False)
+    spec_order_create: Mapped[bool] = mapped_column(default=False)
+    spec_order_modify: Mapped[bool] = mapped_column(default=False)
+    spec_order_delete: Mapped[bool] = mapped_column(default=False)
+
+    # права на заявки
+    order_read: Mapped[bool] = mapped_column(default=False)
+    order_create: Mapped[bool] = mapped_column(default=False)
+    order_modify: Mapped[bool] = mapped_column(default=False)
+    order_delete: Mapped[bool] = mapped_column(default=False)
+
+    # права на отчёты
+    report_read: Mapped[bool] = mapped_column(default=False)
+    report_create: Mapped[bool] = mapped_column(default=False)
+    report_modify: Mapped[bool] = mapped_column(default=False)
+    report_delete: Mapped[bool] = mapped_column(default=False)
+
+    # права на неисправности
+    issue_read: Mapped[bool] = mapped_column(default=False)
+    issue_create: Mapped[bool] = mapped_column(default=False)
+    issue_modify: Mapped[bool] = mapped_column(default=False)
+    issue_delete: Mapped[bool] = mapped_column(default=False)
             
     # Определяем отношения: одна роль может принаддлежать нескольким пользователям
     # Отношение через строку

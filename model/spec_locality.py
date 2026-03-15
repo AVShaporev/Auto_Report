@@ -18,7 +18,6 @@ from database.database import (
                                 str_uniq, 
                                 str_null_true
 )
-# from model.locality import Locality
 
 # модель типа населенного пункта
 class Spec_Locality(Base):

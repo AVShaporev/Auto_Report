@@ -1,21 +1,361 @@
+from typing import Optional, List, Tuple
+from fastapi import HTTPException
+from model.user import User
 from model.equipment import Equipment
-import data.equipment as data
+from data import equipment as equipment_data
+from data import spec_equipment as spec_equipment_data
+from schema.equipment import EquipmentCreate, EquipmentUpdate
+from schema.pagination import PaginationParams
+from database.database import new_session
+from datetime import date
 
+# ========== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ==========
 
-def get_all() -> list[Equipment]:
-    return data.get_all()
+async def check_permission(
+    current_user: User,
+    permission: str,
+    action: str = "выполнения операции"
+) -> None:
+    """
+    Проверка наличия права у пользователя
+    """
+    if not hasattr(current_user.role, permission):
+        raise HTTPException(
+            status_code=500,
+            detail=f"Право {permission} не определено в системе"
+        )
+    
+    has_permission = getattr(current_user.role, permission)
+    if not has_permission:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Недостаточно прав для {action}"
+        )
 
-def get_one(id: int) -> Equipment:
-    return data.get_one(id)
+# ========== ПОЛУЧЕНИЕ ==========
 
-def create(equipment: Equipment) -> Equipment:
-    return data.create(equipment)
+async def get_equipment_by_id(
+    equipment_id: int,
+    current_user: User,
+    load_relations: bool = False
+) -> Equipment:
+    """
+    Получить оборудование по ID с проверкой прав
+    """
+    await check_permission(current_user, "equipment_read", "просмотра оборудования")
+    
+    async with new_session() as session:
+        equipment = await equipment_data.get_by_id(
+            session, 
+            equipment_id, 
+            load_relations=load_relations
+        )
+        
+        if not equipment:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Оборудование с id {equipment_id} не найдено"
+            )
+        
+        return equipment
 
-def replace(equipment: Equipment) -> Equipment:
-    return data.replace(equipment)
+async def get_equipments_paginated(
+    pagination: PaginationParams,
+    current_user: User,
+    search: Optional[str] = None,
+    spec_equipment_id: Optional[int] = None,
+    object_id: Optional[int] = None,
+    installation_date_from: Optional[date] = None,
+    installation_date_to: Optional[date] = None,
+    is_active: Optional[bool] = None,
+    sort_by: str = "name",
+    sort_order: str = "asc"
+) -> Tuple[List[Equipment], int]:
+    """
+    Получить список оборудования с пагинацией
+    """
+    await check_permission(current_user, "equipment_read", "просмотра списка оборудования")
+    
+    async with new_session() as session:
+        items, total = await equipment_data.get_paginated(
+            session=session,
+            skip=pagination.skip,
+            limit=pagination.limit,
+            search=search,
+            spec_equipment_id=spec_equipment_id,
+            object_id=object_id,
+            installation_date_from=installation_date_from,
+            installation_date_to=installation_date_to,
+            is_active=is_active,
+            sort_by=sort_by,
+            sort_order=sort_order,
+            load_relations=True
+        )
+        
+        return items, total
 
-def modify(equipment: Equipment) -> Equipment:
-    return data.modify(equipment)
+async def get_equipment_options(
+    current_user: User,
+    object_id: Optional[int] = None,
+    is_active: Optional[bool] = None
+) -> List[Equipment]:
+    """
+    Получить минимальную информацию об оборудовании для выпадающих списков
+    """
+    await check_permission(current_user, "equipment_read", "просмотра оборудования")
+    
+    async with new_session() as session:
+        return await equipment_data.get_options(
+            session, 
+            object_id=object_id,
+            is_active=is_active
+        )
 
-def delete(name: str) -> bool:
-    return data.delete(name)
+# ========== ПОЛУЧЕНИЕ ПО НОМЕРАМ ==========
+
+async def get_equipment_by_inventory_number(
+    inventory_number: str,
+    current_user: User
+) -> Equipment:
+    """
+    Получить оборудование по инвентарному номеру
+    """
+    await check_permission(current_user, "equipment_read", "просмотра оборудования")
+    
+    async with new_session() as session:
+        equipment = await equipment_data.get_by_inventory_number(session, inventory_number)
+        
+        if not equipment:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Оборудование с инвентарным номером '{inventory_number}' не найдено"
+            )
+        
+        return equipment
+
+async def get_equipment_by_serial_number(
+    serial_number: str,
+    current_user: User
+) -> Equipment:
+    """
+    Получить оборудование по серийному номеру
+    """
+    await check_permission(current_user, "equipment_read", "просмотра оборудования")
+    
+    async with new_session() as session:
+        equipment = await equipment_data.get_by_serial_number(session, serial_number)
+        
+        if not equipment:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Оборудование с серийным номером '{serial_number}' не найдено"
+            )
+        
+        return equipment
+
+# ========== ПОЛУЧЕНИЕ СО СТАТИСТИКОЙ ==========
+
+async def get_equipment_with_details(
+    equipment_id: int,
+    current_user: User
+) -> dict:
+    """
+    Получить оборудование с детальной информацией для ответа
+    """
+    await check_permission(current_user, "equipment_read", "просмотра оборудования")
+    
+    async with new_session() as session:
+        equipment = await equipment_data.get_by_id(
+            session, 
+            equipment_id,
+            load_relations=True
+        )
+        
+        if not equipment:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Оборудование с id {equipment_id} не найдено"
+            )
+        
+        return {
+            "id": equipment.id,
+            "name": equipment.name,
+            "inventory_number": equipment.inventory_number,
+            "serial_number": equipment.serial_number,
+            "installation_date": equipment.installation_date,
+            "is_active": equipment.is_active,
+            "spec_equipment_id": equipment.spec_equipment_id,
+            "spec_equipment_name": equipment.spec_equipment.name if equipment.spec_equipment else None
+        }
+
+async def get_equipments_paginated_with_details(
+    pagination: PaginationParams,
+    current_user: User,
+    search: Optional[str] = None,
+    spec_equipment_id: Optional[int] = None,
+    object_id: Optional[int] = None,
+    installation_date_from: Optional[date] = None,
+    installation_date_to: Optional[date] = None,
+    is_active: Optional[bool] = None,
+    sort_by: str = "name",
+    sort_order: str = "asc"
+) -> Tuple[List[dict], int]:
+    """
+    Получить список оборудования с детальной информацией для ответа
+    """
+    await check_permission(current_user, "equipment_read", "просмотра списка оборудования")
+    
+    async with new_session() as session:
+        items, total = await equipment_data.get_paginated(
+            session=session,
+            skip=pagination.skip,
+            limit=pagination.limit,
+            search=search,
+            spec_equipment_id=spec_equipment_id,
+            object_id=object_id,
+            installation_date_from=installation_date_from,
+            installation_date_to=installation_date_to,
+            is_active=is_active,
+            sort_by=sort_by,
+            sort_order=sort_order,
+            load_relations=True
+        )
+        
+        result_items = []
+        for item in items:
+            result_items.append({
+                "id": item.id,
+                "name": item.name,
+                "inventory_number": item.inventory_number,
+                "serial_number": item.serial_number,
+                "installation_date": item.installation_date,
+                "is_active": item.is_active,
+                "spec_equipment_name": item.spec_equipment.name if item.spec_equipment else None
+            })
+        
+        return result_items, total
+
+# ========== СОЗДАНИЕ ==========
+
+async def create_equipment(
+    equipment_create: EquipmentCreate,
+    current_user: User
+) -> Equipment:
+    """
+    Создать новое оборудование
+    """
+    await check_permission(current_user, "equipment_create", "создания оборудования")
+    
+    async with new_session() as session:
+        # Проверка уникальности
+        if await equipment_data.check_name_exists(session, equipment_create.name):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Оборудование с названием '{equipment_create.name}' уже существует"
+            )
+        
+        if await equipment_data.check_inventory_number_exists(session, equipment_create.inventory_number):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Оборудование с инвентарным номером '{equipment_create.inventory_number}' уже существует"
+            )
+        
+        if await equipment_data.check_serial_number_exists(session, equipment_create.serial_number):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Оборудование с серийным номером '{equipment_create.serial_number}' уже существует"
+            )
+        
+        # Проверка существования типа оборудования
+        if not await equipment_data.check_spec_equipment_exists(session, equipment_create.spec_equipment_id):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Тип оборудования с id {equipment_create.spec_equipment_id} не существует"
+            )
+        
+        equipment = await equipment_data.create(session, equipment_create)
+        return equipment
+
+# ========== ОБНОВЛЕНИЕ ==========
+
+async def update_equipment(
+    equipment_id: int,
+    equipment_update: EquipmentUpdate,
+    current_user: User
+) -> Equipment:
+    """
+    Обновить оборудование
+    """
+    await check_permission(current_user, "equipment_modify", "изменения оборудования")
+    
+    async with new_session() as session:
+        existing = await equipment_data.get_by_id(session, equipment_id)
+        if not existing:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Оборудование с id {equipment_id} не найдено"
+            )
+        
+        update_data = equipment_update.dict(exclude_unset=True)
+        
+        # Проверка уникальности при изменении
+        if 'name' in update_data and update_data['name'] != existing.name:
+            if await equipment_data.check_name_exists(session, update_data['name'], equipment_id):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Оборудование с названием '{update_data['name']}' уже существует"
+                )
+        
+        if 'inventory_number' in update_data and update_data['inventory_number'] != existing.inventory_number:
+            if await equipment_data.check_inventory_number_exists(session, update_data['inventory_number'], equipment_id):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Оборудование с инвентарным номером '{update_data['inventory_number']}' уже существует"
+                )
+        
+        if 'serial_number' in update_data and update_data['serial_number'] != existing.serial_number:
+            if await equipment_data.check_serial_number_exists(session, update_data['serial_number'], equipment_id):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Оборудование с серийным номером '{update_data['serial_number']}' уже существует"
+                )
+        
+        if 'spec_equipment_id' in update_data and update_data['spec_equipment_id'] != existing.spec_equipment_id:
+            if not await equipment_data.check_spec_equipment_exists(session, update_data['spec_equipment_id']):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Тип оборудования с id {update_data['spec_equipment_id']} не существует"
+                )
+        
+        equipment = await equipment_data.update(session, equipment_id, equipment_update)
+        return equipment
+
+# ========== УДАЛЕНИЕ ==========
+
+async def delete_equipment(
+    equipment_id: int,
+    current_user: User
+) -> bool:
+    """
+    Удалить оборудование
+    """
+    await check_permission(current_user, "equipment_delete", "удаления оборудования")
+    
+    async with new_session() as session:
+        equipment = await equipment_data.get_by_id(session, equipment_id, load_relations=True)
+        
+        if not equipment:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Оборудование с id {equipment_id} не найдено"
+            )
+        
+        # Проверка на наличие связанных объектов
+        if equipment.objects_equipments and len(equipment.objects_equipments) > 0:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Невозможно удалить оборудование '{equipment.name}': есть связанные объекты"
+            )
+        
+        success = await equipment_data.delete(session, equipment_id)
+        return success

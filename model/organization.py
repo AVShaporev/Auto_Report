@@ -49,52 +49,47 @@ class Organization(Base):
 
     # банк
     bank: Mapped["Bank"] = relationship("Bank",
-                                        back_populates="organizations",
-                                        lazy="selectin")
+                                        back_populates="organizations"
+                                        )
     
     # регион
     region: Mapped["Region"] = relationship("Region",
-                                            back_populates="organizations",
-                                            lazy="selectin")
+                                            back_populates="organizations"
+                                            )
 
     # район
     arial: Mapped["Arial"] = relationship("Arial",
-                                            back_populates="organizations",
-                                            lazy="selectin")
+                                            back_populates="organizations"
+                                            )
 
     # нас. пункт
     locality: Mapped["Locality"] = relationship(
                                                 "Locality",
-                                                back_populates="organizations",
-                                                lazy="selectin"
+                                                back_populates="organizations"
                                                 )
 
     # улица
     street: Mapped["Street"] = relationship(
                                             "Street",
-                                            back_populates="organizations",
-                                            lazy="selectin"
+                                            back_populates="organizations"
                                             )
     
     # тип строения
     spec_build: Mapped["Spec_Build"] = relationship(
                                                     "Spec_Build",
-                                                    back_populates="organizations",
-                                                    lazy="selectin"
+                                                    back_populates="organizations"
                                                     )
 
     # тип помещения
     spec_room: Mapped["Spec_Room"] = relationship(
                                                     "Spec_Room",
-                                                    back_populates="organizations",
-                                                    lazy="selectin"
+                                                    back_populates="organizations"
                                                     )
 
     # должность руководителя
     spec_job_title: Mapped["Spec_Job_Title"] = relationship(
                                                             "Spec_Job_Title",
-                                                            back_populates="organizations",
-                                                            lazy="selectin"
+                                                            back_populates="organizations"
                                                             )
 
     def __str__(self):

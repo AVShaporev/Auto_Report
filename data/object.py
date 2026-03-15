@@ -6,8 +6,13 @@ from typing import Optional, List, Tuple
 from model.object import Object
 from schema.object import ObjectCreate, ObjectUpdate
 
+from utils.timer import timer
+
+
+
 # ========== ПОЛУЧЕНИЕ ==========
 
+@timer
 async def get_by_id(
     session: AsyncSession,
     object_id: int,
@@ -42,6 +47,7 @@ async def get_by_id(
     result = await session.execute(query)
     return result.scalar_one_or_none()
 
+@timer
 async def get_by_name(
     session: AsyncSession,
     name: str
@@ -51,6 +57,7 @@ async def get_by_name(
     result = await session.execute(query)
     return result.scalar_one_or_none()
 
+@timer
 async def get_all(
     session: AsyncSession,
     *,
@@ -71,6 +78,7 @@ async def get_all(
     result = await session.execute(query)
     return result.scalars().all()
 
+@timer
 async def get_paginated(
     session: AsyncSession,
     skip: int = 0,
@@ -162,6 +170,7 @@ async def get_paginated(
 
 # ========== ПОЛУЧЕНИЕ ДЛЯ ВЫПАДАЮЩИХ СПИСКОВ ==========
 
+@timer
 async def get_options(
     session: AsyncSession
 ) -> List[Object]:
@@ -174,6 +183,28 @@ async def get_options(
 
 # ========== ПРОВЕРКА СУЩЕСТВОВАНИЯ СВЯЗАННЫХ ОБЪЕКТОВ ==========
 
+# ========== ПРОВЕРКА СУЩЕСТВОВАНИЯ ==========
+
+@timer
+async def check_exists(
+    session: AsyncSession,
+    object_id: int
+) -> bool:
+    """
+    Проверить, существует ли объект с указанным ID
+    
+    Args:
+        session: Сессия БД
+        object_id: ID объекта
+    
+    Returns:
+        True если объект существует, иначе False
+    """
+    query = select(Object).where(Object.id == object_id)
+    result = await session.execute(query)
+    return result.scalar_one_or_none() is not None
+
+@timer
 async def check_region_exists(
     session: AsyncSession,
     region_id: int
@@ -185,6 +216,7 @@ async def check_region_exists(
     result = await session.execute(query)
     return result.scalar_one_or_none() is not None
 
+@timer
 async def check_arial_exists(
     session: AsyncSession,
     arial_id: int
@@ -196,6 +228,7 @@ async def check_arial_exists(
     result = await session.execute(query)
     return result.scalar_one_or_none() is not None
 
+@timer
 async def check_locality_exists(
     session: AsyncSession,
     locality_id: int
@@ -207,6 +240,7 @@ async def check_locality_exists(
     result = await session.execute(query)
     return result.scalar_one_or_none() is not None
 
+@timer
 async def check_street_exists(
     session: AsyncSession,
     street_id: int
@@ -218,6 +252,7 @@ async def check_street_exists(
     result = await session.execute(query)
     return result.scalar_one_or_none() is not None
 
+@timer
 async def check_spec_build_exists(
     session: AsyncSession,
     spec_build_id: int
@@ -229,6 +264,7 @@ async def check_spec_build_exists(
     result = await session.execute(query)
     return result.scalar_one_or_none() is not None
 
+@timer
 async def check_spec_room_exists(
     session: AsyncSession,
     spec_room_id: int
@@ -240,6 +276,7 @@ async def check_spec_room_exists(
     result = await session.execute(query)
     return result.scalar_one_or_none() is not None
 
+@timer
 async def check_period_exists(
     session: AsyncSession,
     period_id: int
@@ -251,6 +288,7 @@ async def check_period_exists(
     result = await session.execute(query)
     return result.scalar_one_or_none() is not None
 
+@timer
 async def check_contract_exists(
     session: AsyncSession,
     contract_id: int
@@ -264,6 +302,7 @@ async def check_contract_exists(
 
 # ========== ПОДСЧЕТ СВЯЗАННЫХ ОБЪЕКТОВ ==========
 
+@timer
 async def count_equipments(
     session: AsyncSession,
     object_id: int
@@ -277,6 +316,7 @@ async def count_equipments(
     result = await session.execute(query)
     return result.scalar() or 0
 
+@timer
 async def count_reports(
     session: AsyncSession,
     object_id: int
@@ -290,6 +330,7 @@ async def count_reports(
     result = await session.execute(query)
     return result.scalar() or 0
 
+@timer
 async def count_orders(
     session: AsyncSession,
     object_id: int
@@ -305,6 +346,7 @@ async def count_orders(
 
 # ========== СОЗДАНИЕ ==========
 
+@timer
 async def create(
     session: AsyncSession,
     object_create: ObjectCreate
@@ -318,6 +360,7 @@ async def create(
 
 # ========== ОБНОВЛЕНИЕ ==========
 
+@timer
 async def update(
     session: AsyncSession,
     object_id: int,
@@ -339,6 +382,7 @@ async def update(
 
 # ========== УДАЛЕНИЕ ==========
 
+@timer
 async def delete(
     session: AsyncSession,
     object_id: int

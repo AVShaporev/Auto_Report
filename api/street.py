@@ -17,42 +17,42 @@ router = APIRouter(prefix="/api/street", tags=["street"])
 
 @router.get("/list", response_model=PaginatedResponse[StreetListResponse])
 async def get_street_list(
-    pagination: PaginationParams = Depends(),
-    search: Optional[str] = Query(None, description="Поиск по названию"),
-    spec_street_id: Optional[int] = Query(None, ge=1, description="Фильтр по типу улицы"),
-    sort_by: str = Query("name", description="Поле сортировки"),
-    sort_order: str = Query("asc", regex="^(asc|desc)$"),
-    current_user: User = Depends(get_current_active_user)
-):
+                            pagination: PaginationParams = Depends(),
+                            search: Optional[str] = Query(None, description="Поиск по названию"),
+                            spec_street_id: Optional[int] = Query(None, ge=1, description="Фильтр по типу улицы"),
+                            sort_by: str = Query("name", description="Поле сортировки"),
+                            sort_order: str = Query("asc", regex="^(asc|desc)$"),
+                            current_user: User = Depends(get_current_active_user)
+                            ):
     """
     Получить список улиц с пагинацией
     
     Требуется право: street_read
     """
     items, total = await street_service.get_streets_paginated_with_stats(
-        pagination=pagination,
-        current_user=current_user,
-        search=search,
-        spec_street_id=spec_street_id,
-        sort_by=sort_by,
-        sort_order=sort_order
-    )
+                                                                        pagination=pagination,
+                                                                        current_user=current_user,
+                                                                        search=search,
+                                                                        spec_street_id=spec_street_id,
+                                                                        sort_by=sort_by,
+                                                                        sort_order=sort_order
+                                                                        )
     
     pages = (total + pagination.limit - 1) // pagination.limit
     
     return PaginatedResponse(
-        items=items,
-        total=total,
-        page=pagination.page,
-        per_page=pagination.limit,
-        pages=pages
-    )
+                            items=items,
+                            total=total,
+                            page=pagination.page,
+                            per_page=pagination.limit,
+                            pages=pages
+                            )
 
 @router.get("/options", response_model=List[StreetOptionResponse])
 async def get_street_options(
-    spec_street_id: Optional[int] = Query(None, ge=1, description="Фильтр по типу улицы"),
-    current_user: User = Depends(get_current_active_user)
-):
+                            spec_street_id: Optional[int] = Query(None, ge=1, description="Фильтр по типу улицы"),
+                            current_user: User = Depends(get_current_active_user)
+                            ):
     """
     Получить список улиц для выпадающих списков
     
@@ -66,37 +66,28 @@ async def get_street_options(
         streets = await street_service.get_street_options(current_user)
     
     return [
-        {
-            "id": item.id,
-            "name": item.name
-        }
-        for item in streets
-    ]
+                {
+                    "id": item.id,
+                    "name": item.name
+                }
+                for item in streets
+            ]
 
 @router.get("/all", response_model=List[StreetListResponse])
 async def get_all_streets(
-    current_user: User = Depends(get_current_active_user)
-):
+                            current_user: User = Depends(get_current_active_user)
+                            ):
     """
     Получить все улицы (без пагинации)
     
     Требуется право: street_read
     """
     streets = await street_service.get_all_streets(
-        current_user,
-        load_relations=True
-    )
+                                                    current_user,
+                                                    load_relations=False
+                                                    )
     
-    return [
-        {
-            "id": item.id,
-            "name": item.name,
-            "spec_street_name": item.spec_street.name if item.spec_street else None,
-            "organizations_count": len(item.organizations) if item.organizations else 0,
-            "objects_count": len(item.objects) if item.objects else 0
-        }
-        for item in streets
-    ]
+    return streets
 
 @router.get("/{street_id}", response_model=StreetResponse)
 async def get_street_by_id(

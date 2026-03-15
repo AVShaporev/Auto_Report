@@ -4,11 +4,6 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from database.database import Base, int_pk, str_uniq, str_null_true
 
-# Используем TYPE_CHECKING для подсказок типов без реального импорта
-if TYPE_CHECKING:
-    from model.role import Role
-    from model.report import Report
-    from model.order import Order
 
 class User(Base):
 
@@ -24,22 +19,36 @@ class User(Base):
 
     # Отношения с использованием строк вместо прямых импортов
     role: Mapped["Role"] = relationship(
-        "Role",
-        back_populates="users",
-        lazy="selectin"
-    )
+                                        "Role",
+                                        back_populates="users",
+                                        lazy="selectin"
+                                        )
 
     reports: Mapped[List["Report"]] = relationship(
-        "Report",
-        back_populates="user",
-        lazy="selectin"
-    )
+                                                    "Report",
+                                                    back_populates="user",
+                                                    lazy="selectin"
+                                                    )
 
     orders: Mapped[List["Order"]] = relationship(
-        "Order",
-        back_populates="user",
-        lazy="selectin"
-    )
+                                                "Order",
+                                                back_populates="user",
+                                                lazy="selectin"
+                                                )
+
+    reported_issues: Mapped[List["Issue"]] = relationship(
+                                                        "Issue",
+                                                        foreign_keys="Issue.reported_by_id",
+                                                        back_populates="reported_by",
+                                                        lazy="selectin"
+                                                        )
+                                                        
+    assigned_issues: Mapped[List["Issue"]] = relationship(
+                                                        "Issue",
+                                                        foreign_keys="Issue.assigned_to_id",
+                                                        back_populates="assigned_to",
+                                                        lazy="selectin"
+                                                        )
 
     def __repr__(self):
         return f"User(id={self.id}, name={self.name})"

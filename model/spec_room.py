@@ -32,9 +32,9 @@ class Spec_Room(Base):
 
     # в одном типе комнат может находится несколько объектов
     objects: Mapped[List["Object"]] = relationship(
-                                                        "Object",
-                                                        back_populates="spec_room",  # Должно совпадать с Object.spec_build
-                                                        lazy="selectin"
+                                                    "Object",
+                                                    back_populates="spec_room",
+                                                    lazy="selectin"
                                                     )
 
     def __str__(self):

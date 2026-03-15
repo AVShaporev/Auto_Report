@@ -6,9 +6,13 @@ from typing import Optional, List, Tuple
 from model.bank import Bank
 from schema.bank import BankCreate, BankUpdate
 
+from utils.timer import timer
+
+
 # ========== ПОЛУЧЕНИЕ ==========
 
-async def get_by_id(
+@timer
+async def get_bank_by_id(
     session: AsyncSession,
     bank_id: int,
     *,
@@ -30,7 +34,8 @@ async def get_by_id(
     result = await session.execute(query)
     return result.scalar_one_or_none()
 
-async def get_by_name(
+@timer
+async def get_bank_by_name(
     session: AsyncSession,
     name: str
 ) -> Optional[Bank]:
@@ -39,7 +44,8 @@ async def get_by_name(
     result = await session.execute(query)
     return result.scalar_one_or_none()
 
-async def get_by_bik(
+@timer
+async def get_bank_by_bik(
     session: AsyncSession,
     bik: str
 ) -> Optional[Bank]:
@@ -48,7 +54,8 @@ async def get_by_bik(
     result = await session.execute(query)
     return result.scalar_one_or_none()
 
-async def get_by_inn(
+@timer
+async def get_bank_by_inn(
     session: AsyncSession,
     inn: str
 ) -> Optional[Bank]:
@@ -57,7 +64,8 @@ async def get_by_inn(
     result = await session.execute(query)
     return result.scalar_one_or_none()
 
-async def get_all(
+@timer
+async def get_bank_all(
     session: AsyncSession,
     *,
     load_organizations: bool = False
@@ -71,7 +79,8 @@ async def get_all(
     result = await session.execute(query)
     return result.scalars().all()
 
-async def get_paginated(
+@timer
+async def get_bank_paginated(
     session: AsyncSession,
     skip: int = 0,
     limit: int = 20,
@@ -126,7 +135,8 @@ async def get_paginated(
 
 # ========== ПРОВЕРКА УНИКАЛЬНОСТИ ==========
 
-async def check_name_exists(
+@timer
+async def check_bank_name_exists(
     session: AsyncSession,
     name: str,
     exclude_id: Optional[int] = None
@@ -139,7 +149,8 @@ async def check_name_exists(
     result = await session.execute(query)
     return result.scalar_one_or_none() is not None
 
-async def check_bik_exists(
+@timer
+async def check_bank_bik_exists(
     session: AsyncSession,
     bik: str,
     exclude_id: Optional[int] = None
@@ -152,7 +163,8 @@ async def check_bik_exists(
     result = await session.execute(query)
     return result.scalar_one_or_none() is not None
 
-async def check_inn_exists(
+@timer
+async def check_bank_inn_exists(
     session: AsyncSession,
     inn: str,
     exclude_id: Optional[int] = None
@@ -167,7 +179,8 @@ async def check_inn_exists(
 
 # ========== ПОДСЧЕТ СВЯЗАННЫХ ОБЪЕКТОВ ==========
 
-async def count_organizations(
+@timer
+async def count_bank_organizations(
     session: AsyncSession,
     bank_id: int
 ) -> int:
@@ -186,7 +199,8 @@ async def count_organizations(
 
 # ========== СОЗДАНИЕ ==========
 
-async def create(
+@timer
+async def create_bank(
     session: AsyncSession,
     bank_create: BankCreate
 ) -> Bank:
@@ -199,7 +213,8 @@ async def create(
 
 # ========== ОБНОВЛЕНИЕ ==========
 
-async def update(
+@timer
+async def update_bank(
     session: AsyncSession,
     bank_id: int,
     bank_update: BankUpdate
@@ -220,7 +235,8 @@ async def update(
 
 # ========== УДАЛЕНИЕ ==========
 
-async def delete(
+@timer
+async def delete_bank(
     session: AsyncSession,
     bank_id: int
 ) -> bool:

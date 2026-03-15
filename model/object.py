@@ -75,12 +75,6 @@ class Object(Base):
                                                     lazy="selectin"
                                                 )
 
-    objects_equipments: Mapped[List["Objects_Equipment"]] = relationship(
-                                                                            "Objects_Equipment",
-                                                                            back_populates="objects",
-                                                                            lazy="selectin"
-                                                                        )
-
     reports: Mapped[List["Report"]] = relationship(
                                                         "Report",
                                                         back_populates="object",
@@ -92,6 +86,21 @@ class Object(Base):
                                                     back_populates="object",
                                                     lazy="selectin"
                                                 )
+
+    objects_equipments: Mapped[List["Objects_Equipment"]] = relationship(
+                                                                            "Objects_Equipment",
+                                                                            back_populates="object",
+                                                                            lazy="selectin",
+                                                                            cascade="all, delete-orphan"
+                                                                        )
+    
+    @property
+    def issues(self) -> List["Issue"]:
+        """Получить все неисправности объекта через связанное оборудование"""
+        issues = []
+        for oe in self.objects_equipments:
+            issues.extend(oe.issues)
+        return issues
 
     def __str__(self):
         return f"Object(id={self.id}, name={self.name})"

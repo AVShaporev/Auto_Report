@@ -6,14 +6,19 @@ from typing import Optional, List, Tuple
 from model.locality import Locality
 from schema.locality import LocalityCreate, LocalityUpdate
 
+from utils.timer import timer
+
+
+
 # ========== ПОЛУЧЕНИЕ ==========
 
-async def get_by_id(
-    session: AsyncSession,
-    locality_id: int,
-    *,
-    load_relations: bool = False
-) -> Optional[Locality]:
+@timer
+async def get_locality_by_id(
+                            session: AsyncSession,
+                            locality_id: int,
+                            *,
+                            load_relations: bool = False
+                            ) -> Optional[Locality]:
     """
     Получить населенный пункт по ID
     
@@ -26,52 +31,55 @@ async def get_by_id(
     
     if load_relations:
         query = query.options(
-            selectinload(Locality.spec_locality),
-            selectinload(Locality.organizations),
-            selectinload(Locality.objects)
-        )
+                                selectinload(Locality.spec_locality),
+                                selectinload(Locality.organizations),
+                                selectinload(Locality.objects)
+                                )
     
     result = await session.execute(query)
     return result.scalar_one_or_none()
 
-async def get_by_name(
-    session: AsyncSession,
-    name: str
-) -> Optional[Locality]:
+@timer
+async def get_locality_by_name(
+                                session: AsyncSession,
+                                name: str
+                                ) -> Optional[Locality]:
     """Получить населенный пункт по названию"""
     query = select(Locality).where(Locality.name == name)
     result = await session.execute(query)
     return result.scalar_one_or_none()
 
-async def get_all(
-    session: AsyncSession,
-    *,
-    load_relations: bool = False
-) -> List[Locality]:
+@timer
+async def get_locality_all(
+                            session: AsyncSession,
+                            *,
+                            load_relations: bool = False
+                            ) -> List[Locality]:
     """Получить все населенные пункты"""
     query = select(Locality).order_by(Locality.name)
     
     if load_relations:
         query = query.options(
-            selectinload(Locality.spec_locality),
-            selectinload(Locality.organizations),
-            selectinload(Locality.objects)
-        )
+                                selectinload(Locality.spec_locality),
+                                selectinload(Locality.organizations),
+                                selectinload(Locality.objects)
+                                )
     
     result = await session.execute(query)
     return result.scalars().all()
 
-async def get_paginated(
-    session: AsyncSession,
-    skip: int = 0,
-    limit: int = 20,
-    search: Optional[str] = None,
-    spec_locality_id: Optional[int] = None,
-    sort_by: str = "name",
-    sort_order: str = "asc",
-    *,
-    load_relations: bool = False
-) -> Tuple[List[Locality], int]:
+@timer
+async def get_locality_paginated(
+                                session: AsyncSession,
+                                skip: int = 0,
+                                limit: int = 20,
+                                search: Optional[str] = None,
+                                spec_locality_id: Optional[int] = None,
+                                sort_by: str = "name",
+                                sort_order: str = "asc",
+                                *,
+                                load_relations: bool = False
+                                ) -> Tuple[List[Locality], int]:
     """
     Получить список населенных пунктов с пагинацией и фильтрацией
     """
@@ -103,10 +111,10 @@ async def get_paginated(
     # Загрузка связанных данных (если запрошено)
     if load_relations:
         query = query.options(
-            selectinload(Locality.spec_locality),
-            selectinload(Locality.organizations),
-            selectinload(Locality.objects)
-        )
+                                selectinload(Locality.spec_locality),
+                                selectinload(Locality.organizations),
+                                selectinload(Locality.objects)
+                                )
     
     # Пагинация
     query = query.offset(skip).limit(limit)
@@ -122,9 +130,10 @@ async def get_paginated(
 
 # ========== ПОЛУЧЕНИЕ ДЛЯ ВЫПАДАЮЩИХ СПИСКОВ ==========
 
-async def get_options(
-    session: AsyncSession
-) -> List[Locality]:
+@timer
+async def get_locality_options(
+                                session: AsyncSession
+                                ) -> List[Locality]:
     """
     Получить минимальную информацию о населенных пунктах для выпадающих списков
     """
@@ -132,10 +141,11 @@ async def get_options(
     result = await session.execute(query)
     return result.scalars().all()
 
-async def get_options_by_spec_locality(
-    session: AsyncSession,
-    spec_locality_id: int
-) -> List[Locality]:
+@timer
+async def get_locality_options_by_spec_locality(
+                                        session: AsyncSession,
+                                        spec_locality_id: int
+                                        ) -> List[Locality]:
     """
     Получить минимальную информацию о населенных пунктах для выпадающих списков по типу
     """
@@ -145,11 +155,12 @@ async def get_options_by_spec_locality(
 
 # ========== ПРОВЕРКА УНИКАЛЬНОСТИ ==========
 
-async def check_name_exists(
-    session: AsyncSession,
-    name: str,
-    exclude_id: Optional[int] = None
-) -> bool:
+@timer
+async def check_locality_name_exists(
+                                    session: AsyncSession,
+                                    name: str,
+                                    exclude_id: Optional[int] = None
+                                    ) -> bool:
     """Проверить, существует ли населенный пункт с таким названием"""
     query = select(Locality).where(Locality.name == name)
     if exclude_id:
@@ -160,10 +171,11 @@ async def check_name_exists(
 
 # ========== ПРОВЕРКА СУЩЕСТВОВАНИЯ ТИПА НАСЕЛЕННОГО ПУНКТА ==========
 
-async def check_spec_locality_exists(
-    session: AsyncSession,
-    spec_locality_id: int
-) -> bool:
+@timer
+async def check_locality_spec_locality_exists(
+                                                session: AsyncSession,
+                                                spec_locality_id: int
+                                                ) -> bool:
     """Проверить, существует ли тип населенного пункта с указанным ID"""
     from model.spec_locality import Spec_Locality
     
@@ -173,10 +185,11 @@ async def check_spec_locality_exists(
 
 # ========== ПОДСЧЕТ СВЯЗАННЫХ ОБЪЕКТОВ ==========
 
-async def count_organizations(
-    session: AsyncSession,
-    locality_id: int
-) -> int:
+@timer
+async def count_locality_organizations(
+                                        session: AsyncSession,
+                                        locality_id: int
+                                        ) -> int:
     """
     Посчитать количество организаций в населенном пункте
     """
@@ -188,27 +201,29 @@ async def count_organizations(
     result = await session.execute(query)
     return result.scalar() or 0
 
-async def count_objects(
-    session: AsyncSession,
-    locality_id: int
-) -> int:
+@timer
+async def count_locality_objects(
+                        session: AsyncSession,
+                        locality_id: int
+                        ) -> int:
     """
     Посчитать количество объектов в населенном пункте
     """
     from model.object import Object
     
     query = select(func.count()).select_from(Object).where(
-        Object.locality_id == locality_id
-    )
+                                                            Object.locality_id == locality_id
+                                                            )
     result = await session.execute(query)
     return result.scalar() or 0
 
 # ========== СОЗДАНИЕ ==========
 
-async def create(
-    session: AsyncSession,
-    locality_create: LocalityCreate
-) -> Locality:
+@timer
+async def create_locality(
+                            session: AsyncSession,
+                            locality_create: LocalityCreate
+                            ) -> Locality:
     """Создать новый населенный пункт"""
     locality = Locality(**locality_create.dict())
     session.add(locality)
@@ -218,11 +233,12 @@ async def create(
 
 # ========== ОБНОВЛЕНИЕ ==========
 
-async def update(
-    session: AsyncSession,
-    locality_id: int,
-    locality_update: LocalityUpdate
-) -> Optional[Locality]:
+@timer
+async def update_locality(
+                            session: AsyncSession,
+                            locality_id: int,
+                            locality_update: LocalityUpdate
+                            ) -> Optional[Locality]:
     """Обновить населенный пункт"""
     locality = await get_by_id(session, locality_id, load_relations=False)
     if not locality:
@@ -239,10 +255,11 @@ async def update(
 
 # ========== УДАЛЕНИЕ ==========
 
-async def delete(
-    session: AsyncSession,
-    locality_id: int
-) -> bool:
+@timer
+async def delete_locality(
+                            session: AsyncSession,
+                            locality_id: int
+                            ) -> bool:
     """Удалить населенный пункт"""
     locality = await session.get(Locality, locality_id)
     if not locality:

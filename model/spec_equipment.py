@@ -15,7 +15,7 @@ from database.database import (
                                 str_null_true
 )
 
-
+# модель типа оборудования
 class Spec_Equipment(Base):
 
     id: Mapped[int_pk]

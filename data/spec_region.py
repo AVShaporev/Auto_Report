@@ -6,14 +6,18 @@ from typing import Optional, List, Tuple
 from model.spec_region import Spec_Region
 from schema.spec_region import SpecRegionCreate, SpecRegionUpdate
 
+from utils.timer import timer
+
+
 # ========== ПОЛУЧЕНИЕ ==========
 
-async def get_by_id(
-    session: AsyncSession,
-    spec_region_id: int,
-    *,
-    load_regions: bool = False
-) -> Optional[Spec_Region]:
+@timer
+async def get_spec_region_by_id(
+                                session: AsyncSession,
+                                spec_region_id: int,
+                                *,
+                                load_regions: bool = False
+                                ) -> Optional[Spec_Region]:
     """
     Получить тип региона по ID
     
@@ -30,20 +34,22 @@ async def get_by_id(
     result = await session.execute(query)
     return result.scalar_one_or_none()
 
-async def get_by_name(
-    session: AsyncSession,
-    name: str
-) -> Optional[Spec_Region]:
+@timer
+async def get_spec_region_by_name(
+                                    session: AsyncSession,
+                                    name: str
+                                    ) -> Optional[Spec_Region]:
     """Получить тип региона по названию"""
     query = select(Spec_Region).where(Spec_Region.name == name)
     result = await session.execute(query)
     return result.scalar_one_or_none()
 
-async def get_all(
-    session: AsyncSession,
-    *,
-    load_regions: bool = False
-) -> List[Spec_Region]:
+@timer
+async def get_spec_region_all(
+                                session: AsyncSession,
+                                *,
+                                load_regions: bool = False
+                                ) -> List[Spec_Region]:
     """Получить все типы регионов"""
     query = select(Spec_Region).order_by(Spec_Region.name)
     
@@ -53,16 +59,17 @@ async def get_all(
     result = await session.execute(query)
     return result.scalars().all()
 
-async def get_paginated(
-    session: AsyncSession,
-    skip: int = 0,
-    limit: int = 20,
-    search: Optional[str] = None,
-    sort_by: str = "name",
-    sort_order: str = "asc",
-    *,
-    load_regions: bool = False
-) -> Tuple[List[Spec_Region], int]:
+@timer
+async def get_spec_region_paginated(
+                                    session: AsyncSession,
+                                    skip: int = 0,
+                                    limit: int = 20,
+                                    search: Optional[str] = None,
+                                    sort_by: str = "name",
+                                    sort_order: str = "asc",
+                                    *,
+                                    load_regions: bool = False
+                                    ) -> Tuple[List[Spec_Region], int]:
     """
     Получить список типов регионов с пагинацией
     """
@@ -104,9 +111,10 @@ async def get_paginated(
 
 # ========== ПОЛУЧЕНИЕ ДЛЯ ВЫПАДАЮЩИХ СПИСКОВ ==========
 
-async def get_options(
-    session: AsyncSession
-) -> List[Spec_Region]:
+@timer
+async def get_spec_region_options(
+                                    session: AsyncSession
+                                    ) -> List[Spec_Region]:
     """
     Получить минимальную информацию о типах регионов для выпадающих списков
     """
@@ -116,11 +124,12 @@ async def get_options(
 
 # ========== ПРОВЕРКА УНИКАЛЬНОСТИ ==========
 
-async def check_name_exists(
-    session: AsyncSession,
-    name: str,
-    exclude_id: Optional[int] = None
-) -> bool:
+@timer
+async def check_spec_region_name_exists(
+                                        session: AsyncSession,
+                                        name: str,
+                                        exclude_id: Optional[int] = None
+                                        ) -> bool:
     """Проверить, существует ли тип региона с таким названием"""
     query = select(Spec_Region).where(Spec_Region.name == name)
     if exclude_id:
@@ -131,10 +140,11 @@ async def check_name_exists(
 
 # ========== ПОДСЧЕТ СВЯЗАННЫХ ОБЪЕКТОВ ==========
 
-async def count_regions(
-    session: AsyncSession,
-    spec_region_id: int
-) -> int:
+@timer
+async def count_spec_region_regions(
+                        session: AsyncSession,
+                        spec_region_id: int
+                        ) -> int:
     """
     Посчитать количество регионов данного типа
     
@@ -150,10 +160,11 @@ async def count_regions(
 
 # ========== СОЗДАНИЕ ==========
 
-async def create(
-    session: AsyncSession,
-    spec_region_create: SpecRegionCreate
-) -> Spec_Region:
+@timer
+async def create_spec_region(
+                            session: AsyncSession,
+                            spec_region_create: SpecRegionCreate
+                            ) -> Spec_Region:
     """Создать новый тип региона"""
     spec_region = Spec_Region(**spec_region_create.dict())
     session.add(spec_region)
@@ -163,11 +174,12 @@ async def create(
 
 # ========== ОБНОВЛЕНИЕ ==========
 
-async def update(
-    session: AsyncSession,
-    spec_region_id: int,
-    spec_region_update: SpecRegionUpdate
-) -> Optional[Spec_Region]:
+@timer
+async def update_spec_region(
+                            session: AsyncSession,
+                            spec_region_id: int,
+                            spec_region_update: SpecRegionUpdate
+                            ) -> Optional[Spec_Region]:
     """Обновить тип региона"""
     spec_region = await get_by_id(session, spec_region_id, load_regions=False)
     if not spec_region:
@@ -184,10 +196,11 @@ async def update(
 
 # ========== УДАЛЕНИЕ ==========
 
-async def delete(
-    session: AsyncSession,
-    spec_region_id: int
-) -> bool:
+@timer
+async def delete_spec_region(
+                                session: AsyncSession,
+                                spec_region_id: int
+                            ) -> bool:
     """Удалить тип региона"""
     spec_region = await session.get(Spec_Region, spec_region_id)
     if not spec_region:

@@ -7,14 +7,8 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from database.database import Base, int_pk, str_uniq, str_null_true
 
-# Используем TYPE_CHECKING для подсказок типов без циклических импортов
-if TYPE_CHECKING:
-    from model.spec_order import Spec_Order
-    from model.contract import Contract
-    from model.object import Object
-    from model.user import User
-    from model.report import Report
 
+# модель заявки
 class Order(Base):
 
     id: Mapped[int_pk]
@@ -32,24 +26,24 @@ class Order(Base):
     
     # Тип заявки (многие к одному)
     spec_order: Mapped["Spec_Order"] = relationship(
-        "Spec_Order",
-        back_populates="orders",  # Должно быть в Spec_Order
-        lazy="selectin"
-    )
+                                                        "Spec_Order",
+                                                        back_populates="orders",  # Должно быть в Spec_Order
+                                                        lazy="selectin"
+                                                    )
 
     # Контракт (многие к одному)
     contract: Mapped["Contract"] = relationship(
-        "Contract",
-        back_populates="orders",  # Должно быть в Contract
-        lazy="selectin"
-    )
+                                                    "Contract",
+                                                    back_populates="orders",  # Должно быть в Contract
+                                                    lazy="selectin"
+                                                )
 
     # Объект (многие к одному)
     object: Mapped["Object"] = relationship(
-        "Object",
-        back_populates="orders",  # Должно быть в Object
-        lazy="selectin"
-    )
+                                                "Object",
+                                                back_populates="orders",  # Должно быть в Object
+                                                lazy="selectin"
+                                            )
 
     # Пользователь (многие к одному)
     user: Mapped["User"] = relationship(
@@ -71,10 +65,3 @@ class Order(Base):
 
     def __repr__(self):
         return str(self)
-
-# # Импорты после определения класса для избежания циклических зависимостей
-# from model.spec_order import Spec_Order
-# from model.contract import Contract
-# from model.object import Object
-# from model.user import User
-# from model.report import Report

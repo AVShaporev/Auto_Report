@@ -6,8 +6,12 @@ from typing import Optional, List, Tuple
 from model.spec_contract import Spec_Contract
 from schema.spec_contract import SpecContractCreate, SpecContractUpdate
 
+from utils.timer import timer
+
+
 # ========== ПОЛУЧЕНИЕ ==========
 
+@timer
 async def get_by_id(
     session: AsyncSession,
     spec_contract_id: int,
@@ -29,6 +33,7 @@ async def get_by_id(
     result = await session.execute(query)
     return result.scalar_one_or_none()
 
+@timer
 async def get_by_name(
     session: AsyncSession,
     name: str
@@ -40,6 +45,7 @@ async def get_by_name(
     result = await session.execute(query)
     return result.scalar_one_or_none()
 
+@timer
 async def get_all(
     session: AsyncSession,
     load_contracts: bool = False
@@ -55,6 +61,7 @@ async def get_all(
     result = await session.execute(query)
     return result.scalars().all()
 
+@timer
 async def get_paginated(
                         session: AsyncSession,
                         skip: int = 0,
@@ -107,6 +114,7 @@ async def get_paginated(
 
 # ========== ПРОВЕРКА СУЩЕСТВОВАНИЯ ==========
 
+@timer
 async def check_name_exists(
     session: AsyncSession,
     name: str,
@@ -124,6 +132,7 @@ async def check_name_exists(
 
 # ========== СОЗДАНИЕ ==========
 
+@timer
 async def create(
     session: AsyncSession,
     spec_contract_create: SpecContractCreate
@@ -139,6 +148,7 @@ async def create(
 
 # ========== ОБНОВЛЕНИЕ ==========
 
+@timer
 async def update(
     session: AsyncSession,
     spec_contract_id: int,
@@ -165,6 +175,7 @@ async def update(
 
 # ========== УДАЛЕНИЕ ==========
 
+@timer
 async def delete(
     session: AsyncSession,
     spec_contract_id: int
@@ -186,6 +197,7 @@ async def delete(
 
 # ========== ДОПОЛНИТЕЛЬНЫЕ ОПЕРАЦИИ ==========
 
+@timer
 async def get_with_contracts_count(
     session: AsyncSession,
     spec_contract_id: int

@@ -3,8 +3,15 @@ from typing import Optional, List
 
 from pydantic import ConfigDict, BaseModel, Field, EmailStr
 
-from model.user import User
+# from model.user import User
 from schema.role import RoleResponse
+
+
+class RoleSimpleResponse(BaseModel):
+    id: int
+    name: str
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 # модель чтения пользователя из БД
@@ -12,10 +19,20 @@ class Read_User(BaseModel):
     # id: int
     model_config = ConfigDict(from_attributes=True)
 
+class UserLogin(BaseModel):
+    id: int
+    name: str
+    full_name: Optional[str] = None
+    role: Optional[RoleSimpleResponse] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
 # модель аунтентификации
 class SUserAuth(BaseModel):
     login: str = Field(..., description="Имя пользователя")
     password: str = Field(..., min_length=5, max_length=50, description="Пароль, от 5 до 50 знаков")
+
+    model_config = ConfigDict(from_attributes=True)
 
 # Базовая схема пользователя
 class UserBase(BaseModel):
@@ -33,6 +50,8 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     password: str = Field(..., min_length=6)
 
+    model_config = ConfigDict(from_attributes=True)
+
 # Схема для обновления пользователя (все поля опциональны)
 class UserUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=3, max_length=50)
@@ -44,6 +63,8 @@ class UserUpdate(BaseModel):
     is_active: Optional[bool] = None
     password: Optional[str] = Field(None, min_length=6)
 
+    model_config = ConfigDict(from_attributes=True)
+
 # Схема для ответа (с ID и отношениями)
 class UserResponse(UserBase):
     id: int
@@ -52,7 +73,7 @@ class UserResponse(UserBase):
     email: Optional[str] = None
     role_id: int
     is_active: bool
-    role: Optional['RoleResponse'] = None
+    role: Optional[RoleSimpleResponse] = None
     
     model_config = ConfigDict(from_attributes=True)
 
@@ -94,7 +115,7 @@ class UserLogin(BaseModel):
     telegram_id: Optional[str] = None
     role_id: int = Field(..., ge=1)
     is_active: bool = True
-    role: RoleResponse
+    role: Optional[RoleSimpleResponse] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -102,4 +123,6 @@ class LoginResponse(BaseModel):
     user: UserLogin
     access_token: str
     refresh_token: str
+
+    model_config = ConfigDict(from_attributes=True)
 

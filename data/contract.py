@@ -7,9 +7,14 @@ from datetime import date
 from model.contract import Contract
 from schema.contract import ContractCreate, ContractUpdate
 
+from utils.timer import timer
+
+
+
 # ========== ПОЛУЧЕНИЕ ==========
 
-async def get_by_id(
+@timer
+async def get_contract_by_id(
     session: AsyncSession,
     contract_id: int,
     *,
@@ -39,6 +44,7 @@ async def get_by_id(
     result = await session.execute(query)
     return result.scalar_one_or_none()
 
+@timer
 async def get_by_number(
     session: AsyncSession,
     number: str
@@ -48,7 +54,8 @@ async def get_by_number(
     result = await session.execute(query)
     return result.scalar_one_or_none()
 
-async def get_all(
+@timer
+async def get_contract_all(
     session: AsyncSession,
     *,
     load_relations: bool = False
@@ -66,7 +73,8 @@ async def get_all(
     result = await session.execute(query)
     return result.scalars().all()
 
-async def get_paginated(
+@timer
+async def get_contract_paginated(
     session: AsyncSession,
     skip: int = 0,
     limit: int = 20,
@@ -156,7 +164,8 @@ async def get_paginated(
 
 # ========== ПОЛУЧЕНИЕ ДЛЯ ВЫПАДАЮЩИХ СПИСКОВ ==========
 
-async def get_options(
+@timer
+async def get_contract_options(
     session: AsyncSession
 ) -> List[Contract]:
     """
@@ -168,7 +177,8 @@ async def get_options(
 
 # ========== ПРОВЕРКА УНИКАЛЬНОСТИ ==========
 
-async def check_number_exists(
+@timer
+async def check_contract_number_exists(
     session: AsyncSession,
     number: str,
     exclude_id: Optional[int] = None
@@ -183,7 +193,8 @@ async def check_number_exists(
 
 # ========== ПРОВЕРКА СУЩЕСТВОВАНИЯ СВЯЗАННЫХ ОБЪЕКТОВ ==========
 
-async def check_spec_contract_exists(
+@timer
+async def check_contract_spec_contract_exists(
     session: AsyncSession,
     spec_contract_id: int
 ) -> bool:
@@ -194,7 +205,8 @@ async def check_spec_contract_exists(
     result = await session.execute(query)
     return result.scalar_one_or_none() is not None
 
-async def check_organization_exists(
+@timer
+async def check_contract_organization_exists(
     session: AsyncSession,
     org_id: int
 ) -> bool:
@@ -207,7 +219,8 @@ async def check_organization_exists(
 
 # ========== ПОДСЧЕТ СВЯЗАННЫХ ОБЪЕКТОВ ==========
 
-async def count_sub_contracts(
+@timer
+async def count_contract_sub_contracts(
     session: AsyncSession,
     contract_id: int
 ) -> int:
@@ -220,7 +233,8 @@ async def count_sub_contracts(
     result = await session.execute(query)
     return result.scalar() or 0
 
-async def count_objects(
+@timer
+async def count_contract_objects(
     session: AsyncSession,
     contract_id: int
 ) -> int:
@@ -233,7 +247,8 @@ async def count_objects(
     result = await session.execute(query)
     return result.scalar() or 0
 
-async def count_reports(
+@timer
+async def count_contract_reports(
     session: AsyncSession,
     contract_id: int
 ) -> int:
@@ -246,7 +261,8 @@ async def count_reports(
     result = await session.execute(query)
     return result.scalar() or 0
 
-async def count_orders(
+@timer
+async def count_contract_orders(
     session: AsyncSession,
     contract_id: int
 ) -> int:
@@ -261,7 +277,8 @@ async def count_orders(
 
 # ========== СОЗДАНИЕ ==========
 
-async def create(
+@timer
+async def create_contract(
     session: AsyncSession,
     contract_create: ContractCreate
 ) -> Contract:
@@ -274,7 +291,8 @@ async def create(
 
 # ========== ОБНОВЛЕНИЕ ==========
 
-async def update(
+@timer
+async def update_contract(
     session: AsyncSession,
     contract_id: int,
     contract_update: ContractUpdate
@@ -295,7 +313,8 @@ async def update(
 
 # ========== УДАЛЕНИЕ ==========
 
-async def delete(
+@timer
+async def delete_contract(
     session: AsyncSession,
     contract_id: int
 ) -> bool:

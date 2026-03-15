@@ -6,8 +6,12 @@ from typing import Optional, List, Tuple
 from model.period import Period
 from schema.period import PeriodCreate, PeriodUpdate
 
+from utils.timer import timer
+
+
 # ========== ПОЛУЧЕНИЕ ==========
 
+@timer
 async def get_by_id(
     session: AsyncSession,
     period_id: int,
@@ -33,6 +37,7 @@ async def get_by_id(
     result = await session.execute(query)
     return result.scalar_one_or_none()
 
+@timer
 async def get_by_name(
     session: AsyncSession,
     name: str
@@ -42,6 +47,7 @@ async def get_by_name(
     result = await session.execute(query)
     return result.scalar_one_or_none()
 
+@timer
 async def get_by_period(
     session: AsyncSession,
     period: str
@@ -51,6 +57,7 @@ async def get_by_period(
     result = await session.execute(query)
     return result.scalar_one_or_none()
 
+@timer
 async def get_all(
     session: AsyncSession,
     *,
@@ -68,6 +75,7 @@ async def get_all(
     result = await session.execute(query)
     return result.scalars().all()
 
+@timer
 async def get_paginated(
     session: AsyncSession,
     skip: int = 0,
@@ -125,6 +133,7 @@ async def get_paginated(
 
 # ========== ПОЛУЧЕНИЕ ДЛЯ ВЫПАДАЮЩИХ СПИСКОВ ==========
 
+@timer
 async def get_options(
     session: AsyncSession
 ) -> List[Period]:
@@ -137,6 +146,7 @@ async def get_options(
 
 # ========== ПРОВЕРКА УНИКАЛЬНОСТИ ==========
 
+@timer
 async def check_name_exists(
     session: AsyncSession,
     name: str,
@@ -150,6 +160,7 @@ async def check_name_exists(
     result = await session.execute(query)
     return result.scalar_one_or_none() is not None
 
+@timer
 async def check_period_exists(
     session: AsyncSession,
     period: str,
@@ -165,6 +176,7 @@ async def check_period_exists(
 
 # ========== ПОДСЧЕТ СВЯЗАННЫХ ОБЪЕКТОВ ==========
 
+@timer
 async def count_objects(
     session: AsyncSession,
     period_id: int
@@ -180,6 +192,7 @@ async def count_objects(
     result = await session.execute(query)
     return result.scalar() or 0
 
+@timer
 async def count_reports(
     session: AsyncSession,
     period_id: int
@@ -197,6 +210,7 @@ async def count_reports(
 
 # ========== СОЗДАНИЕ ==========
 
+@timer
 async def create(
     session: AsyncSession,
     period_create: PeriodCreate
@@ -210,6 +224,7 @@ async def create(
 
 # ========== ОБНОВЛЕНИЕ ==========
 
+@timer
 async def update(
     session: AsyncSession,
     period_id: int,
@@ -231,6 +246,7 @@ async def update(
 
 # ========== УДАЛЕНИЕ ==========
 
+@timer
 async def delete(
     session: AsyncSession,
     period_id: int

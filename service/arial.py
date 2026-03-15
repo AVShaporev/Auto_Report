@@ -8,6 +8,8 @@ from schema.arial import ArialCreate, ArialUpdate
 from schema.pagination import PaginationParams
 from database.database import new_session
 
+from utils import timer
+
 # ========== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ==========
 
 async def check_permission(
@@ -49,7 +51,7 @@ async def get_arial_by_id(
     await check_permission(current_user, "arial_read", "просмотра районов")
     
     async with new_session() as session:
-        arial = await arial_data.get_by_id(
+        arial = await arial_data.get_arial_by_id(
             session, 
             arial_id, 
             load_relations=load_relations
@@ -77,7 +79,7 @@ async def get_arials_paginated(
     await check_permission(current_user, "arial_read", "просмотра списка районов")
     
     async with new_session() as session:
-        items, total = await arial_data.get_paginated(
+        items, total = await arial_data.get_arial_paginated(
             session=session,
             skip=pagination.skip,
             limit=pagination.limit,
@@ -91,16 +93,34 @@ async def get_arials_paginated(
         return items, total
 
 async def get_all_arials(
-    current_user: User,
-    load_relations: bool = False
-) -> List[Arial]:
+                        current_user: User,
+                        ) -> List[dict]:
     """
-    Получить все районы
+    Получить все районы с количеством организаций и объектов.
+    Возвращает список словарей, готовых для сериализации.
     """
     await check_permission(current_user, "arial_read", "просмотра районов")
     
     async with new_session() as session:
-        return await arial_data.get_all(session, load_relations=load_relations)
+        # Получаем районы с загрузкой только spec_arial
+        arials = await arial_data.get_arial_all(
+                                                session,
+                                                load_relations=False
+                                                )  # или специальная функция без загрузки
+        # Получаем словари с количеством организаций и объектов
+        org_counts = await arial_data.get_organizations_count_by_arial(session)
+        obj_counts = await arial_data.get_objects_count_by_arial(session)
+    
+    result = []
+    for arial in arials:
+        result.append({
+            "id": arial.id,
+            "name": arial.name,
+            "spec_arial_name": arial.spec_arial.name if arial.spec_arial else None,
+            "organizations_count": org_counts.get(arial.id, 0),
+            "objects_count": obj_counts.get(arial.id, 0)
+        })
+    return result
 
 async def get_arial_options(
     current_user: User
@@ -111,7 +131,7 @@ async def get_arial_options(
     await check_permission(current_user, "arial_read", "просмотра районов")
     
     async with new_session() as session:
-        return await arial_data.get_options(session)
+        return await arial_data.get_arial_options(session)
 
 async def get_arial_options_by_spec(
     spec_arial_id: int,
@@ -124,13 +144,13 @@ async def get_arial_options_by_spec(
     
     async with new_session() as session:
         # Проверяем существование типа района
-        if not await spec_arial_data.check_name_exists(session, spec_arial_id):
+        if not await spec_arial_data.check_arial_name_exists(session, spec_arial_id):
             raise HTTPException(
                 status_code=404,
                 detail=f"Тип района с id {spec_arial_id} не найден"
             )
         
-        return await arial_data.get_options_by_spec_arial(session, spec_arial_id)
+        return await arial_data.get_arial__options_by_spec_arial(session, spec_arial_id)
 
 # ========== ПОЛУЧЕНИЕ СО СТАТИСТИКОЙ ==========
 
@@ -147,7 +167,7 @@ async def get_arial_with_stats(
     
     async with new_session() as session:
         # Получаем район с загрузкой типа района
-        arial = await arial_data.get_by_id(
+        arial = await arial_data.get_arial_by_id(
             session, 
             arial_id,
             load_relations=True
@@ -160,8 +180,8 @@ async def get_arial_with_stats(
             )
         
         # Получаем количество связанных объектов
-        organizations_count = await arial_data.count_organizations(session, arial_id)
-        objects_count = await arial_data.count_objects(session, arial_id)
+        organizations_count = await arial_data.count_arial_organizations(session, arial_id)
+        objects_count = await arial_data.count_arial_objects(session, arial_id)
         
         # Возвращаем готовый словарь для ответа
         return {
@@ -174,13 +194,13 @@ async def get_arial_with_stats(
         }
 
 async def get_arials_paginated_with_stats(
-    pagination: PaginationParams,
-    current_user: User,
-    search: Optional[str] = None,
-    spec_arial_id: Optional[int] = None,
-    sort_by: str = "name",
-    sort_order: str = "asc"
-) -> Tuple[List[dict], int]:
+                                            pagination: PaginationParams,
+                                            current_user: User,
+                                            search: Optional[str] = None,
+                                            spec_arial_id: Optional[int] = None,
+                                            sort_by: str = "name",
+                                            sort_order: str = "asc"
+                                        ) -> Tuple[List[dict], int]:
     """
     Получить список районов со статистикой для ответа
     """
@@ -188,7 +208,7 @@ async def get_arials_paginated_with_stats(
     
     async with new_session() as session:
         # Получаем районы с загрузкой типа района
-        items, total = await arial_data.get_paginated(
+        items, total = await arial_data.get_arial_paginated(
             session=session,
             skip=pagination.skip,
             limit=pagination.limit,
@@ -202,8 +222,8 @@ async def get_arials_paginated_with_stats(
         # Для каждого района получаем статистику
         result_items = []
         for item in items:
-            organizations_count = await arial_data.count_organizations(session, item.id)
-            objects_count = await arial_data.count_objects(session, item.id)
+            organizations_count = await arial_data.count_arial_organizations(session, item.id)
+            objects_count = await arial_data.count_arial_objects(session, item.id)
             
             result_items.append({
                 "id": item.id,
@@ -228,21 +248,21 @@ async def create_arial(
     
     async with new_session() as session:
         # Проверка уникальности названия
-        if await arial_data.check_name_exists(session, arial_create.name):
+        if await arial_data.check_arial_name_exists(session, arial_create.name):
             raise HTTPException(
                 status_code=400,
                 detail=f"Район с названием '{arial_create.name}' уже существует"
             )
         
         # Проверка существования типа района
-        if not await arial_data.check_spec_arial_exists(session, arial_create.spec_arial_id):
+        if not await arial_data.check_arial_spec_arial_exists(session, arial_create.spec_arial_id):
             raise HTTPException(
                 status_code=400,
                 detail=f"Тип района с id {arial_create.spec_arial_id} не существует"
             )
         
         # Создание
-        arial = await arial_data.create(session, arial_create)
+        arial = await arial_data.create_arial(session, arial_create)
         
         return arial
 
@@ -260,7 +280,7 @@ async def update_arial(
     
     async with new_session() as session:
         # Проверяем существование
-        existing = await arial_data.get_by_id(session, arial_id)
+        existing = await arial_data.get_arial_by_id(session, arial_id)
         if not existing:
             raise HTTPException(
                 status_code=404,
@@ -269,7 +289,7 @@ async def update_arial(
         
         # Проверка уникальности названия, если оно меняется
         if arial_update.name and arial_update.name != existing.name:
-            if await arial_data.check_name_exists(session, arial_update.name, arial_id):
+            if await arial_data.check_arial_name_exists(session, arial_update.name, arial_id):
                 raise HTTPException(
                     status_code=400,
                     detail=f"Район с названием '{arial_update.name}' уже существует"
@@ -277,23 +297,23 @@ async def update_arial(
         
         # Проверка существования типа района, если он меняется
         if arial_update.spec_arial_id and arial_update.spec_arial_id != existing.spec_arial_id:
-            if not await arial_data.check_spec_arial_exists(session, arial_update.spec_arial_id):
+            if not await arial_data.check_arial_spec_arial_exists(session, arial_update.spec_arial_id):
                 raise HTTPException(
                     status_code=400,
                     detail=f"Тип района с id {arial_update.spec_arial_id} не существует"
                 )
         
         # Обновление
-        arial = await arial_data.update(session, arial_id, arial_update)
+        arial = await arial_data.update_arial(session, arial_id, arial_update)
         
         return arial
 
 # ========== УДАЛЕНИЕ ==========
 
 async def delete_arial(
-    arial_id: int,
-    current_user: User
-) -> bool:
+                        arial_id: int,
+                        current_user: User
+                    ) -> bool:
     """
     Удалить район
     """
@@ -301,7 +321,7 @@ async def delete_arial(
     
     async with new_session() as session:
         # Проверяем существование и связанные объекты
-        arial = await arial_data.get_by_id(
+        arial = await arial_data.get_arial_by_id(
             session, 
             arial_id, 
             load_relations=True
@@ -328,6 +348,6 @@ async def delete_arial(
             )
         
         # Удаление
-        success = await arial_data.delete(session, arial_id)
+        success = await arial_data.delete_arial(session, arial_id)
         
         return success

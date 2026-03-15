@@ -15,12 +15,6 @@ from database.database import (
                                 str_uniq, 
                                 str_null_true
 )
-# from model.organization import Organization
-from model.spec_contract import Spec_Contract
-from model.sub_contract import Sub_Contract
-# from model.object import Object
-from model.report import Report
-from model.order import Order
 
 
 # модель контракта
@@ -60,8 +54,8 @@ class Contract(Base):
                                                         lazy="joined")
 
     # дополнительные соглашения (один контракт - ноль или много доп.соглашений)
-    sub_contract_subjects: Mapped[List[Sub_Contract]] = relationship(
-        Sub_Contract, 
+    sub_contract_subjects: Mapped[List["Sub_Contract"]] = relationship(
+        "Sub_Contract", 
         back_populates="contract_subject")
 
 
@@ -78,7 +72,7 @@ class Contract(Base):
                                                     )
 
     # заявки по объекту (один контракт - много заявок)
-    orders: Mapped[List[Order]] = relationship(Order,
+    orders: Mapped[List["Order"]] = relationship("Order",
                                                 back_populates="contract",
                                                 lazy="selectin")
 

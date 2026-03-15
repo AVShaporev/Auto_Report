@@ -19,15 +19,17 @@ from database.database import (
                                 str_null_true
 )
 
-
+# модель типа заявки
 class Spec_Order(Base):
 
     id: Mapped[int_pk]
     name: Mapped[str_uniq]
     short_name: Mapped[str_null_true]
     
-    orders: Mapped[List["Order"]] = relationship("Order",
-                                                        back_populates="spec_order")
+    orders: Mapped[List["Order"]] = relationship(
+                                                "Order",
+                                                back_populates="spec_order"
+                                                )
 
     def __str__(self):
         return f"{self.__class__.__name__}(id={self.id}, name={self.name})"

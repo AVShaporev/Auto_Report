@@ -6,14 +6,18 @@ from typing import Optional, List, Tuple
 from model.spec_build import Spec_Build
 from schema.spec_build import SpecBuildCreate, SpecBuildUpdate
 
+from utils.timer import timer
+
+
 # ========== ПОЛУЧЕНИЕ ==========
 
-async def get_by_id(
-    session: AsyncSession,
-    spec_build_id: int,
-    *,
-    load_relations: bool = False
-) -> Optional[Spec_Build]:
+@timer
+async def get_spec_build_by_id(
+                                session: AsyncSession,
+                                spec_build_id: int,
+                                *,
+                                load_relations: bool = False
+                                ) -> Optional[Spec_Build]:
     """
     Получить тип строения по ID
     
@@ -26,49 +30,52 @@ async def get_by_id(
     
     if load_relations:
         query = query.options(
-            selectinload(Spec_Build.organizations),
-            selectinload(Spec_Build.objects)
-        )
+                                selectinload(Spec_Build.organizations),
+                                selectinload(Spec_Build.objects)
+                                )
     
     result = await session.execute(query)
     return result.scalar_one_or_none()
 
-async def get_by_name(
-    session: AsyncSession,
-    name: str
-) -> Optional[Spec_Build]:
+@timer
+async def get_spec_build_by_name(
+                                session: AsyncSession,
+                                name: str
+                                ) -> Optional[Spec_Build]:
     """Получить тип строения по названию"""
     query = select(Spec_Build).where(Spec_Build.name == name)
     result = await session.execute(query)
     return result.scalar_one_or_none()
 
-async def get_all(
-    session: AsyncSession,
-    *,
-    load_relations: bool = False
-) -> List[Spec_Build]:
+@timer
+async def get_spec_build_all(
+                            session: AsyncSession,
+                            *,
+                            load_relations: bool = False
+                            ) -> List[Spec_Build]:
     """Получить все типы строений"""
     query = select(Spec_Build).order_by(Spec_Build.name)
     
     if load_relations:
         query = query.options(
-            selectinload(Spec_Build.organizations),
-            selectinload(Spec_Build.objects)
-        )
+                                selectinload(Spec_Build.organizations),
+                                selectinload(Spec_Build.objects)
+                                )
     
     result = await session.execute(query)
     return result.scalars().all()
 
-async def get_paginated(
-    session: AsyncSession,
-    skip: int = 0,
-    limit: int = 20,
-    search: Optional[str] = None,
-    sort_by: str = "name",
-    sort_order: str = "asc",
-    *,
-    load_relations: bool = False
-) -> Tuple[List[Spec_Build], int]:
+@timer
+async def get_spec_build_paginated(
+                                    session: AsyncSession,
+                                    skip: int = 0,
+                                    limit: int = 20,
+                                    search: Optional[str] = None,
+                                    sort_by: str = "name",
+                                    sort_order: str = "asc",
+                                    *,
+                                    load_relations: bool = False
+                                    ) -> Tuple[List[Spec_Build], int]:
     """
     Получить список типов строений с пагинацией
     """
@@ -95,9 +102,9 @@ async def get_paginated(
     # Загрузка связанных данных (если запрошено)
     if load_relations:
         query = query.options(
-            selectinload(Spec_Build.organizations),
-            selectinload(Spec_Build.objects)
-        )
+                                selectinload(Spec_Build.organizations),
+                                selectinload(Spec_Build.objects)
+                                )
     
     # Пагинация
     query = query.offset(skip).limit(limit)
@@ -113,9 +120,10 @@ async def get_paginated(
 
 # ========== ПОЛУЧЕНИЕ ДЛЯ ВЫПАДАЮЩИХ СПИСКОВ ==========
 
-async def get_options(
-    session: AsyncSession
-) -> List[Spec_Build]:
+@timer
+async def get_spec_build_options(
+                                session: AsyncSession
+                                ) -> List[Spec_Build]:
     """
     Получить минимальную информацию о типах строений для выпадающих списков
     """
@@ -125,11 +133,12 @@ async def get_options(
 
 # ========== ПРОВЕРКА УНИКАЛЬНОСТИ ==========
 
-async def check_name_exists(
-    session: AsyncSession,
-    name: str,
-    exclude_id: Optional[int] = None
-) -> bool:
+@timer
+async def check_spec_build_name_exists(
+                                        session: AsyncSession,
+                                        name: str,
+                                        exclude_id: Optional[int] = None
+                                        ) -> bool:
     """Проверить, существует ли тип строения с таким названием"""
     query = select(Spec_Build).where(Spec_Build.name == name)
     if exclude_id:
@@ -140,42 +149,45 @@ async def check_name_exists(
 
 # ========== ПОДСЧЕТ СВЯЗАННЫХ ОБЪЕКТОВ ==========
 
-async def count_organizations(
-    session: AsyncSession,
-    spec_build_id: int
-) -> int:
+@timer
+async def count_spec_build_organizations(
+                                        session: AsyncSession,
+                                        spec_build_id: int
+                                        ) -> int:
     """
     Посчитать количество организаций с данным типом строения
     """
     from model.organization import Organization
     
     query = select(func.count()).select_from(Organization).where(
-        Organization.spec_build_id == spec_build_id
-    )
+                                                                    Organization.spec_build_id == spec_build_id
+                                                                )
     result = await session.execute(query)
     return result.scalar() or 0
 
-async def count_objects(
-    session: AsyncSession,
-    spec_build_id: int
-) -> int:
+@timer
+async def count_spec_build_objects(
+                                    session: AsyncSession,
+                                    spec_build_id: int
+                                    ) -> int:
     """
     Посчитать количество объектов с данным типом строения
     """
     from model.object import Object
     
     query = select(func.count()).select_from(Object).where(
-        Object.spec_build_id == spec_build_id
-    )
+                                                            Object.spec_build_id == spec_build_id
+                                                            )
     result = await session.execute(query)
     return result.scalar() or 0
 
 # ========== СОЗДАНИЕ ==========
 
-async def create(
-    session: AsyncSession,
-    spec_build_create: SpecBuildCreate
-) -> Spec_Build:
+@timer
+async def create_spec_build(
+                            session: AsyncSession,
+                            spec_build_create: SpecBuildCreate
+                            ) -> Spec_Build:
     """Создать новый тип строения"""
     spec_build = Spec_Build(**spec_build_create.dict())
     session.add(spec_build)
@@ -185,11 +197,12 @@ async def create(
 
 # ========== ОБНОВЛЕНИЕ ==========
 
-async def update(
-    session: AsyncSession,
-    spec_build_id: int,
-    spec_build_update: SpecBuildUpdate
-) -> Optional[Spec_Build]:
+@timer
+async def update_spec_build(
+                            session: AsyncSession,
+                            spec_build_id: int,
+                            spec_build_update: SpecBuildUpdate
+                            ) -> Optional[Spec_Build]:
     """Обновить тип строения"""
     spec_build = await get_by_id(session, spec_build_id, load_relations=False)
     if not spec_build:
@@ -206,10 +219,11 @@ async def update(
 
 # ========== УДАЛЕНИЕ ==========
 
-async def delete(
-    session: AsyncSession,
-    spec_build_id: int
-) -> bool:
+@timer
+async def delete_spec_build(
+                            session: AsyncSession,
+                            spec_build_id: int
+                            ) -> bool:
     """Удалить тип строения"""
     spec_build = await session.get(Spec_Build, spec_build_id)
     if not spec_build:
