@@ -16,7 +16,7 @@ class Spec_Region(Base):
                                                     )
     
     def __str__(self):
-        return f"{self.__class__.__name__}(id={self.id}, name={self.name})"
+        return f"{self.__class__.__name__}(id={self.id}, name={self.name}, description={self.description})"
 
     def __repr__(self):
         return str(self)

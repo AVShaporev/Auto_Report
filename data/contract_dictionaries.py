@@ -49,14 +49,14 @@ async def get_contract_dictionaries_all_spec_regions(session: AsyncSession) -> L
 @timer
 async def get_contract_dictionaries_customers(session: AsyncSession) -> List[Dict]:
     result = await session.execute(
-        select(Organization).order_by(Organization.name)
+        select(Organization).where(Organization.customer == True).order_by(Organization.name)
     )
     return [{"id": r.id, "name": r.name} for r in result.scalars()]
 
 @timer
 async def get_contract_dictionaries_executors(session: AsyncSession) -> List[Dict]:
     result = await session.execute(
-        select(Organization).order_by(Organization.name)
+        select(Organization).where(Organization.executor == True).order_by(Organization.name)
     )
     return [{"id": r.id, "name": r.name} for r in result.scalars()]
 

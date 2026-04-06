@@ -185,7 +185,7 @@ async def check_arial_name_exists(
 
 # ========== ПРОВЕРКА СУЩЕСТВОВАНИЯ ТИПА РАЙОНА ==========
 @timer
-async def check_spec_arial_exists(
+async def check_arial_spec_arial_exists(
     session: AsyncSession,
     spec_arial_id: int
 ) -> bool:

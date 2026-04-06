@@ -181,7 +181,7 @@ async def update_spec_region(
                             spec_region_update: SpecRegionUpdate
                             ) -> Optional[Spec_Region]:
     """Обновить тип региона"""
-    spec_region = await get_by_id(session, spec_region_id, load_regions=False)
+    spec_region = await get_spec_region_by_id(session, spec_region_id, load_regions=False)
     if not spec_region:
         return None
     

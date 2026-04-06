@@ -311,3 +311,11 @@ class RoleListResponse(BaseModel):
     users_count: int = 0
     
     model_config = ConfigDict(from_attributes=True)
+
+class RoleSimpleResponse(BaseModel):
+    id: int
+    name: str
+    is_admin: bool
+    is_superadmin: bool
+
+    model_config = ConfigDict(from_attributes=True)

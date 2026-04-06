@@ -178,7 +178,7 @@ async def get_contract_options(
 # ========== ПРОВЕРКА УНИКАЛЬНОСТИ ==========
 
 @timer
-async def check_contract_number_exists(
+async def check_number_contract_exists(
     session: AsyncSession,
     number: str,
     exclude_id: Optional[int] = None

@@ -86,3 +86,29 @@ async def get_recent_activities(session: AsyncSession, limit: int = 10) -> List[
             "created_at": row.created_at
         })
     return activities
+
+@timer
+async def get_dashboard_spec_stats(session: AsyncSession) -> Dict[str, Any]:
+    """
+    Получить общую статистику для справочников одним запросом.
+    Возвращает словарь со счётчиками.
+    """
+    query = text("""
+        SELECT 
+            (SELECT COUNT(*) FROM spec_regions) as spec_regions,
+            (SELECT COUNT(*) FROM spec_arials) as spec_arials,
+            (SELECT COUNT(*) FROM spec_localitys) as spec_localitys,
+            (SELECT COUNT(*) FROM spec_streets) as spec_streets,
+            (SELECT COUNT(*) FROM spec_builds) as spec_builds,
+            (SELECT COUNT(*) FROM spec_rooms) as spec_rooms,
+            
+            (SELECT COUNT(*) FROM spec_contracts) as spec_contracts,
+            (SELECT COUNT(*) FROM spec_job_titles) as spec_job_titles,
+
+            (SELECT COUNT(*) FROM spec_equipments) as spec_equipments,
+            (SELECT COUNT(*) FROM spec_orders) as spec_orders
+    """)
+    result = await session.execute(query)
+    row = result.fetchone()
+    # Преобразуем Row в словарь (работает для SQLAlchemy 1.4+)
+    return dict(row._mapping)

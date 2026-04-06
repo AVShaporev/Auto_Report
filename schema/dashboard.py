@@ -27,3 +27,18 @@ class DashboardStatsResponse(BaseModel):
     reports: int
     quick_stats: QuickStatsResponse
     recent_activities: List[ActivityResponse]
+
+class DashboardSpecStatsResponse(BaseModel):
+    """Полный ответ для справочников"""
+    spec_regions: int
+    spec_arials: int
+    spec_localitys: int
+    spec_streets: int
+    spec_builds: int
+    spec_rooms: int
+
+    spec_contracts: int
+    spec_job_titles: int
+
+    spec_equipments: int
+    spec_orders:int

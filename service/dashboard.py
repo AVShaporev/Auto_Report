@@ -4,6 +4,7 @@ from model.user import User
 from data import dashboard as dashboard_data
 from schema.dashboard import (
     DashboardStatsResponse,
+    DashboardSpecStatsResponse,
     QuickStatsResponse,
     ActivityResponse
 )
@@ -65,3 +66,33 @@ async def get_dashboard_stats(current_user: User) -> DashboardStatsResponse:
         quick_stats=quick_stats,
         recent_activities=activities
     )
+
+async def get_dashboard_spec_stats(current_user: User) -> DashboardSpecStatsResponse:
+    """
+    Сервис для получения статистики справочников.
+    Проверяет, что пользователь активен (уже гарантировано зависимостью),
+    и при необходимости можно добавить более детальные проверки прав.
+    """
+    # Пример дополнительной проверки: если у пользователя нет прав на чтение ни одной сущности,
+    # можно вернуть 403. Здесь для простоты оставляем как есть.
+    # if not (current_user.role.objects_read or current_user.role.contracts_read ...):
+    #     raise HTTPException(403, "Недостаточно прав для просмотра дашборда")
+
+    async with new_session() as session:
+        # Получаем статистику
+        spec_stats_data = await dashboard_data.get_dashboard_spec_stats(session)
+
+    return DashboardSpecStatsResponse(
+            spec_regions=spec_stats_data["spec_regions"],
+            spec_arials=spec_stats_data["spec_arials"],
+            spec_localitys=spec_stats_data["spec_localitys"],
+            spec_streets=spec_stats_data["spec_streets"],
+            spec_builds=spec_stats_data["spec_builds"],
+            spec_rooms=spec_stats_data["spec_rooms"],
+
+            spec_contracts=spec_stats_data["spec_contracts"],
+            spec_job_titles=spec_stats_data["spec_job_titles"],
+
+            spec_equipments=spec_stats_data["spec_equipments"],
+            spec_orders=spec_stats_data["spec_orders"],
+        )

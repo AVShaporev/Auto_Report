@@ -37,9 +37,6 @@ async def get_spec_equipment_list(
                                                                         )
     
     pages = (total + pagination.limit - 1) // pagination.limit
-
-    print(pagination)
-    print(items)
     
     return PaginatedResponse(
                             items=items,
@@ -82,7 +79,7 @@ async def get_all_spec_equipments(
         load_equipments=True
     )
     
-    return [
+    items = [
         {
             "id": item.id,
             "name": item.name,
@@ -90,6 +87,8 @@ async def get_all_spec_equipments(
         }
         for item in spec_equipments
     ]
+
+    return items
 
 @router.get("/{spec_equipment_id}", response_model=SpecEquipmentResponse)
 async def get_spec_equipment_by_id(

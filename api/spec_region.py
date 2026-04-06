@@ -139,7 +139,7 @@ async def update_spec_region(
     
     # Получаем количество связанных регионов для ответа
     async with spec_region_service.new_session() as session:
-        regions_count = await spec_region_service.spec_region_data.count_regions(
+        regions_count = await spec_region_service.spec_region_data.count_spec_region_regions(
                                                                                 session, 
                                                                                 spec_region_id
                                                                                 )

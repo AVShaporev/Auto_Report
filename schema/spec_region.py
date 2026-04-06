@@ -11,12 +11,13 @@ class SpecRegionBase(BaseModel):
 # Схема для создания типа региона
 class SpecRegionCreate(SpecRegionBase):
     """Схема для создания типа региона"""
-    pass
+    description: Optional[str] = Field(None, min_length=2, max_length=500)
 
 # Схема для обновления типа региона (все поля опциональны)
 class SpecRegionUpdate(BaseModel):
     """Схема для обновления типа региона"""
     name: Optional[str] = Field(None, min_length=2, max_length=100)
+    description: Optional[str] = Field(None, min_length=2, max_length=500)
     
     model_config = ConfigDict(from_attributes=True)
 
@@ -24,6 +25,7 @@ class SpecRegionUpdate(BaseModel):
 class SpecRegionResponse(SpecRegionBase):
     """Полная информация о типе региона"""
     id: int
+    description: Optional[str] = Field("", description="Описание для типа региона")
     regions_count: Optional[int] = Field(0, description="Количество регионов этого типа")
     
     model_config = ConfigDict(from_attributes=True)
@@ -33,6 +35,7 @@ class SpecRegionListResponse(BaseModel):
     """Краткая информация о типе региона для списков"""
     id: int
     name: str
+    description: str
     regions_count: int = 0
     
     model_config = ConfigDict(from_attributes=True)

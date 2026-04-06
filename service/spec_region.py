@@ -147,6 +147,7 @@ async def get_spec_region_with_stats(
         return {
                 "id": spec_region.id,
                 "name": spec_region.name,
+                "description": spec_region.description,
                 "regions_count": regions_count
                 }
 
@@ -184,6 +185,7 @@ async def get_spec_regions_paginated_with_stats(
             result_items.append({
                                 "id": item.id,
                                 "name": item.name,
+                                "description": item.description if item.description else "",
                                 "regions_count": regions_count
                                 })
         

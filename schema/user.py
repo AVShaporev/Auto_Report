@@ -4,14 +4,7 @@ from typing import Optional, List
 from pydantic import ConfigDict, BaseModel, Field, EmailStr
 
 # from model.user import User
-from schema.role import RoleResponse
-
-
-class RoleSimpleResponse(BaseModel):
-    id: int
-    name: str
-
-    model_config = ConfigDict(from_attributes=True)
+from schema.role import RoleResponse, RoleSimpleResponse
 
 
 # модель чтения пользователя из БД
@@ -19,13 +12,13 @@ class Read_User(BaseModel):
     # id: int
     model_config = ConfigDict(from_attributes=True)
 
-class UserLogin(BaseModel):
-    id: int
-    name: str
-    full_name: Optional[str] = None
-    role: Optional[RoleSimpleResponse] = None
+# class UserLogin(BaseModel):
+#     id: int
+#     name: str
+#     full_name: Optional[str] = None
+#     role: Optional[RoleSimpleResponse] = None
 
-    model_config = ConfigDict(from_attributes=True)
+#     model_config = ConfigDict(from_attributes=True)
 
 # модель аунтентификации
 class SUserAuth(BaseModel):

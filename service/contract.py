@@ -228,8 +228,8 @@ async def get_contracts_paginated_with_stats(
                 "short_subject": item.short_subject,
                 "type_contract": item.type_contract,
                 "spec_contract_name": item.spec_contract.name if item.spec_contract else None,
-                "customer_name": item.customer.name if item.customer else None,
-                "executor_name": item.executor.name if item.executor else None,
+                "customer_name": item.customer.short_name if item.customer else None,
+                "executor_name": item.executor.short_name if item.executor else None,
                 "objects_count": len(item.objects) if item.objects else 0
             })
         
