@@ -14,7 +14,7 @@ from utils.timer import timer
 # ========== ПОЛУЧЕНИЕ ==========
 
 @timer
-async def get_by_id(
+async def get_order_by_id(
     session: AsyncSession,
     order_id: int,
     *,
@@ -22,14 +22,14 @@ async def get_by_id(
 ) -> Optional[Order]:
     """
     Получить заявку по ID
-    
+
     Args:
         session: Сессия БД
         order_id: ID заявки
         load_relations: Если True, загрузить все связанные данные
     """
     query = select(Order).where(Order.id == order_id)
-    
+
     if load_relations:
         query = query.options(
             selectinload(Order.spec_order),
@@ -38,12 +38,12 @@ async def get_by_id(
             selectinload(Order.user),
             selectinload(Order.report)
         )
-    
+
     result = await session.execute(query)
     return result.scalar_one_or_none()
 
 @timer
-async def get_by_number(
+async def get_order_by_number(
     session: AsyncSession,
     number: str
 ) -> Optional[Order]:
@@ -53,7 +53,7 @@ async def get_by_number(
     return result.scalar_one_or_none()
 
 @timer
-async def get_by_user(
+async def get_order_by_user(
     session: AsyncSession,
     user_id: int
 ) -> List[Order]:
@@ -63,14 +63,14 @@ async def get_by_user(
     return result.scalars().all()
 
 @timer
-async def get_all(
+async def get_order_all(
     session: AsyncSession,
     *,
     load_relations: bool = False
 ) -> List[Order]:
     """Получить все заявки"""
     query = select(Order).order_by(Order.created_at.desc())
-    
+
     if load_relations:
         query = query.options(
             selectinload(Order.spec_order),
@@ -78,12 +78,12 @@ async def get_all(
             selectinload(Order.object),
             selectinload(Order.user)
         )
-    
+
     result = await session.execute(query)
     return result.scalars().all()
 
 @timer
-async def get_paginated(
+async def get_order_paginated(
     session: AsyncSession,
     skip: int = 0,
     limit: int = 20,
@@ -106,7 +106,7 @@ async def get_paginated(
     # Базовый запрос
     query = select(Order)
     count_query = select(func.count()).select_from(Order)
-    
+
     # Поиск по номеру и описанию
     if search:
         search_filter = or_(
@@ -115,36 +115,36 @@ async def get_paginated(
         )
         query = query.where(search_filter)
         count_query = count_query.where(search_filter)
-    
+
     # Фильтры
     if spec_order_id:
         query = query.where(Order.spec_order_id == spec_order_id)
         count_query = count_query.where(Order.spec_order_id == spec_order_id)
-    
+
     if contract_id:
         query = query.where(Order.contract_id == contract_id)
         count_query = count_query.where(Order.contract_id == contract_id)
-    
+
     if object_id:
         query = query.where(Order.object_id == object_id)
         count_query = count_query.where(Order.object_id == object_id)
-    
+
     if user_id:
         query = query.where(Order.user_id == user_id)
         count_query = count_query.where(Order.user_id == user_id)
-    
+
     if status:
         query = query.where(Order.status == status)
         count_query = count_query.where(Order.status == status)
-    
+
     if date_from:
         query = query.where(Order.created_at >= date_from)
         count_query = count_query.where(Order.created_at >= date_from)
-    
+
     if date_to:
         query = query.where(Order.created_at <= date_to)
         count_query = count_query.where(Order.created_at <= date_to)
-    
+
     # Сортировка
     if sort_by and hasattr(Order, sort_by):
         column = getattr(Order, sort_by)
@@ -154,7 +154,7 @@ async def get_paginated(
             query = query.order_by(column.asc())
     else:
         query = query.order_by(Order.created_at.desc())
-    
+
     # Загрузка связанных данных (если запрошено)
     if load_relations:
         query = query.options(
@@ -163,23 +163,23 @@ async def get_paginated(
             selectinload(Order.object),
             selectinload(Order.user)
         )
-    
+
     # Пагинация
     query = query.offset(skip).limit(limit)
-    
+
     # Выполнение
     result = await session.execute(query)
     items = result.scalars().all()
-    
+
     total_result = await session.execute(count_query)
     total = total_result.scalar()
-    
+
     return items, total
 
 # ========== ПОЛУЧЕНИЕ ДЛЯ ВЫПАДАЮЩИХ СПИСКОВ ==========
 
 @timer
-async def get_options(
+async def get_order_options(
     session: AsyncSession,
     status: Optional[str] = None
 ) -> List[Order]:
@@ -187,17 +187,17 @@ async def get_options(
     Получить минимальную информацию о заявках для выпадающих списков
     """
     query = select(Order).order_by(Order.created_at.desc())
-    
+
     if status:
         query = query.where(Order.status == status)
-    
+
     result = await session.execute(query)
     return result.scalars().all()
 
 # ========== ПРОВЕРКА УНИКАЛЬНОСТИ ==========
 
 @timer
-async def check_number_exists(
+async def check_order_number_exists(
     session: AsyncSession,
     number: str,
     exclude_id: Optional[int] = None
@@ -206,7 +206,7 @@ async def check_number_exists(
     query = select(Order).where(Order.number == number)
     if exclude_id:
         query = query.where(Order.id != exclude_id)
-    
+
     result = await session.execute(query)
     return result.scalar_one_or_none() is not None
 
@@ -219,7 +219,7 @@ async def check_spec_order_exists(
 ) -> bool:
     """Проверить, существует ли тип заявки"""
     from model.spec_order import Spec_Order
-    
+
     query = select(Spec_Order).where(Spec_Order.id == spec_order_id)
     result = await session.execute(query)
     return result.scalar_one_or_none() is not None
@@ -231,7 +231,7 @@ async def check_contract_exists(
 ) -> bool:
     """Проверить, существует ли контракт"""
     from model.contract import Contract
-    
+
     query = select(Contract).where(Contract.id == contract_id)
     result = await session.execute(query)
     return result.scalar_one_or_none() is not None
@@ -243,7 +243,7 @@ async def check_object_exists(
 ) -> bool:
     """Проверить, существует ли объект"""
     from model.object import Object
-    
+
     query = select(Object).where(Object.id == object_id)
     result = await session.execute(query)
     return result.scalar_one_or_none() is not None
@@ -255,7 +255,7 @@ async def check_user_exists(
 ) -> bool:
     """Проверить, существует ли пользователь"""
     from model.user import User
-    
+
     query = select(User).where(User.id == user_id)
     result = await session.execute(query)
     return result.scalar_one_or_none() is not None
@@ -267,7 +267,7 @@ async def check_report_exists(
 ) -> bool:
     """Проверить, существует ли отчет"""
     from model.report import Report
-    
+
     query = select(Report).where(Report.id == report_id)
     result = await session.execute(query)
     return result.scalar_one_or_none() is not None
@@ -275,15 +275,14 @@ async def check_report_exists(
 # ========== ПОДСЧЕТ СВЯЗАННЫХ ОБЪЕКТОВ ==========
 
 @timer
-async def count_reports(
+async def count_reports_by_order(
     session: AsyncSession,
     order_id: int
 ) -> int:
-    """Посчитать количество отчетов по заявке (обычно 0 или 1)"""
-    from model.report import Report
-    
-    query = select(func.count()).select_from(Report).where(
-        Report.order_id == order_id
+    """Посчитать количество отчётов по заявке (1:1 — всегда 0 или 1)."""
+    query = select(func.count()).select_from(Order).where(
+        Order.id == order_id,
+        Order.report_id.isnot(None),
     )
     result = await session.execute(query)
     return result.scalar() or 0
@@ -291,16 +290,16 @@ async def count_reports(
 # ========== ОБНОВЛЕНИЕ СТАТУСА ==========
 
 @timer
-async def update_status(
+async def update_order_status(
     session: AsyncSession,
     order_id: int,
     status: str
 ) -> Optional[Order]:
     """Обновить статус заявки"""
-    order = await get_by_id(session, order_id, load_relations=False)
+    order = await get_order_by_id(session, order_id, load_relations=False)
     if not order:
         return None
-    
+
     order.status = status
     await session.commit()
     await session.refresh(order)
@@ -309,16 +308,18 @@ async def update_status(
 # ========== СОЗДАНИЕ ==========
 
 @timer
-async def create(
+async def create_order(
     session: AsyncSession,
     order_create: OrderCreate,
-    user_id: int  # 👈 user_id передается из сервиса
+    user_id: int,
+    *,
+    number: str,
 ) -> Order:
-    """Создать новую заявку"""
-    # Создаем словарь с данными и добавляем user_id
-    order_data = order_create.dict()
+    """Создать новую заявку. number и user_id приходят из сервиса."""
+    order_data = order_create.model_dump()
     order_data['user_id'] = user_id
-    
+    order_data['number'] = number
+
     order = Order(**order_data)
     session.add(order)
     await session.commit()
@@ -328,21 +329,21 @@ async def create(
 # ========== ОБНОВЛЕНИЕ ==========
 
 @timer
-async def update(
+async def update_order(
     session: AsyncSession,
     order_id: int,
     order_update: OrderUpdate
 ) -> Optional[Order]:
     """Обновить заявку"""
-    order = await get_by_id(session, order_id, load_relations=False)
+    order = await get_order_by_id(session, order_id, load_relations=False)
     if not order:
         return None
-    
-    update_data = order_update.dict(exclude_unset=True)
+
+    update_data = order_update.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         if hasattr(order, field):
             setattr(order, field, value)
-    
+
     await session.commit()
     await session.refresh(order)
     return order
@@ -350,7 +351,7 @@ async def update(
 # ========== УДАЛЕНИЕ ==========
 
 @timer
-async def delete(
+async def delete_order(
     session: AsyncSession,
     order_id: int
 ) -> bool:
@@ -358,7 +359,7 @@ async def delete(
     order = await session.get(Order, order_id)
     if not order:
         return False
-    
+
     await session.delete(order)
     await session.commit()
     return True

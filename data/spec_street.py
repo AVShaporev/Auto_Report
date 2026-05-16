@@ -181,7 +181,7 @@ async def update_spec_street(
                             spec_street_update: SpecStreetUpdate
                             ) -> Optional[Spec_Street]:
     """Обновить тип улицы"""
-    spec_street = await get_by_id(session, spec_street_id, load_streets=False)
+    spec_street = await get_spec_street_by_id(session, spec_street_id, load_streets=False)
     if not spec_street:
         return None
     

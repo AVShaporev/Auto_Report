@@ -153,6 +153,56 @@ async def get_spec_equipment_with_stats(
                 "equipments_count": equipments_count
                 }
 
+async def update_spec_equipment_with_stats(
+                                            spec_equipment_id: int,
+                                            spec_equipment_update: SpecEquipmentUpdate,
+                                            current_user: User
+                                            ) -> dict:
+    """
+    Обновить тип оборудования и вернуть словарь со статистикой для ответа
+    """
+    await check_permission(current_user, "spec_equipment_modify", "изменения типов оборудования")
+
+    async with new_session() as session:
+        existing = await spec_equipment_data.get_spec_equipment_by_id(
+                                                                        session,
+                                                                        spec_equipment_id
+                                                                        )
+        if not existing:
+            raise HTTPException(
+                                status_code=404,
+                                detail=f"Тип оборудования с id {spec_equipment_id} не найден"
+                                )
+
+        if spec_equipment_update.name and spec_equipment_update.name != existing.name:
+            if await spec_equipment_data.check_spec_equipment_name_exists(
+                                                                            session,
+                                                                            spec_equipment_update.name,
+                                                                            spec_equipment_id
+                                                                            ):
+                raise HTTPException(
+                                    status_code=400,
+                                    detail=f"Тип оборудования с названием "
+                                           f"'{spec_equipment_update.name}' уже существует"
+                                    )
+
+        spec_equipment = await spec_equipment_data.update_spec_equipment(
+                                                                            session,
+                                                                            spec_equipment_id,
+                                                                            spec_equipment_update
+                                                                            )
+
+        equipments_count = await spec_equipment_data.count_spec_equipment_equipments(
+                                                                                        session,
+                                                                                        spec_equipment_id
+                                                                                        )
+
+        return {
+                "id": spec_equipment.id,
+                "name": spec_equipment.name,
+                "equipments_count": equipments_count
+                }
+
 async def get_spec_equipments_paginated_with_stats(
                                                     pagination: PaginationParams,
                                                     current_user: User,

@@ -1,11 +1,11 @@
-from typing import List
+from typing import List, Optional
 from datetime import date
 
 from sqlalchemy import ForeignKey, Text
 from sqlalchemy.orm import (
-                            DeclarativeBase, 
-                            Mapped, 
-                            mapped_column, 
+                            DeclarativeBase,
+                            Mapped,
+                            mapped_column,
                             relationship
 )
 
@@ -44,7 +44,7 @@ class Organization(Base):
     locality_id: Mapped[int] = mapped_column(ForeignKey("localitys.id"))        # населенный пункт
     street_id: Mapped[int] = mapped_column(ForeignKey("streets.id"))            # улица
     spec_build_id: Mapped[int] = mapped_column(ForeignKey("spec_builds.id"))    # тип строения
-    spec_room_id: Mapped[int] = mapped_column(ForeignKey("spec_rooms.id"))      # тип помещения
+    spec_room_id: Mapped[Optional[int]] = mapped_column(ForeignKey("spec_rooms.id"), nullable=True)  # тип помещения (опционально)
     spec_job_title_id: Mapped[int] = mapped_column(ForeignKey("spec_job_titles.id"))    # должность руководителя
 
     # банк
@@ -80,8 +80,8 @@ class Organization(Base):
                                                     back_populates="organizations"
                                                     )
 
-    # тип помещения
-    spec_room: Mapped["Spec_Room"] = relationship(
+    # тип помещения (опционально)
+    spec_room: Mapped[Optional["Spec_Room"]] = relationship(
                                                     "Spec_Room",
                                                     back_populates="organizations"
                                                     )

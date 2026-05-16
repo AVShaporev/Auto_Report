@@ -12,7 +12,7 @@ from utils.timer import timer
 # ========== ПОЛУЧЕНИЕ ==========
 
 @timer
-async def get_by_id(
+async def get_period_by_id(
     session: AsyncSession,
     period_id: int,
     *,
@@ -20,25 +20,25 @@ async def get_by_id(
 ) -> Optional[Period]:
     """
     Получить период по ID
-    
+
     Args:
         session: Сессия БД
         period_id: ID периода
         load_relations: Если True, загрузить связанные данные (objects, reports)
     """
     query = select(Period).where(Period.id == period_id)
-    
+
     if load_relations:
         query = query.options(
             selectinload(Period.objects),
             selectinload(Period.reports)
         )
-    
+
     result = await session.execute(query)
     return result.scalar_one_or_none()
 
 @timer
-async def get_by_name(
+async def get_period_by_name(
     session: AsyncSession,
     name: str
 ) -> Optional[Period]:
@@ -48,7 +48,7 @@ async def get_by_name(
     return result.scalar_one_or_none()
 
 @timer
-async def get_by_period(
+async def get_period_by_period(
     session: AsyncSession,
     period: str
 ) -> Optional[Period]:
@@ -58,25 +58,25 @@ async def get_by_period(
     return result.scalar_one_or_none()
 
 @timer
-async def get_all(
+async def get_period_all(
     session: AsyncSession,
     *,
     load_relations: bool = False
 ) -> List[Period]:
     """Получить все периоды"""
     query = select(Period).order_by(Period.name)
-    
+
     if load_relations:
         query = query.options(
             selectinload(Period.objects),
             selectinload(Period.reports)
         )
-    
+
     result = await session.execute(query)
     return result.scalars().all()
 
 @timer
-async def get_paginated(
+async def get_period_paginated(
     session: AsyncSession,
     skip: int = 0,
     limit: int = 20,
@@ -92,7 +92,7 @@ async def get_paginated(
     # Базовый запрос
     query = select(Period)
     count_query = select(func.count()).select_from(Period)
-    
+
     # Поиск по названию и периодичности
     if search:
         search_filter = or_(
@@ -101,7 +101,7 @@ async def get_paginated(
         )
         query = query.where(search_filter)
         count_query = count_query.where(search_filter)
-    
+
     # Сортировка
     if sort_by and hasattr(Period, sort_by):
         column = getattr(Period, sort_by)
@@ -111,30 +111,30 @@ async def get_paginated(
             query = query.order_by(column.asc())
     else:
         query = query.order_by(Period.name)
-    
+
     # Загрузка связанных данных (если запрошено)
     if load_relations:
         query = query.options(
             selectinload(Period.objects),
             selectinload(Period.reports)
         )
-    
+
     # Пагинация
     query = query.offset(skip).limit(limit)
-    
+
     # Выполнение
     result = await session.execute(query)
     items = result.scalars().all()
-    
+
     total_result = await session.execute(count_query)
     total = total_result.scalar()
-    
+
     return items, total
 
 # ========== ПОЛУЧЕНИЕ ДЛЯ ВЫПАДАЮЩИХ СПИСКОВ ==========
 
 @timer
-async def get_options(
+async def get_period_options(
     session: AsyncSession
 ) -> List[Period]:
     """
@@ -147,7 +147,7 @@ async def get_options(
 # ========== ПРОВЕРКА УНИКАЛЬНОСТИ ==========
 
 @timer
-async def check_name_exists(
+async def check_period_name_exists(
     session: AsyncSession,
     name: str,
     exclude_id: Optional[int] = None
@@ -156,12 +156,12 @@ async def check_name_exists(
     query = select(Period).where(Period.name == name)
     if exclude_id:
         query = query.where(Period.id != exclude_id)
-    
+
     result = await session.execute(query)
     return result.scalar_one_or_none() is not None
 
 @timer
-async def check_period_exists(
+async def check_period_period_exists(
     session: AsyncSession,
     period: str,
     exclude_id: Optional[int] = None
@@ -170,14 +170,14 @@ async def check_period_exists(
     query = select(Period).where(Period.period == period)
     if exclude_id:
         query = query.where(Period.id != exclude_id)
-    
+
     result = await session.execute(query)
     return result.scalar_one_or_none() is not None
 
 # ========== ПОДСЧЕТ СВЯЗАННЫХ ОБЪЕКТОВ ==========
 
 @timer
-async def count_objects(
+async def count_objects_by_period(
     session: AsyncSession,
     period_id: int
 ) -> int:
@@ -185,7 +185,7 @@ async def count_objects(
     Посчитать количество объектов с данным периодом
     """
     from model.object import Object
-    
+
     query = select(func.count()).select_from(Object).where(
         Object.period_id == period_id
     )
@@ -193,7 +193,7 @@ async def count_objects(
     return result.scalar() or 0
 
 @timer
-async def count_reports(
+async def count_reports_by_period(
     session: AsyncSession,
     period_id: int
 ) -> int:
@@ -201,7 +201,7 @@ async def count_reports(
     Посчитать количество отчетов с данным периодом
     """
     from model.report import Report
-    
+
     query = select(func.count()).select_from(Report).where(
         Report.period_id == period_id
     )
@@ -211,12 +211,12 @@ async def count_reports(
 # ========== СОЗДАНИЕ ==========
 
 @timer
-async def create(
+async def create_period(
     session: AsyncSession,
     period_create: PeriodCreate
 ) -> Period:
     """Создать новый период"""
-    period = Period(**period_create.dict())
+    period = Period(**period_create.model_dump())
     session.add(period)
     await session.commit()
     await session.refresh(period)
@@ -225,21 +225,21 @@ async def create(
 # ========== ОБНОВЛЕНИЕ ==========
 
 @timer
-async def update(
+async def update_period(
     session: AsyncSession,
     period_id: int,
     period_update: PeriodUpdate
 ) -> Optional[Period]:
     """Обновить период"""
-    period = await get_by_id(session, period_id, load_relations=False)
+    period = await get_period_by_id(session, period_id, load_relations=False)
     if not period:
         return None
-    
-    update_data = period_update.dict(exclude_unset=True)
+
+    update_data = period_update.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         if hasattr(period, field):
             setattr(period, field, value)
-    
+
     await session.commit()
     await session.refresh(period)
     return period
@@ -247,7 +247,7 @@ async def update(
 # ========== УДАЛЕНИЕ ==========
 
 @timer
-async def delete(
+async def delete_period(
     session: AsyncSession,
     period_id: int
 ) -> bool:
@@ -255,7 +255,7 @@ async def delete(
     period = await session.get(Period, period_id)
     if not period:
         return False
-    
+
     await session.delete(period)
     await session.commit()
     return True

@@ -141,25 +141,11 @@ async def update_spec_order(
     
     Требуется право: spec_order_modify
     """
-    spec_order = await spec_order_service.update_spec_order(
+    return await spec_order_service.update_spec_order_with_stats(
         spec_order_id,
         spec_order_data,
         current_user
     )
-    
-    # Получаем количество связанных заявок для ответа
-    async with spec_order_service.new_session() as session:
-        orders_count = await spec_order_service.spec_order_data.count_orders(
-            session, 
-            spec_order_id
-        )
-    
-    return {
-        "id": spec_order.id,
-        "name": spec_order.name,
-        "short_name": spec_order.short_name,
-        "orders_count": orders_count
-    }
 
 @router.delete("/{spec_order_id}")
 async def delete_spec_order(

@@ -137,32 +137,14 @@ async def update_spec_room(
 ):
     """
     Обновить тип помещения
-    
+
     Требуется право: spec_room_modify
     """
-    spec_room = await spec_room_service.update_spec_room(
+    return await spec_room_service.update_spec_room_with_stats(
         spec_room_id,
         spec_room_data,
         current_user
     )
-    
-    # Получаем статистику для ответа
-    async with spec_room_service.new_session() as session:
-        organizations_count = await spec_room_service.spec_room_data.count_organizations(
-            session, 
-            spec_room_id
-        )
-        objects_count = await spec_room_service.spec_room_data.count_objects(
-            session, 
-            spec_room_id
-        )
-    
-    return {
-        "id": spec_room.id,
-        "name": spec_room.name,
-        "organizations_count": organizations_count,
-        "objects_count": objects_count
-    }
 
 @router.delete("/{spec_room_id}")
 async def delete_spec_room(

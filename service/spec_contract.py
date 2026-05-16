@@ -43,7 +43,7 @@ async def get_spec_contract_by_id(
     await check_permission(current_user, "spec_contract_read", "просмотра типов договоров")
     
     async with new_session() as session:
-        spec_contract = await spec_contract_data.get_by_id(
+        spec_contract = await spec_contract_data.get_spec_contract_by_id(
                                                             session, 
                                                             spec_contract_id, 
                                                             load_contracts
@@ -70,7 +70,7 @@ async def get_spec_contracts_paginated(
     await check_permission(current_user, "spec_contract_read", "просмотра списка типов договоров")
     
     async with new_session() as session:
-        items, total = await spec_contract_data.get_paginated(
+        items, total = await spec_contract_data.get_spec_contract_paginated(
             session=session,
             skip=pagination.skip,
             limit=pagination.limit,
@@ -92,7 +92,73 @@ async def get_all_spec_contracts(
     await check_permission(current_user, "spec_contract_read", "просмотра типов договоров")
     
     async with new_session() as session:
-        return await spec_contract_data.get_all(session, load_contracts)
+        return await spec_contract_data.get_spec_contract_all(session, load_contracts)
+
+# ========== ПОЛУЧЕНИЕ СО СТАТИСТИКОЙ ==========
+
+async def get_spec_contract_with_stats(
+    spec_contract_id: int,
+    current_user: User
+) -> dict:
+    """
+    Получить тип договора со статистикой для ответа
+    """
+    await check_permission(current_user, "spec_contract_read", "просмотра типов договоров")
+
+    async with new_session() as session:
+        spec_contract = await spec_contract_data.get_spec_contract_by_id(
+            session,
+            spec_contract_id,
+            load_contracts=False
+        )
+
+        if not spec_contract:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Тип договора с id {spec_contract_id} не найден"
+            )
+
+        contracts_count = await spec_contract_data.count_contracts_by_spec_contract(session, spec_contract_id)
+
+        return {
+            "id": spec_contract.id,
+            "name": spec_contract.name,
+            "contracts_count": contracts_count
+        }
+
+async def get_spec_contracts_paginated_with_stats(
+    pagination: PaginationParams,
+    current_user: User,
+    search: Optional[str] = None,
+    sort_by: str = "name",
+    sort_order: str = "asc"
+) -> Tuple[List[dict], int]:
+    """
+    Получить список типов договоров со статистикой для ответа
+    """
+    await check_permission(current_user, "spec_contract_read", "просмотра списка типов договоров")
+
+    async with new_session() as session:
+        items, total = await spec_contract_data.get_spec_contract_paginated(
+            session=session,
+            skip=pagination.skip,
+            limit=pagination.limit,
+            search=search,
+            sort_by=sort_by,
+            sort_order=sort_order,
+            load_contracts=False
+        )
+
+        result_items = []
+        for item in items:
+            contracts_count = await spec_contract_data.count_contracts_by_spec_contract(session, item.id)
+            result_items.append({
+                "id": item.id,
+                "name": item.name,
+                "contracts_count": contracts_count
+            })
+
+        return result_items, total
 
 # ========== СОЗДАНИЕ ==========
 
@@ -107,7 +173,7 @@ async def create_spec_contract(
     
     async with new_session() as session:
         # Проверка уникальности названия
-        exists = await spec_contract_data.check_name_exists(
+        exists = await spec_contract_data.check_spec_contract_name_exists(
             session, 
             spec_contract_create.name
         )
@@ -118,7 +184,7 @@ async def create_spec_contract(
             )
         
         # Создание
-        spec_contract = await spec_contract_data.create(session, spec_contract_create)
+        spec_contract = await spec_contract_data.create_spec_contract(session, spec_contract_create)
         
         return spec_contract
 
@@ -136,7 +202,7 @@ async def update_spec_contract(
     
     async with new_session() as session:
         # Проверяем существование
-        existing = await spec_contract_data.get_by_id(session, spec_contract_id)
+        existing = await spec_contract_data.get_spec_contract_by_id(session, spec_contract_id)
         if not existing:
             raise HTTPException(
                 status_code=404,
@@ -145,7 +211,7 @@ async def update_spec_contract(
         
         # Проверка уникальности названия, если оно меняется
         if spec_contract_update.name and spec_contract_update.name != existing.name:
-            exists = await spec_contract_data.check_name_exists(
+            exists = await spec_contract_data.check_spec_contract_name_exists(
                 session, 
                 spec_contract_update.name, 
                 spec_contract_id
@@ -157,13 +223,34 @@ async def update_spec_contract(
                 )
         
         # Обновление
-        spec_contract = await spec_contract_data.update(
-            session, 
-            spec_contract_id, 
+        spec_contract = await spec_contract_data.update_spec_contract(
+            session,
+            spec_contract_id,
             spec_contract_update
         )
         
         return spec_contract
+
+async def update_spec_contract_with_stats(
+    spec_contract_id: int,
+    spec_contract_update: SpecContractUpdate,
+    current_user: User
+) -> dict:
+    """
+    Обновить тип договора и вернуть результат со статистикой (contracts_count).
+    Парный к get_spec_contract_with_stats — чтобы api-слою не приходилось лазать в data.
+    """
+    # update_spec_contract уже делает check_permission и валидации — не дублируем
+    spec_contract = await update_spec_contract(spec_contract_id, spec_contract_update, current_user)
+
+    async with new_session() as session:
+        contracts_count = await spec_contract_data.count_contracts_by_spec_contract(session, spec_contract_id)
+
+    return {
+        "id": spec_contract.id,
+        "name": spec_contract.name,
+        "contracts_count": contracts_count
+    }
 
 # ========== УДАЛЕНИЕ ==========
 
@@ -178,7 +265,7 @@ async def delete_spec_contract(
     
     async with new_session() as session:
         # Проверяем существование и связанные договоры
-        spec_contract = await spec_contract_data.get_by_id(
+        spec_contract = await spec_contract_data.get_spec_contract_by_id(
             session, 
             spec_contract_id, 
             load_contracts=True
@@ -198,6 +285,6 @@ async def delete_spec_contract(
             )
         
         # Удаление
-        success = await spec_contract_data.delete(session, spec_contract_id)
+        success = await spec_contract_data.delete_spec_contract(session, spec_contract_id)
         
         return success

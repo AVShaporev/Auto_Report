@@ -220,7 +220,7 @@ async def update_bank(
     bank_update: BankUpdate
 ) -> Optional[Bank]:
     """Обновить банк"""
-    bank = await get_by_id(session, bank_id, load_organizations=False)
+    bank = await get_bank_by_id(session, bank_id, load_organizations=False)
     if not bank:
         return None
     

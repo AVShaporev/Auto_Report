@@ -1,4 +1,10 @@
-from fastapi import APIRouter, Depends, Query, HTTPException
+import io
+import re
+import zipfile
+from datetime import datetime
+
+from fastapi import APIRouter, Depends, Query, HTTPException, Response
+from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import date
 
@@ -12,7 +18,20 @@ from schema.order import (
 )
 from schema.pagination import PaginationParams, PaginatedResponse
 from service import order as order_service
+from service.order_pdf import render_order_pdf, render_order_primary_pdf
 from core.dependencies import get_current_active_user
+
+
+class BulkPdfRequest(BaseModel):
+    """Тело запроса для массового скачивания PDF-актов по заявкам."""
+    order_ids: List[int] = Field(..., min_length=1, max_length=200,
+                                  description="ID заявок (1..200 за раз)")
+    kind: str = Field("to", description="Тип акта: 'to' (плановый) или 'primary' (первичный)")
+
+
+def _safe_zip_name(name: str) -> str:
+    # Минимальная санация: убираем символы, опасные для имени файла в ZIP/файловой системе
+    return re.sub(r'[\\/:*?"<>|]+', "_", name).strip().strip(".") or "file.pdf"
 
 router = APIRouter(prefix="/api/order", tags=["order"])
 
@@ -86,6 +105,7 @@ async def get_my_orders(
             "number": item.number,
             "created_at": item.created_at,
             "status": item.status,
+            "report_id": item.report_id,
             "spec_order_name": item.spec_order.name if item.spec_order else None,
             "object_name": item.object.name if item.object else None,
             "user_name": item.user.name if item.user else None,
@@ -140,6 +160,96 @@ async def get_orders_by_status(
     )
     
     return items
+
+@router.post("/bulk-pdf")
+async def bulk_order_pdf(
+    payload: BulkPdfRequest,
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    Сформировать ZIP-архив с PDF-актами по списку заявок.
+
+    `kind='to'` — акт ТО (плановый), `kind='primary'` — акт первичного обследования.
+    Требуется право: `order_read` (проверяется внутри render-функций).
+    """
+    if payload.kind not in ("to", "primary"):
+        raise HTTPException(400, detail="kind должен быть 'to' или 'primary'")
+
+    render_fn = render_order_pdf if payload.kind == "to" else render_order_primary_pdf
+
+    buf = io.BytesIO()
+    errors: list[str] = []
+    with zipfile.ZipFile(buf, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+        for oid in payload.order_ids:
+            try:
+                pdf_bytes, filename = await render_fn(oid, current_user)
+            except HTTPException as e:
+                # 403 (нет прав) — останавливаем сразу, остальные пропускаем
+                if e.status_code == 403:
+                    raise
+                errors.append(f"order_id={oid}: {e.detail}")
+                continue
+            except Exception as e:
+                errors.append(f"order_id={oid}: {e}")
+                continue
+            zf.writestr(_safe_zip_name(filename), pdf_bytes)
+
+        if errors:
+            zf.writestr("_errors.txt", "\n".join(errors).encode("utf-8"))
+
+    ts = datetime.now().strftime("%Y%m%d-%H%M%S")
+    archive_name = f"acts_{payload.kind}_{ts}.zip"
+    return Response(
+        content=buf.getvalue(),
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{archive_name}"'},
+    )
+
+
+@router.get("/{order_id}/pdf")
+async def get_order_pdf(
+    order_id: int,
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Сформировать PDF акта выполненных работ по заявке.
+
+    Шаблон выбирается по типу заявки (`spec_order`).
+    Сейчас поддерживается только «плановая».
+
+    Требуется право: order_read
+    """
+    pdf_bytes, filename = await render_order_pdf(order_id, current_user)
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+        },
+    )
+
+
+@router.get("/{order_id}/primary/pdf")
+async def get_order_primary_pdf(
+    order_id: int,
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Сформировать PDF акта первичного обследования по заявке.
+
+    Дата акта оставляется пустой для ручного заполнения.
+
+    Требуется право: order_read
+    """
+    pdf_bytes, filename = await render_order_primary_pdf(order_id, current_user)
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+        },
+    )
+
 
 @router.get("/{order_id}", response_model=OrderResponse)
 async def get_order_by_id(

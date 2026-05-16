@@ -250,7 +250,7 @@ async def update_arial(
     arial_update: ArialUpdate
 ) -> Optional[Arial]:
     """Обновить район"""
-    arial = await get_by_id(session, arial_id, load_relations=False)
+    arial = await get_arial_by_id(session, arial_id, load_relations=False)
     if not arial:
         return None
     

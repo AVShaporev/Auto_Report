@@ -49,7 +49,7 @@ async def get_issue_by_id(
     await check_permission(current_user, "issue_read", "просмотра неисправностей")
     
     async with new_session() as session:
-        issue = await issue_data.get_by_id(
+        issue = await issue_data.get_issue_by_id(
             session, 
             issue_id, 
             load_relations=load_relations
@@ -86,7 +86,7 @@ async def get_issues_paginated(
     await check_permission(current_user, "issue_read", "просмотра списка неисправностей")
     
     async with new_session() as session:
-        items, total = await issue_data.get_paginated(
+        items, total = await issue_data.get_issue_paginated(
             session=session,
             skip=pagination.skip,
             limit=pagination.limit,
@@ -120,7 +120,7 @@ async def get_issues_by_current_user(
     await check_permission(current_user, "issue_read", "просмотра своих неисправностей")
     
     async with new_session() as session:
-        items, total = await issue_data.get_paginated(
+        items, total = await issue_data.get_issue_paginated(
             session=session,
             skip=pagination.skip,
             limit=pagination.limit,
@@ -144,7 +144,7 @@ async def get_issues_assigned_to_current_user(
     await check_permission(current_user, "issue_read", "просмотра назначенных неисправностей")
     
     async with new_session() as session:
-        items, total = await issue_data.get_paginated(
+        items, total = await issue_data.get_issue_paginated(
             session=session,
             skip=pagination.skip,
             limit=pagination.limit,
@@ -167,7 +167,7 @@ async def get_issues_by_object(
     
     async with new_session() as session:
         # Проверяем существование объекта через objects_equipment
-        issues = await issue_data.get_by_object(session, object_id)
+        issues = await issue_data.get_issue_by_object(session, object_id)
         return issues
 
 async def get_issues_by_equipment(
@@ -180,7 +180,7 @@ async def get_issues_by_equipment(
     await check_permission(current_user, "issue_read", "просмотра неисправностей оборудования")
     
     async with new_session() as session:
-        issues = await issue_data.get_by_equipment(session, equipment_id)
+        issues = await issue_data.get_issue_by_equipment(session, equipment_id)
         return issues
 
 # ========== ПОЛУЧЕНИЕ С ДЕТАЛЬНОЙ ИНФОРМАЦИЕЙ ==========
@@ -195,7 +195,7 @@ async def get_issue_with_details(
     await check_permission(current_user, "issue_read", "просмотра неисправностей")
     
     async with new_session() as session:
-        issue = await issue_data.get_by_id(
+        issue = await issue_data.get_issue_by_id(
             session, 
             issue_id,
             load_relations=True
@@ -207,17 +207,18 @@ async def get_issue_with_details(
                 detail=f"Неисправность с id {issue_id} не найдена"
             )
         
-        # ✅ ИСПРАВЛЕНО: используем object_equipment для получения данных объекта и оборудования
+        # Инвентарный номер хранится на связке Objects_Equipment (per-instance),
+        # объект/оборудование — через её отношения.
         object_name = None
         equipment_name = None
         equipment_inventory_number = None
-        
+
         if issue.object_equipment:
+            equipment_inventory_number = issue.object_equipment.inventory_number
             if issue.object_equipment.object:
                 object_name = issue.object_equipment.object.name
             if issue.object_equipment.equipment:
                 equipment_name = issue.object_equipment.equipment.name
-                equipment_inventory_number = issue.object_equipment.equipment.inventory_number
         
         return {
             "id": issue.id,
@@ -248,6 +249,7 @@ async def get_issues_paginated_with_details(
     search: Optional[str] = None,
     object_id: Optional[int] = None,
     equipment_id: Optional[int] = None,
+    contract_id: Optional[int] = None,
     status: Optional[str] = None,
     priority: Optional[str] = None,
     is_resolved: Optional[bool] = None,
@@ -263,15 +265,16 @@ async def get_issues_paginated_with_details(
     Получить список неисправностей с детальной информацией для ответа
     """
     await check_permission(current_user, "issue_read", "просмотра списка неисправностей")
-    
+
     async with new_session() as session:
-        items, total = await issue_data.get_paginated(
+        items, total = await issue_data.get_issue_paginated(
             session=session,
             skip=pagination.skip,
             limit=pagination.limit,
             search=search,
             object_id=object_id,
             equipment_id=equipment_id,
+            contract_id=contract_id,
             status=status,
             priority=priority,
             is_resolved=is_resolved,
@@ -329,14 +332,14 @@ async def create_issue(
     
     async with new_session() as session:
         # Проверка уникальности номера
-        if await issue_data.check_number_exists(session, issue_create.number):
+        if await issue_data.check_issue_number_exists(session, issue_create.number):
             raise HTTPException(
                 status_code=400,
                 detail=f"Неисправность с номером '{issue_create.number}' уже существует"
             )
         
         # Проверяем существование связи объект-оборудование
-        if not await issue_data.check_object_equipment_exists(session, issue_create.object_equipment_id):
+        if not await issue_data.check_issue_object_equipment_exists(session, issue_create.object_equipment_id):
             raise HTTPException(
                 status_code=400,
                 detail=f"Связь объекта с оборудованием с id {issue_create.object_equipment_id} не существует"
@@ -344,7 +347,7 @@ async def create_issue(
         
         # Проверка существования назначенного пользователя (если указан)
         if issue_create.assigned_to_id:
-            if not await issue_data.check_user_exists(session, issue_create.assigned_to_id):
+            if not await issue_data.check_issue_user_exists(session, issue_create.assigned_to_id):
                 raise HTTPException(
                     status_code=400,
                     detail=f"Пользователь с id {issue_create.assigned_to_id} не существует"
@@ -369,7 +372,7 @@ async def update_issue(
     
     async with new_session() as session:
         # Проверяем существование
-        existing = await issue_data.get_by_id(session, issue_id)
+        existing = await issue_data.get_issue_by_id(session, issue_id)
         if not existing:
             raise HTTPException(
                 status_code=404,
@@ -387,7 +390,7 @@ async def update_issue(
         update_data = issue_update.dict(exclude_unset=True)
         
         if 'number' in update_data and update_data['number'] != existing.number:
-            if await issue_data.check_number_exists(session, update_data['number'], issue_id):
+            if await issue_data.check_issue_number_exists(session, update_data['number'], issue_id):
                 raise HTTPException(
                     status_code=400,
                     detail=f"Неисправность с номером '{update_data['number']}' уже существует"
@@ -395,7 +398,7 @@ async def update_issue(
         
         # ✅ ИСПРАВЛЕНО: проверяем существование связи объект-оборудование, если она меняется
         if 'object_equipment_id' in update_data and update_data['object_equipment_id'] != existing.object_equipment_id:
-            if not await issue_data.check_object_equipment_exists(session, update_data['object_equipment_id']):
+            if not await issue_data.check_issue_object_equipment_exists(session, update_data['object_equipment_id']):
                 raise HTTPException(
                     status_code=400,
                     detail=f"Связь объекта с оборудованием с id {update_data['object_equipment_id']} не существует"
@@ -403,14 +406,14 @@ async def update_issue(
         
         if 'assigned_to_id' in update_data and update_data['assigned_to_id'] != existing.assigned_to_id:
             if update_data['assigned_to_id'] is not None:
-                if not await issue_data.check_user_exists(session, update_data['assigned_to_id']):
+                if not await issue_data.check_issue_user_exists(session, update_data['assigned_to_id']):
                     raise HTTPException(
                         status_code=400,
                         detail=f"Пользователь с id {update_data['assigned_to_id']} не существует"
                     )
         
         # Обновление
-        issue = await issue_data.update(session, issue_id, issue_update)
+        issue = await issue_data.update_issue(session, issue_id, issue_update)
         
         return issue
 
@@ -428,7 +431,7 @@ async def update_issue_status(
     
     async with new_session() as session:
         # Проверяем существование
-        existing = await issue_data.get_by_id(session, issue_id)
+        existing = await issue_data.get_issue_by_id(session, issue_id)
         if not existing:
             raise HTTPException(
                 status_code=404,
@@ -436,7 +439,7 @@ async def update_issue_status(
             )
         
         # Обновление статуса
-        issue = await issue_data.update_status(
+        issue = await issue_data.update_issue_status(
             session, 
             issue_id, 
             status_update.status,
@@ -459,7 +462,7 @@ async def assign_issue(
     
     async with new_session() as session:
         # Проверяем существование неисправности
-        existing = await issue_data.get_by_id(session, issue_id)
+        existing = await issue_data.get_issue_by_id(session, issue_id)
         if not existing:
             raise HTTPException(
                 status_code=404,
@@ -467,14 +470,14 @@ async def assign_issue(
             )
         
         # Проверяем существование пользователя
-        if not await issue_data.check_user_exists(session, user_id):
+        if not await issue_data.check_issue_user_exists(session, user_id):
             raise HTTPException(
                 status_code=400,
                 detail=f"Пользователь с id {user_id} не существует"
             )
         
         # Назначение
-        issue = await issue_data.assign_to_user(session, issue_id, user_id)
+        issue = await issue_data.assign_issue_to_user(session, issue_id, user_id)
         
         return issue
 
@@ -491,7 +494,7 @@ async def delete_issue(
     
     async with new_session() as session:
         # Проверяем существование
-        issue = await issue_data.get_by_id(session, issue_id)
+        issue = await issue_data.get_issue_by_id(session, issue_id)
         
         if not issue:
             raise HTTPException(
@@ -507,6 +510,6 @@ async def delete_issue(
             )
         
         # Удаление
-        success = await issue_data.delete(session, issue_id)
+        success = await issue_data.delete_issue(session, issue_id)
         
         return success

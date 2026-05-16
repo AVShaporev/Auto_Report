@@ -52,6 +52,13 @@ class Report(Base):
                                                         uselist=False
                                                     )
 
+    attachments: Mapped[List["Report_Attachment"]] = relationship(
+        "Report_Attachment",
+        back_populates="report",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+
     def __str__(self):
         return f"Report(id={self.id}, number={self.number})"
 

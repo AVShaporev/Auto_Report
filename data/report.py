@@ -18,7 +18,7 @@ from utils.timer import timer
 # ========== ПОЛУЧЕНИЕ ==========
 
 @timer
-async def get_by_id(
+async def get_report_by_id(
     session: AsyncSession,
     report_id: int,
     *,
@@ -26,14 +26,14 @@ async def get_by_id(
 ) -> Optional[Report]:
     """
     Получить отчет по ID
-    
+
     Args:
         session: Сессия БД
         report_id: ID отчета
         load_relations: Если True, загрузить все связанные данные
     """
     query = select(Report).where(Report.id == report_id)
-    
+
     if load_relations:
         query = query.options(
             selectinload(Report.period),
@@ -42,12 +42,12 @@ async def get_by_id(
             selectinload(Report.user),
             selectinload(Report.order)
         )
-    
+
     result = await session.execute(query)
     return result.scalar_one_or_none()
 
 @timer
-async def get_by_number(
+async def get_report_by_number(
     session: AsyncSession,
     number: str
 ) -> Optional[Report]:
@@ -57,14 +57,14 @@ async def get_by_number(
     return result.scalar_one_or_none()
 
 @timer
-async def get_all(
+async def get_report_all(
     session: AsyncSession,
     *,
     load_relations: bool = False
 ) -> List[Report]:
     """Получить все отчеты"""
     query = select(Report).order_by(Report.created_at.desc())
-    
+
     if load_relations:
         query = query.options(
             selectinload(Report.period),
@@ -72,12 +72,12 @@ async def get_all(
             selectinload(Report.object),
             selectinload(Report.user)
         )
-    
+
     result = await session.execute(query)
     return result.scalars().all()
 
 @timer
-async def get_paginated(
+async def get_report_paginated(
     session: AsyncSession,
     skip: int = 0,
     limit: int = 20,
@@ -100,7 +100,7 @@ async def get_paginated(
     # Базовый запрос
     query = select(Report)
     count_query = select(func.count()).select_from(Report)
-    
+
     # Поиск по номеру и описанию
     if search:
         search_filter = or_(
@@ -109,36 +109,36 @@ async def get_paginated(
         )
         query = query.where(search_filter)
         count_query = count_query.where(search_filter)
-    
+
     # Фильтры
     if period_id:
         query = query.where(Report.period_id == period_id)
         count_query = count_query.where(Report.period_id == period_id)
-    
+
     if contract_id:
         query = query.where(Report.contract_id == contract_id)
         count_query = count_query.where(Report.contract_id == contract_id)
-    
+
     if object_id:
         query = query.where(Report.object_id == object_id)
         count_query = count_query.where(Report.object_id == object_id)
-    
+
     if user_id:
         query = query.where(Report.user_id == user_id)
         count_query = count_query.where(Report.user_id == user_id)
-    
+
     if check_pass is not None:
         query = query.where(Report.check_pass == check_pass)
         count_query = count_query.where(Report.check_pass == check_pass)
-    
+
     if date_from:
         query = query.where(Report.created_at >= date_from)
         count_query = count_query.where(Report.created_at >= date_from)
-    
+
     if date_to:
         query = query.where(Report.created_at <= date_to)
         count_query = count_query.where(Report.created_at <= date_to)
-    
+
     # Сортировка
     if sort_by and hasattr(Report, sort_by):
         column = getattr(Report, sort_by)
@@ -148,32 +148,33 @@ async def get_paginated(
             query = query.order_by(column.asc())
     else:
         query = query.order_by(Report.created_at.desc())
-    
+
     # Загрузка связанных данных (если запрошено)
     if load_relations:
         query = query.options(
             selectinload(Report.period),
             selectinload(Report.contract),
             selectinload(Report.object),
-            selectinload(Report.user)
+            selectinload(Report.user),
+            selectinload(Report.order),
         )
-    
+
     # Пагинация
     query = query.offset(skip).limit(limit)
-    
+
     # Выполнение
     result = await session.execute(query)
     items = result.scalars().all()
-    
+
     total_result = await session.execute(count_query)
     total = total_result.scalar()
-    
+
     return items, total
 
 # ========== ПОЛУЧЕНИЕ ДЛЯ ВЫПАДАЮЩИХ СПИСКОВ ==========
 
 @timer
-async def get_options(
+async def get_report_options(
     session: AsyncSession,
     check_pass: Optional[bool] = None
 ) -> List[Report]:
@@ -181,17 +182,17 @@ async def get_options(
     Получить минимальную информацию об отчетах для выпадающих списков
     """
     query = select(Report).order_by(Report.created_at.desc())
-    
+
     if check_pass is not None:
         query = query.where(Report.check_pass == check_pass)
-    
+
     result = await session.execute(query)
     return result.scalars().all()
 
 # ========== ПРОВЕРКА УНИКАЛЬНОСТИ ==========
 
 @timer
-async def check_number_exists(
+async def check_report_number_exists(
     session: AsyncSession,
     number: str,
     exclude_id: Optional[int] = None
@@ -200,7 +201,7 @@ async def check_number_exists(
     query = select(Report).where(Report.number == number)
     if exclude_id:
         query = query.where(Report.id != exclude_id)
-    
+
     result = await session.execute(query)
     return result.scalar_one_or_none() is not None
 
@@ -249,7 +250,7 @@ async def check_user_exists(
 # ========== ПОДСЧЕТ СВЯЗАННЫХ ОБЪЕКТОВ ==========
 
 @timer
-async def count_orders(
+async def count_orders_by_report(
     session: AsyncSession,
     report_id: int
 ) -> int:
@@ -263,16 +264,16 @@ async def count_orders(
 # ========== УТВЕРЖДЕНИЕ ОТЧЕТА ==========
 
 @timer
-async def approve(
+async def approve_report(
     session: AsyncSession,
     report_id: int,
     check_pass: bool = True
 ) -> Optional[Report]:
     """Утвердить или отклонить отчет"""
-    report = await get_by_id(session, report_id, load_relations=False)
+    report = await get_report_by_id(session, report_id, load_relations=False)
     if not report:
         return None
-    
+
     report.check_pass = check_pass
     await session.commit()
     await session.refresh(report)
@@ -281,19 +282,25 @@ async def approve(
 # ========== СОЗДАНИЕ ==========
 
 @timer
-async def create(
+async def create_report(
     session: AsyncSession,
     report_create: ReportCreate,
-    user_id: int  # 👈 user_id передается из сервиса
+    user_id: int,
+    number: str,
+    order: Order,
 ) -> Report:
-    """Создать новый отчет"""
-    # Создаем словарь с данными и добавляем user_id
-    report_data = report_create.dict()
+    """Создать новый отчет и атомарно привязать его к заявке (1:1)."""
+    report_data = report_create.model_dump()
+    report_data.pop('report_period', None)
+    report_data.pop('order_id', None)  # связь хранится в orders.report_id
     report_data['user_id'] = user_id
-    report_data['check_pass'] = False  # Новый отчет всегда не утвержден
-    
+    report_data['number'] = number
+    report_data['check_pass'] = False
+
     report = Report(**report_data)
     session.add(report)
+    await session.flush()  # получаем report.id, не закрывая транзакцию
+    order.report_id = report.id
     await session.commit()
     await session.refresh(report)
     return report
@@ -301,21 +308,21 @@ async def create(
 # ========== ОБНОВЛЕНИЕ ==========
 
 @timer
-async def update(
+async def update_report(
     session: AsyncSession,
     report_id: int,
     report_update: ReportUpdate
 ) -> Optional[Report]:
     """Обновить отчет"""
-    report = await get_by_id(session, report_id, load_relations=False)
+    report = await get_report_by_id(session, report_id, load_relations=False)
     if not report:
         return None
-    
-    update_data = report_update.dict(exclude_unset=True)
+
+    update_data = report_update.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         if hasattr(report, field):
             setattr(report, field, value)
-    
+
     await session.commit()
     await session.refresh(report)
     return report
@@ -323,7 +330,7 @@ async def update(
 # ========== УДАЛЕНИЕ ==========
 
 @timer
-async def delete(
+async def delete_report(
     session: AsyncSession,
     report_id: int
 ) -> bool:
@@ -331,7 +338,7 @@ async def delete(
     report = await session.get(Report, report_id)
     if not report:
         return False
-    
+
     await session.delete(report)
     await session.commit()
     return True

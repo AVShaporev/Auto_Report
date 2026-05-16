@@ -240,7 +240,7 @@ async def update_locality(
                             locality_update: LocalityUpdate
                             ) -> Optional[Locality]:
     """Обновить населенный пункт"""
-    locality = await get_by_id(session, locality_id, load_relations=False)
+    locality = await get_locality_by_id(session, locality_id, load_relations=False)
     if not locality:
         return None
     

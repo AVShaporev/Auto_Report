@@ -13,7 +13,7 @@ from utils.timer import timer
 # ========== ПОЛУЧЕНИЕ ==========
 
 @timer
-async def get_by_id(
+async def get_object_by_id(
     session: AsyncSession,
     object_id: int,
     *,
@@ -48,7 +48,7 @@ async def get_by_id(
     return result.scalar_one_or_none()
 
 @timer
-async def get_by_name(
+async def get_object_by_name(
     session: AsyncSession,
     name: str
 ) -> Optional[Object]:
@@ -58,7 +58,7 @@ async def get_by_name(
     return result.scalar_one_or_none()
 
 @timer
-async def get_all(
+async def get_object_all(
     session: AsyncSession,
     *,
     load_relations: bool = False
@@ -79,7 +79,7 @@ async def get_all(
     return result.scalars().all()
 
 @timer
-async def get_paginated(
+async def get_object_paginated(
     session: AsyncSession,
     skip: int = 0,
     limit: int = 20,
@@ -171,7 +171,7 @@ async def get_paginated(
 # ========== ПОЛУЧЕНИЕ ДЛЯ ВЫПАДАЮЩИХ СПИСКОВ ==========
 
 @timer
-async def get_options(
+async def get_object_options(
     session: AsyncSession
 ) -> List[Object]:
     """
@@ -186,7 +186,7 @@ async def get_options(
 # ========== ПРОВЕРКА СУЩЕСТВОВАНИЯ ==========
 
 @timer
-async def check_exists(
+async def check_object_exists(
     session: AsyncSession,
     object_id: int
 ) -> bool:
@@ -205,7 +205,7 @@ async def check_exists(
     return result.scalar_one_or_none() is not None
 
 @timer
-async def check_region_exists(
+async def check_object_region_exists(
     session: AsyncSession,
     region_id: int
 ) -> bool:
@@ -217,7 +217,7 @@ async def check_region_exists(
     return result.scalar_one_or_none() is not None
 
 @timer
-async def check_arial_exists(
+async def check_object_arial_exists(
     session: AsyncSession,
     arial_id: int
 ) -> bool:
@@ -229,7 +229,7 @@ async def check_arial_exists(
     return result.scalar_one_or_none() is not None
 
 @timer
-async def check_locality_exists(
+async def check_object_locality_exists(
     session: AsyncSession,
     locality_id: int
 ) -> bool:
@@ -241,7 +241,7 @@ async def check_locality_exists(
     return result.scalar_one_or_none() is not None
 
 @timer
-async def check_street_exists(
+async def check_object_street_exists(
     session: AsyncSession,
     street_id: int
 ) -> bool:
@@ -253,7 +253,7 @@ async def check_street_exists(
     return result.scalar_one_or_none() is not None
 
 @timer
-async def check_spec_build_exists(
+async def check_object_spec_build_exists(
     session: AsyncSession,
     spec_build_id: int
 ) -> bool:
@@ -265,7 +265,7 @@ async def check_spec_build_exists(
     return result.scalar_one_or_none() is not None
 
 @timer
-async def check_spec_room_exists(
+async def check_object_spec_room_exists(
     session: AsyncSession,
     spec_room_id: int
 ) -> bool:
@@ -277,7 +277,7 @@ async def check_spec_room_exists(
     return result.scalar_one_or_none() is not None
 
 @timer
-async def check_period_exists(
+async def check_object_period_exists(
     session: AsyncSession,
     period_id: int
 ) -> bool:
@@ -289,7 +289,7 @@ async def check_period_exists(
     return result.scalar_one_or_none() is not None
 
 @timer
-async def check_contract_exists(
+async def check_object_contract_exists(
     session: AsyncSession,
     contract_id: int
 ) -> bool:
@@ -303,7 +303,7 @@ async def check_contract_exists(
 # ========== ПОДСЧЕТ СВЯЗАННЫХ ОБЪЕКТОВ ==========
 
 @timer
-async def count_equipments(
+async def count_object_equipments(
     session: AsyncSession,
     object_id: int
 ) -> int:
@@ -317,7 +317,7 @@ async def count_equipments(
     return result.scalar() or 0
 
 @timer
-async def count_reports(
+async def count_object_reports(
     session: AsyncSession,
     object_id: int
 ) -> int:
@@ -331,7 +331,7 @@ async def count_reports(
     return result.scalar() or 0
 
 @timer
-async def count_orders(
+async def count_object_orders(
     session: AsyncSession,
     object_id: int
 ) -> int:
@@ -347,7 +347,7 @@ async def count_orders(
 # ========== СОЗДАНИЕ ==========
 
 @timer
-async def create(
+async def create_object(
     session: AsyncSession,
     object_create: ObjectCreate
 ) -> Object:
@@ -361,13 +361,13 @@ async def create(
 # ========== ОБНОВЛЕНИЕ ==========
 
 @timer
-async def update(
+async def update_object(
     session: AsyncSession,
     object_id: int,
     object_update: ObjectUpdate
 ) -> Optional[Object]:
     """Обновить объект"""
-    obj = await get_by_id(session, object_id, load_relations=False)
+    obj = await get_object_by_id(session, object_id, load_relations=False)
     if not obj:
         return None
     
@@ -383,7 +383,7 @@ async def update(
 # ========== УДАЛЕНИЕ ==========
 
 @timer
-async def delete(
+async def delete_object(
     session: AsyncSession,
     object_id: int
 ) -> bool:

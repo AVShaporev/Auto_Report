@@ -189,7 +189,7 @@ async def create_spec_build(
                             spec_build_create: SpecBuildCreate
                             ) -> Spec_Build:
     """Создать новый тип строения"""
-    spec_build = Spec_Build(**spec_build_create.dict())
+    spec_build = Spec_Build(**spec_build_create.model_dump())
     session.add(spec_build)
     await session.commit()
     await session.refresh(spec_build)
@@ -204,11 +204,11 @@ async def update_spec_build(
                             spec_build_update: SpecBuildUpdate
                             ) -> Optional[Spec_Build]:
     """Обновить тип строения"""
-    spec_build = await get_by_id(session, spec_build_id, load_relations=False)
+    spec_build = await get_spec_build_by_id(session, spec_build_id, load_relations=False)
     if not spec_build:
         return None
     
-    update_data = spec_build_update.dict(exclude_unset=True)
+    update_data = spec_build_update.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         if hasattr(spec_build, field):
             setattr(spec_build, field, value)

@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -12,11 +13,17 @@ class Settings(BaseSettings):
     ALGORITHM: str
     ACCESS_TOKEN_EXPIRE_MINUTES: int
     REFRESH_TOKEN_EXPIRE_DAYS: int
+    MEDIA_ROOT: str = "./media"
     model_config = SettingsConfigDict(
         env_file=os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
     )
 
 settings = Settings()
+
+# Абсолютный путь к корню для пользовательских файлов (PDF-вложения отчётов и т.п.)
+MEDIA_PATH: Path = Path(settings.MEDIA_ROOT)
+if not MEDIA_PATH.is_absolute():
+    MEDIA_PATH = (Path(__file__).resolve().parent / MEDIA_PATH).resolve()
 
 
 

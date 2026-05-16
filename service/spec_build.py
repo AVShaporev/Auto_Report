@@ -223,7 +223,7 @@ async def update_spec_build(
     Обновить тип строения
     """
     await check_permission(current_user, "spec_build_modify", "изменения типов строений")
-    
+
     async with new_session() as session:
         # Проверяем существование
         existing = await spec_build_data.get_spec_build_by_id(session, spec_build_id)
@@ -232,7 +232,7 @@ async def update_spec_build(
                                 status_code=404,
                                 detail=f"Тип строения с id {spec_build_id} не найден"
                                 )
-        
+
         # Проверка уникальности названия, если оно меняется
         if spec_build_update.name and spec_build_update.name != existing.name:
             if await spec_build_data.check_spec_build_name_exists(
@@ -245,11 +245,34 @@ async def update_spec_build(
                                     detail=f"Тип строения с названием \
                                     '{spec_build_update.name}' уже существует"
                                     )
-        
+
         # Обновление
         spec_build = await spec_build_data.update_spec_build(session, spec_build_id, spec_build_update)
-        
+
         return spec_build
+
+async def update_spec_build_with_stats(
+                                        spec_build_id: int,
+                                        spec_build_update: SpecBuildUpdate,
+                                        current_user: User
+                                        ) -> dict:
+    """
+    Обновить тип строения и вернуть результат со статистикой (organizations_count, objects_count).
+    Парный к get_spec_build_with_stats — чтобы api-слою не приходилось самому лазать в data.
+    """
+    # update_spec_build уже делает check_permission и валидации — не дублируем их
+    spec_build = await update_spec_build(spec_build_id, spec_build_update, current_user)
+
+    async with new_session() as session:
+        organizations_count = await spec_build_data.count_spec_build_organizations(session, spec_build_id)
+        objects_count = await spec_build_data.count_spec_build_objects(session, spec_build_id)
+
+    return {
+            "id": spec_build.id,
+            "name": spec_build.name,
+            "organizations_count": organizations_count,
+            "objects_count": objects_count
+            }
 
 # ========== УДАЛЕНИЕ ==========
 

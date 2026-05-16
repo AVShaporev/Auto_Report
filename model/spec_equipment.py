@@ -25,7 +25,15 @@ class Spec_Equipment(Base):
                                                             back_populates="spec_equipment",
                                                             lazy="selectin"
                                                             )
-    
+
+    # M:M с операциями (operations_spec_equipments) — определена в model/operation.py
+    operations: Mapped[List["Operation"]] = relationship(
+        "Operation",
+        secondary="operations_spec_equipments",
+        back_populates="spec_equipments",
+        lazy="selectin",
+    )
+
     def __str__(self):
         return (f"{self.__class__.__name__}(id={self.id}, name={self.name}")
 

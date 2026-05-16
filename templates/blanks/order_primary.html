@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Акт первичного обследования № {{ order.number }}</title>
+    <link rel="stylesheet" href="order_primary.css">
+</head>
+<body>
+
+<header class="doc-header">
+    <h1 class="doc-title">Акт первичного обследования № {{ order.number }}</h1>
+    <p class="doc-date">«_____» _______________ 20_____ г.</p>
+</header>
+
+<section class="parties">
+    <p class="parties-text">
+        Мы, нижеподписавшиеся, представитель Заказчика:
+        <strong>{{ customer.name }}</strong>, в лице
+        <strong>{{ customer.job_title }} {{ customer.director_full_name }}</strong>,
+        с одной стороны и представитель Исполнителя:
+        <strong>{{ executor.name }}</strong>, в лице
+        <strong>{{ executor.job_title }} {{ executor.director_full_name }}</strong>,
+        с другой стороны, составили настоящий акт о том, что при обследовании оборудования
+        на объекте — <strong>{{ object.name }}</strong>, расположенного по адресу:
+        <em>{{ object_address }}</em>, основание — 
+        {% if contract.spec_contract %}{{ contract.spec_contract }}{% else %}Договор{% endif %}
+        №{{ contract.number }} от {{ contract.date_str }},
+        оборудование в составе:
+    </p>
+</section>
+
+<table class="equipment">
+    <thead>
+        <tr>
+            <th class="col-num">№ п/п</th>
+            <th class="col-name">Наименование оборудования</th>
+            <th class="col-planned">Кол-во по Техническому заданию</th>
+            <th class="col-actual">Кол-во по факту</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in equipment_rows %}
+        <tr>
+            <td class="col-num">{{ loop.index }}</td>
+            <td class="col-name">{{ row.name }}</td>
+            <td class="col-planned">{{ row.count_planned }}</td>
+            <td class="col-actual">_____</td>
+        </tr>
+        {% else %}
+        <tr>
+            <td class="col-num">—</td>
+            <td class="col-name">Оборудование на объекте не зарегистрировано</td>
+            <td class="col-planned">0</td>
+            <td class="col-actual">_____</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<section class="meta">
+    <p class="meta-line">смонтированной: ______________________________________________________________</p>
+    <p class="meta-hint">(наименование монтажной организации, дата монтажа)</p>
+    <p class="meta-line">______________________________________________________________________________</p>
+    <p class="meta-line">налаженной: __________________________________________________________________</p>
+    <p class="meta-hint">(наименование наладочной организации, дата наладки)</p>
+    <p class="meta-line">______________________________________________________________________________</p>
+    <p class="meta-line">по проекту, выполненному: ____________________________________________________</p>
+    <p class="meta-hint">(наименование проектной организации, номер и дата выпуска проекта)</p>
+    <p class="meta-line">______________________________________________________________________________</p>
+</section>
+
+<section class="findings">
+    <p class="findings-label"><strong>Установлено:</strong></p>
+    <p class="findings-line">______________________________________________________________________________</p>
+    <p class="findings-line">______________________________________________________________________________</p>
+    <p class="findings-line">______________________________________________________________________________</p>
+
+    <p class="findings-label"><strong>Выводы:</strong></p>
+    <p class="findings-line">______________________________________________________________________________</p>
+    <p class="findings-line">______________________________________________________________________________</p>
+    <p class="findings-line">______________________________________________________________________________</p>
+
+    <p class="findings-label"><strong>Предложения:</strong></p>
+    <p class="findings-line">______________________________________________________________________________</p>
+    <p class="findings-line">______________________________________________________________________________</p>
+    <p class="findings-line">______________________________________________________________________________</p>
+</section>
+
+<table class="signatures">
+    <tr>
+        <td class="sig-cell">
+            <p class="sig-role">От Заказчика</p>
+            <p class="sig-job">{{ customer.job_title }}</p>
+            <p class="sig-hint">(должность)</p>
+            <p class="sig-name">{{ customer.director_full_name }}</p>
+            <p class="sig-hint">(фамилия и инициалы представителя заказчика)</p>
+            <p class="sig-date">«___»______________20__ г.</p>
+            <p class="sig-line">_____________________</p>
+            <p class="sig-hint">(подпись)</p>
+        </td>
+        <td class="sig-cell">
+            <p class="sig-role">От Исполнителя</p>
+            <p class="sig-job">{{ executor.job_title }}</p>
+            <p class="sig-hint">(должность)</p>
+            <p class="sig-name">{{ executor.director_full_name }}</p>
+            <p class="sig-hint">(фамилия и инициалы представителя подрядчика (лицензиата))</p>
+            <p class="sig-date">«___»______________20__ г.</p>
+            <p class="sig-line">_____________________</p>
+            <p class="sig-hint">(подпись)</p>
+        </td>
+    </tr>
+</table>
+
+</body>
+</html>

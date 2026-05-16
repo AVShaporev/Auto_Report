@@ -48,7 +48,7 @@ async def get_spec_order_by_id(
     await check_permission(current_user, "spec_order_read", "просмотра типов заявок")
     
     async with new_session() as session:
-        spec_order = await spec_order_data.get_by_id(
+        spec_order = await spec_order_data.get_spec_order_by_id(
             session, 
             spec_order_id, 
             load_orders=load_orders
@@ -75,7 +75,7 @@ async def get_spec_orders_paginated(
     await check_permission(current_user, "spec_order_read", "просмотра списка типов заявок")
     
     async with new_session() as session:
-        items, total = await spec_order_data.get_paginated(
+        items, total = await spec_order_data.get_spec_order_paginated(
             session=session,
             skip=pagination.skip,
             limit=pagination.limit,
@@ -97,7 +97,7 @@ async def get_all_spec_orders(
     await check_permission(current_user, "spec_order_read", "просмотра типов заявок")
     
     async with new_session() as session:
-        return await spec_order_data.get_all(session, load_orders=load_orders)
+        return await spec_order_data.get_spec_order_all(session, load_orders=load_orders)
 
 async def get_spec_order_options(
     current_user: User
@@ -108,7 +108,7 @@ async def get_spec_order_options(
     await check_permission(current_user, "spec_order_read", "просмотра типов заявок")
     
     async with new_session() as session:
-        return await spec_order_data.get_options(session)
+        return await spec_order_data.get_spec_order_options(session)
 
 # ========== ПОЛУЧЕНИЕ СО СТАТИСТИКОЙ ==========
 
@@ -125,7 +125,7 @@ async def get_spec_order_with_stats(
     
     async with new_session() as session:
         # Получаем тип заявки (без загрузки заявок)
-        spec_order = await spec_order_data.get_by_id(
+        spec_order = await spec_order_data.get_spec_order_by_id(
             session, 
             spec_order_id,
             load_orders=False
@@ -138,12 +138,48 @@ async def get_spec_order_with_stats(
             )
         
         # Получаем ТОЛЬКО количество связанных заявок
-        orders_count = await spec_order_data.count_orders(
+        orders_count = await spec_order_data.count_orders_by_spec_order(
             session, 
             spec_order_id
         )
         
         # Возвращаем готовый словарь для ответа
+        return {
+            "id": spec_order.id,
+            "name": spec_order.name,
+            "short_name": spec_order.short_name,
+            "orders_count": orders_count
+        }
+
+async def update_spec_order_with_stats(
+    spec_order_id: int,
+    spec_order_update: SpecOrderUpdate,
+    current_user: User
+) -> dict:
+    """
+    Обновить тип заявки и вернуть словарь со статистикой для ответа
+    """
+    await check_permission(current_user, "spec_order_modify", "изменения типов заявок")
+
+    async with new_session() as session:
+        existing = await spec_order_data.get_spec_order_by_id(session, spec_order_id)
+        if not existing:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Тип заявки с id {spec_order_id} не найден"
+            )
+
+        if spec_order_update.name and spec_order_update.name != existing.name:
+            if await spec_order_data.check_spec_order_name_exists(session, spec_order_update.name, spec_order_id):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Тип заявки с названием '{spec_order_update.name}' уже существует"
+                )
+
+        spec_order = await spec_order_data.update_spec_order(session, spec_order_id, spec_order_update)
+
+        orders_count = await spec_order_data.count_orders_by_spec_order(session, spec_order_id)
+
         return {
             "id": spec_order.id,
             "name": spec_order.name,
@@ -165,7 +201,7 @@ async def get_spec_orders_paginated_with_stats(
     
     async with new_session() as session:
         # Получаем типы заявок (без загрузки заявок)
-        items, total = await spec_order_data.get_paginated(
+        items, total = await spec_order_data.get_spec_order_paginated(
             session=session,
             skip=pagination.skip,
             limit=pagination.limit,
@@ -178,7 +214,7 @@ async def get_spec_orders_paginated_with_stats(
         # Для каждого типа заявки получаем количество заявок
         result_items = []
         for item in items:
-            orders_count = await spec_order_data.count_orders(
+            orders_count = await spec_order_data.count_orders_by_spec_order(
                 session, 
                 item.id
             )
@@ -204,14 +240,14 @@ async def create_spec_order(
     
     async with new_session() as session:
         # Проверка уникальности названия
-        if await spec_order_data.check_name_exists(session, spec_order_create.name):
+        if await spec_order_data.check_spec_order_name_exists(session, spec_order_create.name):
             raise HTTPException(
                 status_code=400,
                 detail=f"Тип заявки с названием '{spec_order_create.name}' уже существует"
             )
         
         # Создание
-        spec_order = await spec_order_data.create(session, spec_order_create)
+        spec_order = await spec_order_data.create_spec_order(session, spec_order_create)
         
         return spec_order
 
@@ -229,7 +265,7 @@ async def update_spec_order(
     
     async with new_session() as session:
         # Проверяем существование
-        existing = await spec_order_data.get_by_id(session, spec_order_id)
+        existing = await spec_order_data.get_spec_order_by_id(session, spec_order_id)
         if not existing:
             raise HTTPException(
                 status_code=404,
@@ -238,14 +274,14 @@ async def update_spec_order(
         
         # Проверка уникальности названия, если оно меняется
         if spec_order_update.name and spec_order_update.name != existing.name:
-            if await spec_order_data.check_name_exists(session, spec_order_update.name, spec_order_id):
+            if await spec_order_data.check_spec_order_name_exists(session, spec_order_update.name, spec_order_id):
                 raise HTTPException(
                     status_code=400,
                     detail=f"Тип заявки с названием '{spec_order_update.name}' уже существует"
                 )
         
         # Обновление
-        spec_order = await spec_order_data.update(session, spec_order_id, spec_order_update)
+        spec_order = await spec_order_data.update_spec_order(session, spec_order_id, spec_order_update)
         
         return spec_order
 
@@ -262,7 +298,7 @@ async def delete_spec_order(
     
     async with new_session() as session:
         # Проверяем существование и связанные заявки
-        spec_order = await spec_order_data.get_by_id(
+        spec_order = await spec_order_data.get_spec_order_by_id(
             session, 
             spec_order_id, 
             load_orders=True
@@ -282,6 +318,6 @@ async def delete_spec_order(
             )
         
         # Удаление
-        success = await spec_order_data.delete(session, spec_order_id)
+        success = await spec_order_data.delete_spec_order(session, spec_order_id)
         
         return success

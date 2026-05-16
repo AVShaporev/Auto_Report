@@ -17,6 +17,7 @@ class SpecArialCreate(SpecArialBase):
 class SpecArialUpdate(BaseModel):
     """Схема для обновления типа района"""
     name: Optional[str] = Field(None, min_length=2, max_length=100)
+    description: Optional[str] = Field(None, min_length=2, max_length=500)
     
     model_config = ConfigDict(from_attributes=True)
 
@@ -24,6 +25,7 @@ class SpecArialUpdate(BaseModel):
 class SpecArialResponse(SpecArialBase):
     """Полная информация о типе района"""
     id: int
+    description: str = Field(..., min_length=2, max_length=500, description="Описание типа района")
     arials_count: Optional[int] = Field(0, description="Количество районов этого типа")
     
     model_config = ConfigDict(from_attributes=True)
@@ -33,6 +35,7 @@ class SpecArialListResponse(BaseModel):
     """Краткая информация о типе района для списков"""
     id: int
     name: str
+    description: str
     arials_count: int = 0
     
     model_config = ConfigDict(from_attributes=True)

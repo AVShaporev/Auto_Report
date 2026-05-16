@@ -149,7 +149,7 @@ async def update_spec_locality(
     
     # Получаем количество связанных населенных пунктов для ответа
     async with spec_locality_service.new_session() as session:
-        localities_count = await spec_locality_service.spec_locality_data.count_localities(
+        localities_count = await spec_locality_service.spec_locality_data.count_localities_by_spec_locality(
             session, 
             spec_locality_id
         )

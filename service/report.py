@@ -1,7 +1,11 @@
 from typing import Optional, List, Tuple
 from fastapi import HTTPException
+from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from model.user import User
 from model.report import Report
+from model.contract import Contract
+from model.object import Object
 from data import report as report_data
 from schema.report import ReportCreate, ReportUpdate, ReportApprove
 from schema.pagination import PaginationParams
@@ -49,7 +53,7 @@ async def get_report_by_id(
     await check_permission(current_user, "report_read", "просмотра отчетов")
     
     async with new_session() as session:
-        report = await report_data.get_by_id(
+        report = await report_data.get_report_by_id(
             session, 
             report_id, 
             load_relations=load_relations
@@ -83,7 +87,7 @@ async def get_reports_paginated(
     await check_permission(current_user, "report_read", "просмотра списка отчетов")
     
     async with new_session() as session:
-        items, total = await report_data.get_paginated(
+        items, total = await report_data.get_report_paginated(
             session=session,
             skip=pagination.skip,
             limit=pagination.limit,
@@ -113,7 +117,7 @@ async def get_reports_by_current_user(
     await check_permission(current_user, "report_read", "просмотра своих отчетов")
     
     async with new_session() as session:
-        items, total = await report_data.get_paginated(
+        items, total = await report_data.get_report_paginated(
             session=session,
             skip=pagination.skip,
             limit=pagination.limit,
@@ -134,7 +138,7 @@ async def get_all_reports(
     await check_permission(current_user, "report_read", "просмотра отчетов")
     
     async with new_session() as session:
-        return await report_data.get_all(session, load_relations=load_relations)
+        return await report_data.get_report_all(session, load_relations=load_relations)
 
 async def get_report_options(
     current_user: User,
@@ -146,7 +150,7 @@ async def get_report_options(
     await check_permission(current_user, "report_read", "просмотра отчетов")
     
     async with new_session() as session:
-        return await report_data.get_options(session, check_pass=check_pass)
+        return await report_data.get_report_options(session, check_pass=check_pass)
 
 # ========== ПОЛУЧЕНИЕ С ДЕТАЛЬНОЙ ИНФОРМАЦИЕЙ ==========
 
@@ -162,7 +166,7 @@ async def get_report_with_details(
     await check_permission(current_user, "report_read", "просмотра отчетов")
     
     async with new_session() as session:
-        report = await report_data.get_by_id(
+        report = await report_data.get_report_by_id(
             session, 
             report_id,
             load_relations=True
@@ -188,7 +192,8 @@ async def get_report_with_details(
             "contract_number": report.contract.number if report.contract else None,
             "object_name": report.object.name if report.object else None,
             "user_name": report.user.name if report.user else None,
-            "order_number": report.order.number if report.order else None
+            "order_id": report.order.id if report.order else None,
+            "order_number": report.order.number if report.order else None,
         }
 
 async def get_reports_paginated_with_details(
@@ -211,7 +216,7 @@ async def get_reports_paginated_with_details(
     await check_permission(current_user, "report_read", "просмотра списка отчетов")
     
     async with new_session() as session:
-        items, total = await report_data.get_paginated(
+        items, total = await report_data.get_report_paginated(
             session=session,
             skip=pagination.skip,
             limit=pagination.limit,
@@ -238,9 +243,11 @@ async def get_reports_paginated_with_details(
                 "period_name": item.period.name if item.period else None,
                 "contract_number": item.contract.number if item.contract else None,
                 "object_name": item.object.name if item.object else None,
-                "user_name": item.user.name if item.user else None
+                "user_name": item.user.name if item.user else None,
+                "order_id": item.order.id if item.order else None,
+                "order_number": item.order.number if item.order else None,
             })
-        
+
         return result_items, total
 
 # ========== СОЗДАНИЕ ==========
@@ -250,36 +257,140 @@ async def create_report(
     current_user: User  # 👈 Передаем текущего пользователя
 ) -> Report:
     """
-    Создать новый отчет
-    user_id берется из current_user, а не из запроса
+    Создать новый отчет.
+
+    user_id берется из current_user, а не из запроса.
+    Номер отчёта генерируется сервером по маске
+    "{object_id}/{MM}/{YYYY}/{customer.short_name}/{contract.short_subject}"
+    из report_create.report_period (формат "YYYY-MM").
     """
     await check_permission(current_user, "report_create", "создания отчетов")
-    
+
     async with new_session() as session:
-        # Проверка уникальности номера
-        if await report_data.check_number_exists(session, report_create.number):
+        # 1:1: заявка должна существовать и не иметь связанного отчёта.
+        # Подгружаем сразу с object (нужен period_id) — это позволяет вытащить
+        # period_id/contract_id/object_id, если фронт их не прислал.
+        from model.order import Order as OrderModel
+        order = (await session.execute(
+            select(OrderModel)
+            .options(selectinload(OrderModel.object))
+            .where(OrderModel.id == report_create.order_id)
+        )).scalar_one_or_none()
+        if not order:
             raise HTTPException(
                 status_code=400,
-                detail=f"Отчет с номером '{report_create.number}' уже существует"
+                detail=f"Заявка с id {report_create.order_id} не существует"
             )
-        
-        # Проверка существования всех связанных объектов
+        if order.report_id is not None:
+            raise HTTPException(
+                status_code=400,
+                detail=f"К заявке id {order.id} уже привязан отчёт (id {order.report_id})"
+            )
+
+        # Деривация id-шников из заявки, если их не передал фронт.
+        # Если передали — должны совпасть с заявкой (защита от рассинхрона UI).
+        derived_contract_id = order.contract_id
+        derived_object_id = order.object_id
+        derived_period_id = order.object.period_id if order.object else None
+
+        if report_create.contract_id and report_create.contract_id != derived_contract_id:
+            raise HTTPException(
+                status_code=400,
+                detail=(f"contract_id={report_create.contract_id} не совпадает "
+                        f"с контрактом заявки ({derived_contract_id})")
+            )
+        if report_create.object_id and report_create.object_id != derived_object_id:
+            raise HTTPException(
+                status_code=400,
+                detail=(f"object_id={report_create.object_id} не совпадает "
+                        f"с объектом заявки ({derived_object_id})")
+            )
+        if report_create.period_id and report_create.period_id != derived_period_id:
+            raise HTTPException(
+                status_code=400,
+                detail=(f"period_id={report_create.period_id} не совпадает "
+                        f"с периодом объекта заявки ({derived_period_id})")
+            )
+
+        effective_contract_id = derived_contract_id
+        effective_object_id = derived_object_id
+        effective_period_id = derived_period_id
+
+        if effective_period_id is None:
+            raise HTTPException(
+                status_code=400,
+                detail="У объекта заявки не указан период обслуживания"
+            )
+
+        # Перезаписываем поля в DTO так, чтобы data-слой получил корректные id.
+        report_create.contract_id = effective_contract_id
+        report_create.object_id = effective_object_id
+        report_create.period_id = effective_period_id
+
+        # Проверка существования (паранойя на случай битой FK)
         checks = [
-            (report_data.check_period_exists, report_create.period_id, "Период"),
-            (report_data.check_contract_exists, report_create.contract_id, "Контракт"),
-            (report_data.check_object_exists, report_create.object_id, "Объект")
+            (report_data.check_period_exists, effective_period_id, "Период"),
+            (report_data.check_contract_exists, effective_contract_id, "Контракт"),
+            (report_data.check_object_exists, effective_object_id, "Объект")
         ]
-        
+
         for check_func, entity_id, entity_name in checks:
             if not await check_func(session, entity_id):
                 raise HTTPException(
                     status_code=400,
                     detail=f"{entity_name} с id {entity_id} не существует"
                 )
-        
-        # Создание - передаем user_id из current_user
-        report = await report_data.create(session, report_create, current_user.id)
-        
+
+        # Подгружаем контракт с заказчиком и объект для построения номера
+        contract = (await session.execute(
+            select(Contract)
+            .options(selectinload(Contract.customer))
+            .where(Contract.id == effective_contract_id)
+        )).scalar_one_or_none()
+        if not contract:
+            raise HTTPException(status_code=400, detail="Контракт не найден")
+        if not contract.customer:
+            raise HTTPException(status_code=400, detail="У контракта не указан заказчик")
+
+        obj = (await session.execute(
+            select(Object).where(Object.id == effective_object_id)
+        )).scalar_one_or_none()
+        if not obj:
+            raise HTTPException(status_code=400, detail="Объект не найден")
+
+        # Парсим отчётный период
+        try:
+            year_str, month_str = report_create.report_period.split("-", 1)
+            year = int(year_str)
+            month = int(month_str)
+        except (ValueError, AttributeError):
+            raise HTTPException(
+                status_code=400,
+                detail="Некорректный формат отчётного периода (ожидается YYYY-MM)"
+            )
+
+        short_name = (contract.customer.short_name or "").strip() or "—"
+        short_subject = (contract.short_subject or "").strip() or "—"
+        generated_number = f"{obj.id}/{month:02d}/{year:04d}/{short_name}/{short_subject}"
+
+        if await report_data.check_report_number_exists(session, generated_number):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Отчёт за {month:02d}.{year} по объекту id={obj.id} "
+                    f"уже существует (номер '{generated_number}')"
+                )
+            )
+
+        # Создание — передаём user_id из current_user, сгенерированный номер и заявку
+        report = await report_data.create_report(
+            session,
+            report_create,
+            current_user.id,
+            number=generated_number,
+            order=order,
+        )
+
         return report
 
 # ========== ОБНОВЛЕНИЕ ==========
@@ -295,7 +406,7 @@ async def update_report(
     await check_permission(current_user, "report_modify", "изменения отчетов")
     
     async with new_session() as session:
-        existing = await report_data.get_by_id(session, report_id)
+        existing = await report_data.get_report_by_id(session, report_id)
         if not existing:
             raise HTTPException(
                 status_code=404,
@@ -313,7 +424,7 @@ async def update_report(
         update_data = report_update.dict(exclude_unset=True)
         
         if 'number' in update_data and update_data['number'] != existing.number:
-            if await report_data.check_number_exists(session, update_data['number'], report_id):
+            if await report_data.check_report_number_exists(session, update_data['number'], report_id):
                 raise HTTPException(
                     status_code=400,
                     detail=f"Отчет с номером '{update_data['number']}' уже существует"
@@ -335,7 +446,7 @@ async def update_report(
                     )
         
         # Обновление (user_id нельзя изменить через update)
-        report = await report_data.update(session, report_id, report_update)
+        report = await report_data.update_report(session, report_id, report_update)
         
         return report
 
@@ -352,7 +463,7 @@ async def approve_report(
     await check_permission(current_user, "report_modify", "утверждения отчетов")
     
     async with new_session() as session:
-        report = await report_data.approve(session, report_id, approve_data.check_pass)
+        report = await report_data.approve_report(session, report_id, approve_data.check_pass)
         
         if not report:
             raise HTTPException(
@@ -374,7 +485,7 @@ async def delete_report(
     await check_permission(current_user, "report_delete", "удаления отчетов")
     
     async with new_session() as session:
-        report = await report_data.get_by_id(
+        report = await report_data.get_report_by_id(
             session, 
             report_id, 
             load_relations=True
@@ -392,13 +503,12 @@ async def delete_report(
                 status_code=403,
                 detail="Вы можете удалять только свои отчеты"
             )
-        
-        # Проверка на наличие связанной заявки
-        if report.order:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Невозможно удалить отчет '{report.number}': есть связанная заявка"
-            )
-        
-        success = await report_data.delete(session, report_id)
+
+        # При удалении отчёта связанная заявка освобождается
+        # (order.report_id → NULL через ON DELETE SET NULL)
+        success = await report_data.delete_report(session, report_id)
+        if success:
+            # CASCADE удалит записи report_attachments в БД, файлы — отдельно с диска.
+            from service.report_attachment import cleanup_report_directory
+            cleanup_report_directory(report_id)
         return success

@@ -7,20 +7,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from model.user import User
 from model.role import Role
-from schema.user import (
-                            Read_User,
-                            UserBase,
-                            UserRequest,
-                            UserUpdate,
-                            UserResponse
-                        )
+from schema.user import UserRequest
 
 
 from utils.timer import timer
 
 @timer
 # Функция добавления строки в БД
-async def create(
+async def add_user(
                     session: AsyncSession,
                     user: User) -> bool:
     """
@@ -95,7 +89,7 @@ async def check_role_exists(
 
 @timer
 # Функция получения списка всех пользователй из БД
-async def get_all(session: AsyncSession):
+async def get_user_all(session: AsyncSession):
     """
         Получить список всех пользователей
     """
@@ -107,7 +101,7 @@ async def get_all(session: AsyncSession):
     return users
 
 @timer
-async def get_all_paginated(
+async def get_user_paginated(
     session: AsyncSession,
     skip: int = 0,
     limit: int = 20,
@@ -164,7 +158,7 @@ async def get_all_paginated(
     return items, total
 
 @timer
-async def get_one_by_name(
+async def get_user_by_name(
                             session: AsyncSession,
                             name: str) -> User:
     """
@@ -178,7 +172,7 @@ async def get_one_by_name(
     return user
 
 @timer
-async def get_one_by_id(
+async def get_user_by_id(
                         session: AsyncSession,
                         id: int) -> User:
     """
@@ -192,7 +186,7 @@ async def get_one_by_id(
     return user
 
 @timer
-async def get_one_by_email(
+async def get_user_by_email(
                             session: AsyncSession,
                             email: str) -> User:
     """
@@ -206,31 +200,52 @@ async def get_one_by_email(
     return user
 
 @timer
-async def modify(
+async def update_user(
                     session: AsyncSession,
-                    user: User
-                    ):
-    query = select(User).where(User.name == user.name)
-    res = await session.execute(query)
-    orig_user = res.scalars(res).one()
-    orig_user.name = creature.name
-    orig_user.hash = creature.country
-    orig_user.userrole = creature.area
-    await session.commit()
-    return await get_one(orig_user.name)
+                    user_id: int,
+                    updates: Dict[str, Any],
+                    ) -> Optional[User]:
+    """
+    Частичное обновление пользователя по id.
+    updates — dict с полями, которые клиент явно прислал
+    (из Pydantic: `.dict(exclude_unset=True)`). Возвращает обновлённого User
+    с подгруженной role, либо None, если пользователь не найден.
+    """
+    # 1. Берём пользователя по id.
+    user = await get_user_by_id(session, user_id)
+    if not user:
+        return None
 
-@timer
-async def delete_by_name(
-                            session: AsyncSession,
-                            name: str
-                            ) -> bool:
-    """
-        Удалить пользователи по имени (name)
-    """
-    user = await get_one(name)
-    await session.delete(user)
+    # 2. Чистим поля, которые менять нельзя/нельзя через setattr:
+    #    - id — pk, меняться не должен.
+    #    - role — это relationship, не колонка; клиент может прислать
+    #      вложенный объект role, его игнорируем (роль меняется через role_id).
+    updates = {k: v for k, v in updates.items() if k not in ('id', 'role')}
+
+    # 3. Если пришёл raw-password, кладём его хеш в колонку hash.
+    #    Импорт локальный, чтобы избежать циклического импорта
+    #    (service.auth импортирует model.dao → model.user → ...).
+    if updates.get('password'):
+        from service.auth import get_password_hash
+        updates['hash'] = get_password_hash(updates.pop('password'))
+    else:
+        updates.pop('password', None)
+
+    # 4. Прогоняем через белый список колонок модели,
+    #    чтобы случайно не присвоить что-то постороннее.
+    model_columns = {c.name for c in User.__table__.columns}
+    for field, value in updates.items():
+        if field in model_columns and value is not None:
+            setattr(user, field, value)
+
     await session.commit()
-    return True
+    await session.refresh(user)
+
+    # 5. Догружаем role для нормальной сериализации через UserResponse.
+    result = await session.execute(
+        select(User).where(User.id == user.id).options(selectinload(User.role))
+    )
+    return result.scalar_one()
 
 @timer
 async def create_user(
@@ -290,115 +305,7 @@ async def create_user(
     return result.scalar_one()
 
 @timer
-async def update_user(
-                        session: AsyncSession,
-                        user_id: int,
-                        user_update: UserUpdate
-                    ) -> Optional[User]:
-    """
-    Обновить пользователя по ID
-    
-    Args:
-        session: Сессия БД
-        user_id: ID пользователя
-        user_update: Данные для обновления (Pydantic схема)
-    
-    Returns:
-        Обновленный пользователь или None если не найден
-    """
-    # 1. Получаем пользователя
-    user = await get_user(session, user_id, load_relations=False)
-    if not user:
-        return None
-    
-    # 2. Получаем данные для обновления (только переданные поля)
-    update_data = user_update.dict(exclude_unset=True)
-    
-    # 3. Проверка уникальности (если меняются уникальные поля)
-    if any(field in update_data for field in ['name', 'email', 'phone', 'telegram_id']):
-        error = await check_user_exists(
-            session,
-            name=update_data.get('name'),
-            email=update_data.get('email'),
-            phone=update_data.get('phone'),
-            telegram_id=update_data.get('telegram_id'),
-            exclude_id=user_id
-        )
-        if error:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=error
-            )
-    
-    # 4. Проверка существования роли (если меняется)
-    if 'role_id' in update_data:
-        if not await check_role_exists(session, update_data['role_id']):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Роль с id {update_data['role_id']} не существует"
-            )
-    
-    # 5. Обработка пароля
-    if 'password' in update_data:
-        update_data['hash'] = get_password_hash(update_data.pop('password'))
-    
-    # 6. Обновляем поля
-    for field, value in update_data.items():
-        setattr(user, field, value)
-    
-    # 7. Сохраняем
-    await session.commit()
-    await session.refresh(user)
-    
-    # 8. Загружаем отношения
-    result = await session.execute(
-        select(User)
-        .where(User.id == user.id)
-        .options(selectinload(User.role))
-    )
-    return result.scalar_one()
-
-@timer
-async def patch_user(
-                        session: AsyncSession,
-                        user_id: int,
-                        updates: Dict[str, Any]
-                    ) -> Optional[User]:
-    """
-    Частичное обновление пользователя из словаря
-    
-    Args:
-        session: Сессия БД
-        user_id: ID пользователя
-        updates: Словарь с полями для обновления
-    """
-    user = await get_user(session, user_id, load_relations=False)
-    if not user:
-        return None
-    
-    # Фильтруем только поля, которые есть в модели
-    model_columns = {c.name for c in User.__table__.columns}
-    
-    for field, value in updates.items():
-        if field in model_columns and value is not None:
-            if field == 'password':
-                setattr(user, 'hash', get_password_hash(value))
-            else:
-                setattr(user, field, value)
-    
-    await session.commit()
-    await session.refresh(user)
-    
-    # Загружаем отношения
-    result = await session.execute(
-        select(User)
-        .where(User.id == user.id)
-        .options(selectinload(User.role))
-    )
-    return result.scalar_one()
-
-@timer
-async def delete_by_id(
+async def delete_user(
                         session: AsyncSession,
                         user_id: int
                         # soft_delete: bool = True
@@ -414,7 +321,9 @@ async def delete_by_id(
     Returns:
         True если успешно, False если пользователь не найден
     """
-    user = await get_one_by_id(user_id)
+    # Было `get_one_by_id(user_id)` без session — TypeError при вызове
+    # (у get_one_by_id сигнатура `(session, id)`). Исправлено.
+    user = await get_user_by_id(session, user_id)
     if not user:
         return False
     

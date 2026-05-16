@@ -103,10 +103,7 @@ async def get_current_user(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Пользователь не найден")
     return user
 
-async def get_current_admin_user(
-    current_user: User = Depends(get_current_user)
-) -> User:
-    # Проверка прав администратора, например, по полю is_admin или роли
-    if not current_user.is_admin:  # предположим, что в модели есть поле is_admin
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Недостаточно прав")
-    return current_user
+# Для проверки админских прав используется role.is_admin / role.is_superadmin
+# (поля хранятся на модели Role, НЕ на User). Канонический путь в коде —
+# прямая проверка: `if not current_user.role.is_admin: raise HTTPException(...)`.
+# Либо фабрики зависимостей в core/dependencies.py (require_role_read и т.п.).

@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional, List
-from datetime import date
+from datetime import date, datetime
 
 # Базовая схема контракта
 class ContractBase(BaseModel):
@@ -54,7 +54,11 @@ class ContractResponse(ContractBase):
     objects_count: Optional[int] = Field(0, description="Количество объектов")
     reports_count: Optional[int] = Field(0, description="Количество отчетов")
     orders_count: Optional[int] = Field(0, description="Количество заявок")
-    
+
+    # Метаданные (из Base)
+    created_at: Optional[datetime] = Field(None, description="Дата создания записи")
+    updated_at: Optional[datetime] = Field(None, description="Дата последнего обновления записи")
+
     model_config = ConfigDict(from_attributes=True)
 
 # Краткая схема для списка

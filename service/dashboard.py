@@ -95,4 +95,6 @@ async def get_dashboard_spec_stats(current_user: User) -> DashboardSpecStatsResp
 
             spec_equipments=spec_stats_data["spec_equipments"],
             spec_orders=spec_stats_data["spec_orders"],
+            spec_systems=spec_stats_data["spec_systems"],
+            operations=spec_stats_data.get("operations", 0),
         )

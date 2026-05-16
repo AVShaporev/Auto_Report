@@ -49,7 +49,7 @@ async def get_sub_contract_by_id(
     await check_permission(current_user, "sub_contract_read", "просмотра дополнительных соглашений")
     
     async with new_session() as session:
-        sub_contract = await sub_contract_data.get_by_id(
+        sub_contract = await sub_contract_data.get_sub_contract_by_id(
             session, 
             sub_contract_id, 
             load_relations=load_relations
@@ -79,7 +79,7 @@ async def get_sub_contracts_paginated(
     await check_permission(current_user, "sub_contract_read", "просмотра списка дополнительных соглашений")
     
     async with new_session() as session:
-        items, total = await sub_contract_data.get_paginated(
+        items, total = await sub_contract_data.get_sub_contract_paginated(
             session=session,
             skip=pagination.skip,
             limit=pagination.limit,
@@ -104,7 +104,7 @@ async def get_all_sub_contracts(
     await check_permission(current_user, "sub_contract_read", "просмотра дополнительных соглашений")
     
     async with new_session() as session:
-        return await sub_contract_data.get_all(session, load_relations=load_relations)
+        return await sub_contract_data.get_sub_contract_all(session, load_relations=load_relations)
 
 async def get_sub_contract_options(
     current_user: User,
@@ -116,7 +116,7 @@ async def get_sub_contract_options(
     await check_permission(current_user, "sub_contract_read", "просмотра дополнительных соглашений")
     
     async with new_session() as session:
-        return await sub_contract_data.get_options(session, contract_id=contract_id)
+        return await sub_contract_data.get_sub_contract_options(session, contract_id=contract_id)
 
 # ========== ПОЛУЧЕНИЕ С ДЕТАЛЬНОЙ ИНФОРМАЦИЕЙ ==========
 
@@ -133,7 +133,7 @@ async def get_sub_contract_with_details(
     
     async with new_session() as session:
         # Получаем дополнительное соглашение с загрузкой контракта
-        sub_contract = await sub_contract_data.get_by_id(
+        sub_contract = await sub_contract_data.get_sub_contract_by_id(
             session, 
             sub_contract_id,
             load_relations=True
@@ -172,7 +172,7 @@ async def get_sub_contracts_paginated_with_details(
     
     async with new_session() as session:
         # Получаем дополнительные соглашения с загрузкой контрактов
-        items, total = await sub_contract_data.get_paginated(
+        items, total = await sub_contract_data.get_sub_contract_paginated(
             session=session,
             skip=pagination.skip,
             limit=pagination.limit,
@@ -217,7 +217,7 @@ async def get_sub_contracts_by_contract(
                 detail=f"Контракт с id {contract_id} не найден"
             )
         
-        sub_contracts = await sub_contract_data.get_by_contract(session, contract_id)
+        sub_contracts = await sub_contract_data.get_sub_contract_by_contract(session, contract_id)
         
         return [
             {
@@ -242,7 +242,7 @@ async def create_sub_contract(
     
     async with new_session() as session:
         # Проверка уникальности номера
-        if await sub_contract_data.check_number_exists(session, sub_contract_create.number):
+        if await sub_contract_data.check_sub_contract_number_exists(session, sub_contract_create.number):
             raise HTTPException(
                 status_code=400,
                 detail=f"Дополнительное соглашение с номером '{sub_contract_create.number}' уже существует"
@@ -256,7 +256,7 @@ async def create_sub_contract(
             )
         
         # Создание
-        sub_contract = await sub_contract_data.create(session, sub_contract_create)
+        sub_contract = await sub_contract_data.create_sub_contract(session, sub_contract_create)
         
         return sub_contract
 
@@ -274,7 +274,7 @@ async def update_sub_contract(
     
     async with new_session() as session:
         # Проверяем существование
-        existing = await sub_contract_data.get_by_id(session, sub_contract_id)
+        existing = await sub_contract_data.get_sub_contract_by_id(session, sub_contract_id)
         if not existing:
             raise HTTPException(
                 status_code=404,
@@ -283,7 +283,7 @@ async def update_sub_contract(
         
         # Проверка уникальности номера, если он меняется
         if sub_contract_update.number and sub_contract_update.number != existing.number:
-            if await sub_contract_data.check_number_exists(session, sub_contract_update.number, sub_contract_id):
+            if await sub_contract_data.check_sub_contract_number_exists(session, sub_contract_update.number, sub_contract_id):
                 raise HTTPException(
                     status_code=400,
                     detail=f"Дополнительное соглашение с номером '{sub_contract_update.number}' уже существует"
@@ -298,7 +298,7 @@ async def update_sub_contract(
                 )
         
         # Обновление
-        sub_contract = await sub_contract_data.update(session, sub_contract_id, sub_contract_update)
+        sub_contract = await sub_contract_data.update_sub_contract(session, sub_contract_id, sub_contract_update)
         
         return sub_contract
 
@@ -315,7 +315,7 @@ async def delete_sub_contract(
     
     async with new_session() as session:
         # Проверяем существование
-        sub_contract = await sub_contract_data.get_by_id(session, sub_contract_id)
+        sub_contract = await sub_contract_data.get_sub_contract_by_id(session, sub_contract_id)
         
         if not sub_contract:
             raise HTTPException(
@@ -324,6 +324,6 @@ async def delete_sub_contract(
             )
         
         # Удаление
-        success = await sub_contract_data.delete(session, sub_contract_id)
+        success = await sub_contract_data.delete_sub_contract(session, sub_contract_id)
         
         return success

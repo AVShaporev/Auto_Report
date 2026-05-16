@@ -41,7 +41,7 @@ class OrganizationBase(BaseModel):
     locality_id: int = Field(..., ge=1, description="ID населенного пункта")
     street_id: int = Field(..., ge=1, description="ID улицы")
     spec_build_id: int = Field(..., ge=1, description="ID типа строения")
-    spec_room_id: int = Field(..., ge=1, description="ID типа помещения")
+    spec_room_id: Optional[int] = Field(None, ge=1, description="ID типа помещения (опционально)")
     spec_job_title_id: int = Field(..., ge=1, description="ID должности руководителя")
     
     model_config = ConfigDict(from_attributes=True)

@@ -48,7 +48,7 @@ async def get_spec_room_by_id(
     await check_permission(current_user, "spec_room_read", "просмотра типов помещений")
     
     async with new_session() as session:
-        spec_room = await spec_room_data.get_by_id(
+        spec_room = await spec_room_data.get_spec_room_by_id(
             session, 
             spec_room_id, 
             load_relations=load_relations
@@ -75,7 +75,7 @@ async def get_spec_rooms_paginated(
     await check_permission(current_user, "spec_room_read", "просмотра списка типов помещений")
     
     async with new_session() as session:
-        items, total = await spec_room_data.get_paginated(
+        items, total = await spec_room_data.get_spec_room_paginated(
             session=session,
             skip=pagination.skip,
             limit=pagination.limit,
@@ -97,7 +97,7 @@ async def get_all_spec_rooms(
     await check_permission(current_user, "spec_room_read", "просмотра типов помещений")
     
     async with new_session() as session:
-        return await spec_room_data.get_all(session, load_relations=load_relations)
+        return await spec_room_data.get_spec_room_all(session, load_relations=load_relations)
 
 async def get_spec_room_options(
     current_user: User
@@ -108,7 +108,7 @@ async def get_spec_room_options(
     await check_permission(current_user, "spec_room_read", "просмотра типов помещений")
     
     async with new_session() as session:
-        return await spec_room_data.get_options(session)
+        return await spec_room_data.get_spec_room_options(session)
 
 # ========== ПОЛУЧЕНИЕ СО СТАТИСТИКОЙ ==========
 
@@ -125,7 +125,7 @@ async def get_spec_room_with_stats(
     
     async with new_session() as session:
         # Получаем тип помещения (без загрузки связанных данных)
-        spec_room = await spec_room_data.get_by_id(
+        spec_room = await spec_room_data.get_spec_room_by_id(
             session, 
             spec_room_id,
             load_relations=False
@@ -138,8 +138,8 @@ async def get_spec_room_with_stats(
             )
         
         # Получаем количество связанных объектов
-        organizations_count = await spec_room_data.count_organizations(session, spec_room_id)
-        objects_count = await spec_room_data.count_objects(session, spec_room_id)
+        organizations_count = await spec_room_data.count_organizations_by_spec_room(session, spec_room_id)
+        objects_count = await spec_room_data.count_objects_by_spec_room(session, spec_room_id)
         
         # Возвращаем готовый словарь для ответа
         return {
@@ -163,7 +163,7 @@ async def get_spec_rooms_paginated_with_stats(
     
     async with new_session() as session:
         # Получаем типы помещений (без загрузки связанных данных)
-        items, total = await spec_room_data.get_paginated(
+        items, total = await spec_room_data.get_spec_room_paginated(
             session=session,
             skip=pagination.skip,
             limit=pagination.limit,
@@ -176,8 +176,8 @@ async def get_spec_rooms_paginated_with_stats(
         # Для каждого типа помещения получаем статистику
         result_items = []
         for item in items:
-            organizations_count = await spec_room_data.count_organizations(session, item.id)
-            objects_count = await spec_room_data.count_objects(session, item.id)
+            organizations_count = await spec_room_data.count_organizations_by_spec_room(session, item.id)
+            objects_count = await spec_room_data.count_objects_by_spec_room(session, item.id)
             
             result_items.append({
                 "id": item.id,
@@ -201,14 +201,14 @@ async def create_spec_room(
     
     async with new_session() as session:
         # Проверка уникальности названия
-        if await spec_room_data.check_name_exists(session, spec_room_create.name):
+        if await spec_room_data.check_spec_room_name_exists(session, spec_room_create.name):
             raise HTTPException(
                 status_code=400,
                 detail=f"Тип помещения с названием '{spec_room_create.name}' уже существует"
             )
         
         # Создание
-        spec_room = await spec_room_data.create(session, spec_room_create)
+        spec_room = await spec_room_data.create_spec_room(session, spec_room_create)
         
         return spec_room
 
@@ -226,7 +226,7 @@ async def update_spec_room(
     
     async with new_session() as session:
         # Проверяем существование
-        existing = await spec_room_data.get_by_id(session, spec_room_id)
+        existing = await spec_room_data.get_spec_room_by_id(session, spec_room_id)
         if not existing:
             raise HTTPException(
                 status_code=404,
@@ -235,16 +235,39 @@ async def update_spec_room(
         
         # Проверка уникальности названия, если оно меняется
         if spec_room_update.name and spec_room_update.name != existing.name:
-            if await spec_room_data.check_name_exists(session, spec_room_update.name, spec_room_id):
+            if await spec_room_data.check_spec_room_name_exists(session, spec_room_update.name, spec_room_id):
                 raise HTTPException(
                     status_code=400,
                     detail=f"Тип помещения с названием '{spec_room_update.name}' уже существует"
                 )
         
         # Обновление
-        spec_room = await spec_room_data.update(session, spec_room_id, spec_room_update)
-        
+        spec_room = await spec_room_data.update_spec_room(session, spec_room_id, spec_room_update)
+
         return spec_room
+
+async def update_spec_room_with_stats(
+    spec_room_id: int,
+    spec_room_update: SpecRoomUpdate,
+    current_user: User
+) -> dict:
+    """
+    Обновить тип помещения и вернуть результат со статистикой (organizations_count, objects_count).
+    Парный к get_spec_room_with_stats — чтобы api-слою не приходилось самому лазать в data.
+    """
+    # update_spec_room уже делает check_permission и валидации — не дублируем их
+    spec_room = await update_spec_room(spec_room_id, spec_room_update, current_user)
+
+    async with new_session() as session:
+        organizations_count = await spec_room_data.count_organizations_by_spec_room(session, spec_room_id)
+        objects_count = await spec_room_data.count_objects_by_spec_room(session, spec_room_id)
+
+    return {
+        "id": spec_room.id,
+        "name": spec_room.name,
+        "organizations_count": organizations_count,
+        "objects_count": objects_count
+    }
 
 # ========== УДАЛЕНИЕ ==========
 
@@ -259,7 +282,7 @@ async def delete_spec_room(
     
     async with new_session() as session:
         # Проверяем существование и связанные объекты
-        spec_room = await spec_room_data.get_by_id(
+        spec_room = await spec_room_data.get_spec_room_by_id(
             session, 
             spec_room_id, 
             load_relations=True
@@ -286,6 +309,6 @@ async def delete_spec_room(
             )
         
         # Удаление
-        success = await spec_room_data.delete(session, spec_room_id)
+        success = await spec_room_data.delete_spec_room(session, spec_room_id)
         
         return success

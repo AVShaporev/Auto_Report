@@ -239,7 +239,7 @@ async def update_street(
                         street_update: StreetUpdate
                         ) -> Optional[Street]:
     """Обновить улицу"""
-    street = await get_by_id(session, street_id, load_relations=False)
+    street = await get_street_by_id(session, street_id, load_relations=False)
     if not street:
         return None
     

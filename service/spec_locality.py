@@ -48,7 +48,7 @@ async def get_spec_locality_by_id(
     await check_permission(current_user, "spec_locality_read", "просмотра типов населенных пунктов")
     
     async with new_session() as session:
-        spec_locality = await spec_locality_data.get_by_id(
+        spec_locality = await spec_locality_data.get_spec_locality_by_id(
             session, 
             spec_locality_id, 
             load_localities=load_localities
@@ -75,7 +75,7 @@ async def get_spec_localities_paginated(
     await check_permission(current_user, "spec_locality_read", "просмотра списка типов населенных пунктов")
     
     async with new_session() as session:
-        items, total = await spec_locality_data.get_paginated(
+        items, total = await spec_locality_data.get_spec_locality_paginated(
             session=session,
             skip=pagination.skip,
             limit=pagination.limit,
@@ -97,7 +97,7 @@ async def get_all_spec_localities(
     await check_permission(current_user, "spec_locality_read", "просмотра типов населенных пунктов")
     
     async with new_session() as session:
-        return await spec_locality_data.get_all(session, load_localities=load_localities)
+        return await spec_locality_data.get_spec_locality_all(session, load_localities=load_localities)
 
 async def get_spec_locality_options(
     current_user: User
@@ -108,7 +108,7 @@ async def get_spec_locality_options(
     await check_permission(current_user, "spec_locality_read", "просмотра типов населенных пунктов")
     
     async with new_session() as session:
-        return await spec_locality_data.get_options(session)
+        return await spec_locality_data.get_spec_locality_options(session)
 
 # ========== ПОЛУЧЕНИЕ СО СТАТИСТИКОЙ ==========
 
@@ -125,7 +125,7 @@ async def get_spec_locality_with_stats(
     
     async with new_session() as session:
         # Получаем тип населенного пункта (без загрузки населенных пунктов)
-        spec_locality = await spec_locality_data.get_by_id(
+        spec_locality = await spec_locality_data.get_spec_locality_by_id(
             session, 
             spec_locality_id,
             load_localities=False
@@ -138,7 +138,7 @@ async def get_spec_locality_with_stats(
             )
         
         # Получаем ТОЛЬКО количество связанных населенных пунктов
-        localities_count = await spec_locality_data.count_localities(
+        localities_count = await spec_locality_data.count_localities_by_spec_locality(
             session, 
             spec_locality_id
         )
@@ -165,7 +165,7 @@ async def get_spec_localities_paginated_with_stats(
     
     async with new_session() as session:
         # Получаем типы населенных пунктов (без загрузки населенных пунктов)
-        items, total = await spec_locality_data.get_paginated(
+        items, total = await spec_locality_data.get_spec_locality_paginated(
             session=session,
             skip=pagination.skip,
             limit=pagination.limit,
@@ -178,7 +178,7 @@ async def get_spec_localities_paginated_with_stats(
         # Для каждого типа получаем количество населенных пунктов
         result_items = []
         for item in items:
-            localities_count = await spec_locality_data.count_localities(
+            localities_count = await spec_locality_data.count_localities_by_spec_locality(
                 session, 
                 item.id
             )
@@ -204,14 +204,14 @@ async def create_spec_locality(
     
     async with new_session() as session:
         # Проверка уникальности названия
-        if await spec_locality_data.check_name_exists(session, spec_locality_create.name):
+        if await spec_locality_data.check_spec_locality_name_exists(session, spec_locality_create.name):
             raise HTTPException(
                 status_code=400,
                 detail=f"Тип населенного пункта с названием '{spec_locality_create.name}' уже существует"
             )
         
         # Создание
-        spec_locality = await spec_locality_data.create(session, spec_locality_create)
+        spec_locality = await spec_locality_data.create_spec_locality(session, spec_locality_create)
         
         return spec_locality
 
@@ -229,7 +229,7 @@ async def update_spec_locality(
     
     async with new_session() as session:
         # Проверяем существование
-        existing = await spec_locality_data.get_by_id(session, spec_locality_id)
+        existing = await spec_locality_data.get_spec_locality_by_id(session, spec_locality_id)
         if not existing:
             raise HTTPException(
                 status_code=404,
@@ -238,14 +238,14 @@ async def update_spec_locality(
         
         # Проверка уникальности названия, если оно меняется
         if spec_locality_update.name and spec_locality_update.name != existing.name:
-            if await spec_locality_data.check_name_exists(session, spec_locality_update.name, spec_locality_id):
+            if await spec_locality_data.check_spec_locality_name_exists(session, spec_locality_update.name, spec_locality_id):
                 raise HTTPException(
                     status_code=400,
                     detail=f"Тип населенного пункта с названием '{spec_locality_update.name}' уже существует"
                 )
         
         # Обновление
-        spec_locality = await spec_locality_data.update(session, spec_locality_id, spec_locality_update)
+        spec_locality = await spec_locality_data.update_spec_locality(session, spec_locality_id, spec_locality_update)
         
         return spec_locality
 
@@ -262,7 +262,7 @@ async def delete_spec_locality(
     
     async with new_session() as session:
         # Проверяем существование и связанные населенные пункты
-        spec_locality = await spec_locality_data.get_by_id(
+        spec_locality = await spec_locality_data.get_spec_locality_by_id(
             session, 
             spec_locality_id, 
             load_localities=True
@@ -282,6 +282,6 @@ async def delete_spec_locality(
             )
         
         # Удаление
-        success = await spec_locality_data.delete(session, spec_locality_id)
+        success = await spec_locality_data.delete_spec_locality(session, spec_locality_id)
         
         return success

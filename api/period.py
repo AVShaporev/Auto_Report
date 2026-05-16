@@ -151,11 +151,11 @@ async def update_period(
     
     # Получаем статистику для ответа
     async with period_service.new_session() as session:
-        objects_count = await period_service.period_data.count_objects(
+        objects_count = await period_service.period_data.count_objects_by_period(
             session, 
             period_id
         )
-        reports_count = await period_service.period_data.count_reports(
+        reports_count = await period_service.period_data.count_reports_by_period(
             session, 
             period_id
         )

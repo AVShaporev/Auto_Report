@@ -129,32 +129,14 @@ async def update_spec_build(
                             ):
     """
     Обновить тип строения
-    
+
     Требуется право: spec_build_modify
     """
-    spec_build = await spec_build_service.update_spec_build(
-                                                            spec_build_id,
-                                                            spec_build_data,
-                                                            current_user
-                                                            )
-    
-    # Получаем статистику для ответа
-    async with spec_build_service.new_session() as session:
-        organizations_count = await spec_build_service.spec_build_data.count_organizations(
-                                                                                            session, 
-                                                                                            spec_build_id
-                                                                                            )
-        objects_count = await spec_build_service.spec_build_data.count_objects(
-                                                                                session, 
-                                                                                spec_build_id
-                                                                                )
-    
-    return {
-            "id": spec_build.id,
-            "name": spec_build.name,
-            "organizations_count": organizations_count,
-            "objects_count": objects_count
-            }
+    return await spec_build_service.update_spec_build_with_stats(
+                                                                    spec_build_id,
+                                                                    spec_build_data,
+                                                                    current_user
+                                                                    )
 
 @router.delete("/{spec_build_id}")
 async def delete_spec_build(

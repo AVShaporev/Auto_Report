@@ -22,7 +22,7 @@ from model.organization import Organization
 from model.locality import Locality
 from model.object import Object
 from model.objects_equipment import Objects_Equipment
-# from model.operation import Operation
+from model.operation import Operation
 from model.period import Period
 from model.region import Region
 from model.spec_arial import Spec_Arial
@@ -39,6 +39,7 @@ from model.sub_contract import Sub_Contract
 from model.report import Report
 from model.spec_order import Spec_Order
 from model.order import Order
+from model.report_attachment import Report_Attachment
 
 print(Base.metadata.tables['users']._columns)
 

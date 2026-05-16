@@ -124,7 +124,7 @@ async def get_locality_options_by_spec(
     
     async with new_session() as session:
         # Проверяем существование типа населенного пункта
-        if not await spec_locality_data.check_locality_name_exists(session, spec_locality_id):
+        if not await spec_locality_data.get_spec_locality_by_id(session, spec_locality_id):
             raise HTTPException(
                                 status_code=404,
                                 detail=f"Тип населенного пункта с id {spec_locality_id} не найден"

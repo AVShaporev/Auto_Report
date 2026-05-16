@@ -140,24 +140,11 @@ async def update_spec_equipment(
     
     Требуется право: spec_equipment_modify
     """
-    spec_equipment = await spec_equipment_service.update_spec_equipment(
+    return await spec_equipment_service.update_spec_equipment_with_stats(
         spec_equipment_id,
         spec_equipment_data,
         current_user
     )
-    
-    # Получаем количество связанного оборудования для ответа
-    async with spec_equipment_service.new_session() as session:
-        equipments_count = await spec_equipment_service.spec_equipment_data.count_equipments(
-            session, 
-            spec_equipment_id
-        )
-    
-    return {
-        "id": spec_equipment.id,
-        "name": spec_equipment.name,
-        "equipments_count": equipments_count
-    }
 
 @router.delete("/{spec_equipment_id}")
 async def delete_spec_equipment(

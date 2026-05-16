@@ -1,4 +1,10 @@
-from fastapi import APIRouter, Depends, Query, HTTPException
+import io
+import re
+import zipfile
+from datetime import datetime
+
+from fastapi import APIRouter, Depends, Query, HTTPException, Response
+from pydantic import BaseModel, Field
 from typing import Optional, List
 
 from model.user import User
@@ -11,7 +17,20 @@ from schema.object import (
 )
 from schema.pagination import PaginationParams, PaginatedResponse
 from service import object as object_service
+from service.object_pdf import render_object_fire_protection_log_pdf
 from core.dependencies import get_current_active_user
+
+
+class BulkFireJournalRequest(BaseModel):
+    """Тело запроса для массового скачивания журналов ПЗ по объектам."""
+    object_ids: List[int] = Field(..., min_length=1, max_length=200,
+                                   description="ID объектов (1..200 за раз)")
+    blank_rows: int = Field(25, ge=0, le=100,
+                             description="Количество пустых строк в каждом разделе")
+
+
+def _safe_zip_name(name: str) -> str:
+    return re.sub(r'[\\/:*?"<>|]+', "_", name).strip().strip(".") or "file.pdf"
 
 router = APIRouter(prefix="/api/object", tags=["object"])
 
@@ -132,6 +151,71 @@ async def get_all_objects(
     
     return result
 
+@router.post("/bulk-fire-journal")
+async def bulk_object_fire_journal(
+    payload: BulkFireJournalRequest,
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    Сформировать ZIP-архив с PDF-журналами эксплуатации систем противопожарной
+    защиты для списка объектов.
+
+    Требуется право: `object_read` (проверяется внутри render-функций).
+    """
+    buf = io.BytesIO()
+    errors: list[str] = []
+    with zipfile.ZipFile(buf, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+        for oid in payload.object_ids:
+            try:
+                pdf_bytes, filename = await render_object_fire_protection_log_pdf(
+                    oid, current_user, blank_rows=payload.blank_rows
+                )
+            except HTTPException as e:
+                if e.status_code == 403:
+                    raise
+                errors.append(f"object_id={oid}: {e.detail}")
+                continue
+            except Exception as e:
+                errors.append(f"object_id={oid}: {e}")
+                continue
+            zf.writestr(_safe_zip_name(filename), pdf_bytes)
+
+        if errors:
+            zf.writestr("_errors.txt", "\n".join(errors).encode("utf-8"))
+
+    ts = datetime.now().strftime("%Y%m%d-%H%M%S")
+    archive_name = f"fire_journals_{ts}.zip"
+    return Response(
+        content=buf.getvalue(),
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{archive_name}"'},
+    )
+
+
+@router.get("/{object_id}/fire-protection-log/pdf")
+async def get_object_fire_protection_log_pdf(
+    object_id: int,
+    blank_rows: int = Query(25, ge=0, le=100, description="Количество пустых строк в каждом разделе"),
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Сформировать PDF бланка журнала эксплуатации систем противопожарной защиты
+    для объекта (по ПП РФ № 1479).
+
+    Требуется право: object_read
+    """
+    pdf_bytes, filename = await render_object_fire_protection_log_pdf(
+        object_id, current_user, blank_rows=blank_rows
+    )
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+        },
+    )
+
+
 @router.get("/{object_id}", response_model=ObjectResponse)
 async def get_object_by_id(
     object_id: int,
@@ -139,7 +223,7 @@ async def get_object_by_id(
 ):
     """
     Получить объект по ID
-    
+
     Требуется право: object_read
     """
     # Используем функцию со статистикой
@@ -147,7 +231,7 @@ async def get_object_by_id(
         object_id,
         current_user
     )
-    
+
     return result
 
 @router.post("/create", response_model=ObjectResponse)

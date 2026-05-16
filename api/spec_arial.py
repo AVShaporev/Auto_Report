@@ -83,6 +83,7 @@ async def get_all_spec_arials(
         {
             "id": item.id,
             "name": item.name,
+            "description": item.description,
             "arials_count": len(item.arials) if item.arials else 0
         }
         for item in spec_arials
@@ -124,6 +125,7 @@ async def create_spec_arial(
     return {
         "id": spec_arial.id,
         "name": spec_arial.name,
+        "description": spec_arial.description,
         "arials_count": 0
     }
 
@@ -146,7 +148,7 @@ async def update_spec_arial(
     
     # Получаем количество связанных районов для ответа
     async with spec_arial_service.new_session() as session:
-        arials_count = await spec_arial_service.spec_arial_data.count_arials(
+        arials_count = await spec_arial_service.spec_arial_data.count_arials_by_spec_arial(
             session, 
             spec_arial_id
         )
@@ -154,6 +156,7 @@ async def update_spec_arial(
     return {
         "id": spec_arial.id,
         "name": spec_arial.name,
+        "description": spec_arial.description,
         "arials_count": arials_count
     }
 

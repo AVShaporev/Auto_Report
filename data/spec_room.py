@@ -12,7 +12,7 @@ from utils.timer import timer
 # ========== ПОЛУЧЕНИЕ ==========
 
 @timer
-async def get_by_id(
+async def get_spec_room_by_id(
     session: AsyncSession,
     spec_room_id: int,
     *,
@@ -20,25 +20,25 @@ async def get_by_id(
 ) -> Optional[Spec_Room]:
     """
     Получить тип помещения по ID
-    
+
     Args:
         session: Сессия БД
         spec_room_id: ID типа помещения
         load_relations: Если True, загрузить связанные данные (organizations, objects)
     """
     query = select(Spec_Room).where(Spec_Room.id == spec_room_id)
-    
+
     if load_relations:
         query = query.options(
             selectinload(Spec_Room.organizations),
             selectinload(Spec_Room.objects)
         )
-    
+
     result = await session.execute(query)
     return result.scalar_one_or_none()
 
 @timer
-async def get_by_name(
+async def get_spec_room_by_name(
     session: AsyncSession,
     name: str
 ) -> Optional[Spec_Room]:
@@ -48,25 +48,25 @@ async def get_by_name(
     return result.scalar_one_or_none()
 
 @timer
-async def get_all(
+async def get_spec_room_all(
     session: AsyncSession,
     *,
     load_relations: bool = False
 ) -> List[Spec_Room]:
     """Получить все типы помещений"""
     query = select(Spec_Room).order_by(Spec_Room.name)
-    
+
     if load_relations:
         query = query.options(
             selectinload(Spec_Room.organizations),
             selectinload(Spec_Room.objects)
         )
-    
+
     result = await session.execute(query)
     return result.scalars().all()
 
 @timer
-async def get_paginated(
+async def get_spec_room_paginated(
     session: AsyncSession,
     skip: int = 0,
     limit: int = 20,
@@ -82,13 +82,13 @@ async def get_paginated(
     # Базовый запрос
     query = select(Spec_Room)
     count_query = select(func.count()).select_from(Spec_Room)
-    
+
     # Поиск по названию
     if search:
         search_filter = Spec_Room.name.ilike(f"%{search}%")
         query = query.where(search_filter)
         count_query = count_query.where(search_filter)
-    
+
     # Сортировка
     if sort_by and hasattr(Spec_Room, sort_by):
         column = getattr(Spec_Room, sort_by)
@@ -98,30 +98,30 @@ async def get_paginated(
             query = query.order_by(column.asc())
     else:
         query = query.order_by(Spec_Room.name)
-    
+
     # Загрузка связанных данных (если запрошено)
     if load_relations:
         query = query.options(
             selectinload(Spec_Room.organizations),
             selectinload(Spec_Room.objects)
         )
-    
+
     # Пагинация
     query = query.offset(skip).limit(limit)
-    
+
     # Выполнение
     result = await session.execute(query)
     items = result.scalars().all()
-    
+
     total_result = await session.execute(count_query)
     total = total_result.scalar()
-    
+
     return items, total
 
 # ========== ПОЛУЧЕНИЕ ДЛЯ ВЫПАДАЮЩИХ СПИСКОВ ==========
 
 @timer
-async def get_options(
+async def get_spec_room_options(
     session: AsyncSession
 ) -> List[Spec_Room]:
     """
@@ -134,7 +134,7 @@ async def get_options(
 # ========== ПРОВЕРКА УНИКАЛЬНОСТИ ==========
 
 @timer
-async def check_name_exists(
+async def check_spec_room_name_exists(
     session: AsyncSession,
     name: str,
     exclude_id: Optional[int] = None
@@ -143,14 +143,14 @@ async def check_name_exists(
     query = select(Spec_Room).where(Spec_Room.name == name)
     if exclude_id:
         query = query.where(Spec_Room.id != exclude_id)
-    
+
     result = await session.execute(query)
     return result.scalar_one_or_none() is not None
 
 # ========== ПОДСЧЕТ СВЯЗАННЫХ ОБЪЕКТОВ ==========
 
 @timer
-async def count_organizations(
+async def count_organizations_by_spec_room(
     session: AsyncSession,
     spec_room_id: int
 ) -> int:
@@ -158,7 +158,7 @@ async def count_organizations(
     Посчитать количество организаций с данным типом помещения
     """
     from model.organization import Organization
-    
+
     query = select(func.count()).select_from(Organization).where(
         Organization.spec_room_id == spec_room_id
     )
@@ -166,7 +166,7 @@ async def count_organizations(
     return result.scalar() or 0
 
 @timer
-async def count_objects(
+async def count_objects_by_spec_room(
     session: AsyncSession,
     spec_room_id: int
 ) -> int:
@@ -174,7 +174,7 @@ async def count_objects(
     Посчитать количество объектов с данным типом помещения
     """
     from model.object import Object
-    
+
     query = select(func.count()).select_from(Object).where(
         Object.spec_room_id == spec_room_id
     )
@@ -184,12 +184,12 @@ async def count_objects(
 # ========== СОЗДАНИЕ ==========
 
 @timer
-async def create(
+async def create_spec_room(
     session: AsyncSession,
     spec_room_create: SpecRoomCreate
 ) -> Spec_Room:
     """Создать новый тип помещения"""
-    spec_room = Spec_Room(**spec_room_create.dict())
+    spec_room = Spec_Room(**spec_room_create.model_dump())
     session.add(spec_room)
     await session.commit()
     await session.refresh(spec_room)
@@ -198,21 +198,21 @@ async def create(
 # ========== ОБНОВЛЕНИЕ ==========
 
 @timer
-async def update(
+async def update_spec_room(
     session: AsyncSession,
     spec_room_id: int,
     spec_room_update: SpecRoomUpdate
 ) -> Optional[Spec_Room]:
     """Обновить тип помещения"""
-    spec_room = await get_by_id(session, spec_room_id, load_relations=False)
+    spec_room = await get_spec_room_by_id(session, spec_room_id, load_relations=False)
     if not spec_room:
         return None
-    
-    update_data = spec_room_update.dict(exclude_unset=True)
+
+    update_data = spec_room_update.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         if hasattr(spec_room, field):
             setattr(spec_room, field, value)
-    
+
     await session.commit()
     await session.refresh(spec_room)
     return spec_room
@@ -220,7 +220,7 @@ async def update(
 # ========== УДАЛЕНИЕ ==========
 
 @timer
-async def delete(
+async def delete_spec_room(
     session: AsyncSession,
     spec_room_id: int
 ) -> bool:
@@ -228,7 +228,7 @@ async def delete(
     spec_room = await session.get(Spec_Room, spec_room_id)
     if not spec_room:
         return False
-    
+
     await session.delete(spec_room)
     await session.commit()
     return True

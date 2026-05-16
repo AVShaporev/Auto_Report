@@ -48,7 +48,7 @@ async def get_object_by_id(
     await check_permission(current_user, "object_read", "просмотра объектов")
     
     async with new_session() as session:
-        obj = await object_data.get_by_id(
+        obj = await object_data.get_object_by_id(
             session, 
             object_id, 
             load_relations=load_relations
@@ -81,7 +81,7 @@ async def get_objects_paginated(
     await check_permission(current_user, "object_read", "просмотра списка объектов")
     
     async with new_session() as session:
-        items, total = await object_data.get_paginated(
+        items, total = await object_data.get_object_paginated(
             session=session,
             skip=pagination.skip,
             limit=pagination.limit,
@@ -109,7 +109,7 @@ async def get_all_objects(
     await check_permission(current_user, "object_read", "просмотра объектов")
     
     async with new_session() as session:
-        return await object_data.get_all(session, load_relations=load_relations)
+        return await object_data.get_object_all(session, load_relations=load_relations)
 
 async def get_object_options(
     current_user: User
@@ -120,7 +120,7 @@ async def get_object_options(
     await check_permission(current_user, "object_read", "просмотра объектов")
     
     async with new_session() as session:
-        return await object_data.get_options(session)
+        return await object_data.get_object_options(session)
 
 # ========== ПОЛУЧЕНИЕ СО СТАТИСТИКОЙ ==========
 
@@ -137,7 +137,7 @@ async def get_object_with_stats(
     
     async with new_session() as session:
         # Получаем объект с загрузкой всех связанных данных
-        obj = await object_data.get_by_id(
+        obj = await object_data.get_object_by_id(
             session, 
             object_id,
             load_relations=True
@@ -150,9 +150,9 @@ async def get_object_with_stats(
             )
         
         # Получаем статистику
-        equipments_count = await object_data.count_equipments(session, object_id)
-        reports_count = await object_data.count_reports(session, object_id)
-        orders_count = await object_data.count_orders(session, object_id)
+        equipments_count = await object_data.count_object_equipments(session, object_id)
+        reports_count = await object_data.count_object_reports(session, object_id)
+        orders_count = await object_data.count_object_orders(session, object_id)
         
         # Формируем адрес для выпадающего списка
         address_parts = []
@@ -216,7 +216,7 @@ async def get_objects_paginated_with_stats(
     
     async with new_session() as session:
         # Получаем объекты с загрузкой связанных данных
-        items, total = await object_data.get_paginated(
+        items, total = await object_data.get_object_paginated(
             session=session,
             skip=pagination.skip,
             limit=pagination.limit,
@@ -235,7 +235,7 @@ async def get_objects_paginated_with_stats(
         # Для каждого объекта получаем статистику и формируем краткий адрес
         result_items = []
         for item in items:
-            equipments_count = await object_data.count_equipments(session, item.id)
+            equipments_count = await object_data.count_object_equipments(session, item.id)
             
             # Формируем адрес
             address_parts = []
@@ -275,18 +275,22 @@ async def create_object(
     await check_permission(current_user, "object_create", "создания объектов")
     
     async with new_session() as session:
-        # Проверка существования всех связанных объектов
+        # Проверка существования всех связанных объектов.
+        # spec_room_id опционален — пропускаем проверку при None.
         checks = [
-            (object_data.check_region_exists, object_create.region_id, "Регион"),
-            (object_data.check_arial_exists, object_create.arial_id, "Район"),
-            (object_data.check_locality_exists, object_create.locality_id, "Населенный пункт"),
-            (object_data.check_street_exists, object_create.street_id, "Улица"),
-            (object_data.check_spec_build_exists, object_create.spec_build_id, "Тип строения"),
-            (object_data.check_spec_room_exists, object_create.spec_room_id, "Тип помещения"),
-            (object_data.check_period_exists, object_create.period_id, "Период"),
-            (object_data.check_contract_exists, object_create.contract_id, "Контракт")
+            (object_data.check_object_region_exists, object_create.region_id, "Регион"),
+            (object_data.check_object_arial_exists, object_create.arial_id, "Район"),
+            (object_data.check_object_locality_exists, object_create.locality_id, "Населенный пункт"),
+            (object_data.check_object_street_exists, object_create.street_id, "Улица"),
+            (object_data.check_object_spec_build_exists, object_create.spec_build_id, "Тип строения"),
+            (object_data.check_object_period_exists, object_create.period_id, "Период"),
+            (object_data.check_object_contract_exists, object_create.contract_id, "Контракт"),
         ]
-        
+        if object_create.spec_room_id is not None:
+            checks.append(
+                (object_data.check_object_spec_room_exists, object_create.spec_room_id, "Тип помещения"),
+            )
+
         for check_func, entity_id, entity_name in checks:
             if not await check_func(session, entity_id):
                 raise HTTPException(
@@ -295,7 +299,7 @@ async def create_object(
                 )
         
         # Создание
-        obj = await object_data.create(session, object_create)
+        obj = await object_data.create_object(session, object_create)
         
         return obj
 
@@ -313,7 +317,7 @@ async def update_object(
     
     async with new_session() as session:
         # Проверяем существование
-        existing = await object_data.get_by_id(session, object_id)
+        existing = await object_data.get_object_by_id(session, object_id)
         if not existing:
             raise HTTPException(
                 status_code=404,
@@ -324,18 +328,22 @@ async def update_object(
         update_data = object_update.dict(exclude_unset=True)
         
         checks = [
-            ('region_id', object_data.check_region_exists, "Регион"),
-            ('arial_id', object_data.check_arial_exists, "Район"),
-            ('locality_id', object_data.check_locality_exists, "Населенный пункт"),
-            ('street_id', object_data.check_street_exists, "Улица"),
-            ('spec_build_id', object_data.check_spec_build_exists, "Тип строения"),
-            ('spec_room_id', object_data.check_spec_room_exists, "Тип помещения"),
-            ('period_id', object_data.check_period_exists, "Период"),
-            ('contract_id', object_data.check_contract_exists, "Контракт")
+            ('region_id', object_data.check_object_region_exists, "Регион"),
+            ('arial_id', object_data.check_object_arial_exists, "Район"),
+            ('locality_id', object_data.check_object_locality_exists, "Населенный пункт"),
+            ('street_id', object_data.check_object_street_exists, "Улица"),
+            ('spec_build_id', object_data.check_object_spec_build_exists, "Тип строения"),
+            ('spec_room_id', object_data.check_object_spec_room_exists, "Тип помещения"),
+            ('period_id', object_data.check_object_period_exists, "Период"),
+            ('contract_id', object_data.check_object_contract_exists, "Контракт")
         ]
         
         for field, check_func, entity_name in checks:
             if field in update_data and update_data[field] != getattr(existing, field):
+                # None допустим для опциональных полей (например, spec_room_id) —
+                # проверять существование сущности не нужно, это просто сброс.
+                if update_data[field] is None:
+                    continue
                 if not await check_func(session, update_data[field]):
                     raise HTTPException(
                         status_code=400,
@@ -343,7 +351,7 @@ async def update_object(
                     )
         
         # Обновление
-        obj = await object_data.update(session, object_id, object_update)
+        obj = await object_data.update_object(session, object_id, object_update)
         
         return obj
 
@@ -360,7 +368,7 @@ async def delete_object(
     
     async with new_session() as session:
         # Проверяем существование и связанные объекты
-        obj = await object_data.get_by_id(
+        obj = await object_data.get_object_by_id(
             session, 
             object_id, 
             load_relations=True
@@ -392,6 +400,6 @@ async def delete_object(
             )
         
         # Удаление
-        success = await object_data.delete(session, object_id)
+        success = await object_data.delete_object(session, object_id)
         
         return success

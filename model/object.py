@@ -22,7 +22,7 @@ class Object(Base):
     locality_id: Mapped[int] = mapped_column(ForeignKey("localitys.id"))
     street_id: Mapped[int] = mapped_column(ForeignKey("streets.id"))
     spec_build_id: Mapped[int] = mapped_column(ForeignKey("spec_builds.id"))
-    spec_room_id: Mapped[int] = mapped_column(ForeignKey("spec_rooms.id"))
+    spec_room_id: Mapped[Optional[int]] = mapped_column(ForeignKey("spec_rooms.id"), nullable=True)
     period_id: Mapped[int] = mapped_column(ForeignKey("periods.id"))
     contract_id: Mapped[int] = mapped_column(ForeignKey("contracts.id"))
 
@@ -57,7 +57,7 @@ class Object(Base):
                                                         lazy="selectin"
                                                     )
 
-    spec_room: Mapped["Spec_Room"] = relationship(
+    spec_room: Mapped[Optional["Spec_Room"]] = relationship(
                                                     "Spec_Room",
                                                     back_populates="objects",
                                                     lazy="selectin"

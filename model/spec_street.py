@@ -22,6 +22,7 @@ class Spec_Street(Base):
 
     id: Mapped[int_pk]
     name: Mapped[str_uniq]
+    short_name: Mapped[str]
 
     # к одному типу улицы может относится несколько улиц
     streets: Mapped[List["Street"]] = relationship(

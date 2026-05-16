@@ -12,29 +12,29 @@ from utils.timer import timer
 # ========== ПОЛУЧЕНИЕ ==========
 
 @timer
-async def get_by_id(
+async def get_spec_contract_by_id(
     session: AsyncSession,
     spec_contract_id: int,
     load_contracts: bool = False
 ) -> Optional[Spec_Contract]:
     """
     Получить тип договора по ID
-    
+
     Args:
         session: Сессия БД
         spec_contract_id: ID типа договора
         load_contracts: Загружать связанные договоры
     """
     query = select(Spec_Contract).where(Spec_Contract.id == spec_contract_id)
-    
+
     if load_contracts:
         query = query.options(selectinload(Spec_Contract.contracts))
-    
+
     result = await session.execute(query)
     return result.scalar_one_or_none()
 
 @timer
-async def get_by_name(
+async def get_spec_contract_by_name(
     session: AsyncSession,
     name: str
 ) -> Optional[Spec_Contract]:
@@ -46,7 +46,7 @@ async def get_by_name(
     return result.scalar_one_or_none()
 
 @timer
-async def get_all(
+async def get_spec_contract_all(
     session: AsyncSession,
     load_contracts: bool = False
 ) -> List[Spec_Contract]:
@@ -54,15 +54,15 @@ async def get_all(
     Получить все типы договоров
     """
     query = select(Spec_Contract).order_by(Spec_Contract.name)
-    
+
     if load_contracts:
         query = query.options(selectinload(Spec_Contract.contracts))
-    
+
     result = await session.execute(query)
     return result.scalars().all()
 
 @timer
-async def get_paginated(
+async def get_spec_contract_paginated(
                         session: AsyncSession,
                         skip: int = 0,
                         limit: int = 20,
@@ -77,7 +77,7 @@ async def get_paginated(
     # Базовый запрос
     query = select(Spec_Contract)
     count_query = select(func.count()).select_from(Spec_Contract)
-    
+
     # Поиск
     if search:
         search_filter = or_(
@@ -85,7 +85,7 @@ async def get_paginated(
         )
         query = query.where(search_filter)
         count_query = count_query.where(search_filter)
-    
+
     # Сортировка
     if sort_by and hasattr(Spec_Contract, sort_by):
         column = getattr(Spec_Contract, sort_by)
@@ -102,20 +102,38 @@ async def get_paginated(
 
     # Пагинация
     query = query.offset(skip).limit(limit)
-    
+
     # Выполнение
     result = await session.execute(query)
     items = result.scalars().all()
-    
+
     total_result = await session.execute(count_query)
     total = total_result.scalar()
-    
+
     return items, total
+
+# ========== ПОДСЧЕТ СВЯЗАННЫХ ОБЪЕКТОВ ==========
+
+@timer
+async def count_contracts_by_spec_contract(
+    session: AsyncSession,
+    spec_contract_id: int
+) -> int:
+    """
+    Посчитать количество договоров с данным типом
+    """
+    from model.contract import Contract
+
+    query = select(func.count()).select_from(Contract).where(
+        Contract.spec_contract_id == spec_contract_id
+    )
+    result = await session.execute(query)
+    return result.scalar() or 0
 
 # ========== ПРОВЕРКА СУЩЕСТВОВАНИЯ ==========
 
 @timer
-async def check_name_exists(
+async def check_spec_contract_name_exists(
     session: AsyncSession,
     name: str,
     exclude_id: Optional[int] = None
@@ -126,21 +144,21 @@ async def check_name_exists(
     query = select(Spec_Contract).where(Spec_Contract.name == name)
     if exclude_id:
         query = query.where(Spec_Contract.id != exclude_id)
-    
+
     result = await session.execute(query)
     return result.scalar_one_or_none() is not None
 
 # ========== СОЗДАНИЕ ==========
 
 @timer
-async def create(
+async def create_spec_contract(
     session: AsyncSession,
     spec_contract_create: SpecContractCreate
 ) -> Spec_Contract:
     """
     Создать новый тип договора
     """
-    spec_contract = Spec_Contract(**spec_contract_create.dict())
+    spec_contract = Spec_Contract(**spec_contract_create.model_dump())
     session.add(spec_contract)
     await session.commit()
     await session.refresh(spec_contract)
@@ -149,7 +167,7 @@ async def create(
 # ========== ОБНОВЛЕНИЕ ==========
 
 @timer
-async def update(
+async def update_spec_contract(
     session: AsyncSession,
     spec_contract_id: int,
     spec_contract_update: SpecContractUpdate
@@ -157,18 +175,18 @@ async def update(
     """
     Обновить тип договора
     """
-    spec_contract = await get_by_id(session, spec_contract_id, load_contracts=False)
+    spec_contract = await get_spec_contract_by_id(session, spec_contract_id, load_contracts=False)
     if not spec_contract:
         return None
-    
+
     # Получаем данные для обновления (только переданные поля)
-    update_data = spec_contract_update.dict(exclude_unset=True)
-    
+    update_data = spec_contract_update.model_dump(exclude_unset=True)
+
     # Обновляем поля
     for field, value in update_data.items():
         if hasattr(spec_contract, field):
             setattr(spec_contract, field, value)
-    
+
     await session.commit()
     await session.refresh(spec_contract)
     return spec_contract
@@ -176,21 +194,21 @@ async def update(
 # ========== УДАЛЕНИЕ ==========
 
 @timer
-async def delete(
+async def delete_spec_contract(
     session: AsyncSession,
     spec_contract_id: int
 ) -> bool:
     """
     Удалить тип договора
     """
-    spec_contract = await get_by_id(session, spec_contract_id, load_contracts=True)
+    spec_contract = await get_spec_contract_by_id(session, spec_contract_id, load_contracts=True)
     if not spec_contract:
         return False
-    
+
     # Проверяем, есть ли связанные договоры
     if spec_contract.contracts and len(spec_contract.contracts) > 0:
         raise ValueError(f"Невозможно удалить тип договора '{spec_contract.name}': есть связанные договоры")
-    
+
     await session.delete(spec_contract)
     await session.commit()
     return True
@@ -198,16 +216,16 @@ async def delete(
 # ========== ДОПОЛНИТЕЛЬНЫЕ ОПЕРАЦИИ ==========
 
 @timer
-async def get_with_contracts_count(
+async def get_spec_contract_with_contracts_count(
     session: AsyncSession,
     spec_contract_id: int
 ) -> Tuple[Optional[Spec_Contract], int]:
     """
     Получить тип договора и количество связанных договоров
     """
-    spec_contract = await get_by_id(session, spec_contract_id, load_contracts=True)
+    spec_contract = await get_spec_contract_by_id(session, spec_contract_id, load_contracts=True)
     if not spec_contract:
         return None, 0
-    
+
     contracts_count = len(spec_contract.contracts) if spec_contract.contracts else 0
     return spec_contract, contracts_count

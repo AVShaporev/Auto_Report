@@ -271,7 +271,7 @@ async def update_region(
                         region_update: RegionUpdate
                         ) -> Optional[Region]:
     """Обновить регион"""
-    region = await get_by_id(session, region_id, load_relations=False)
+    region = await get_region_by_id(session, region_id, load_relations=False)
     if not region:
         return None
     

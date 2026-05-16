@@ -6,6 +6,7 @@ from datetime import date, datetime
 
 from model.issue import Issue
 from model.objects_equipment import Objects_Equipment
+from model.object import Object
 from model.user import User
 from schema.issue import IssueCreate, IssueUpdate
 
@@ -16,7 +17,7 @@ from utils.timer import timer
 # ========== ПОЛУЧЕНИЕ ==========
 
 @timer
-async def get_by_id(
+async def get_issue_by_id(
     session: AsyncSession,
     issue_id: int,
     *,
@@ -47,7 +48,7 @@ async def get_by_id(
     return result.scalar_one_or_none()
 
 @timer
-async def get_by_number(
+async def get_issue_by_number(
     session: AsyncSession,
     number: str
 ) -> Optional[Issue]:
@@ -57,7 +58,7 @@ async def get_by_number(
     return result.scalar_one_or_none()
 
 @timer
-async def get_by_object_equipment(
+async def get_issue_by_object_equipment(
     session: AsyncSession,
     object_equipment_id: int
 ) -> List[Issue]:
@@ -69,7 +70,7 @@ async def get_by_object_equipment(
     return result.scalars().all()
 
 @timer
-async def get_by_object(
+async def get_issue_by_object(
     session: AsyncSession,
     object_id: int
 ) -> List[Issue]:
@@ -82,7 +83,7 @@ async def get_by_object(
     return result.scalars().all()
 
 @timer
-async def get_by_equipment(
+async def get_issue_by_equipment(
     session: AsyncSession,
     equipment_id: int
 ) -> List[Issue]:
@@ -95,7 +96,7 @@ async def get_by_equipment(
     return result.scalars().all()
 
 @timer
-async def get_by_reporter(
+async def get_issue_by_reporter(
     session: AsyncSession,
     user_id: int
 ) -> List[Issue]:
@@ -105,7 +106,7 @@ async def get_by_reporter(
     return result.scalars().all()
 
 @timer
-async def get_by_assignee(
+async def get_issue_by_assignee(
     session: AsyncSession,
     user_id: int
 ) -> List[Issue]:
@@ -115,7 +116,7 @@ async def get_by_assignee(
     return result.scalars().all()
 
 @timer
-async def get_all(
+async def get_issue_all(
     session: AsyncSession,
     *,
     load_relations: bool = False
@@ -138,13 +139,14 @@ async def get_all(
     return result.scalars().all()
 
 @timer
-async def get_paginated(
+async def get_issue_paginated(
     session: AsyncSession,
     skip: int = 0,
     limit: int = 20,
     search: Optional[str] = None,
     object_id: Optional[int] = None,
     equipment_id: Optional[int] = None,
+    contract_id: Optional[int] = None,
     object_equipment_id: Optional[int] = None,
     status: Optional[str] = None,
     priority: Optional[str] = None,
@@ -214,7 +216,7 @@ async def get_paginated(
         count_query = count_query.where(Issue.detected_date <= date_to)
     
     # Фильтры через связующую таблицу
-    if object_id or equipment_id:
+    if object_id or equipment_id or contract_id:
         query = query.join(
             Objects_Equipment,
             Objects_Equipment.id == Issue.object_equipment_id
@@ -223,14 +225,21 @@ async def get_paginated(
             Objects_Equipment,
             Objects_Equipment.id == Issue.object_equipment_id
         )
-        
+
         if object_id:
             query = query.where(Objects_Equipment.object_id == object_id)
             count_query = count_query.where(Objects_Equipment.object_id == object_id)
-        
+
         if equipment_id:
             query = query.where(Objects_Equipment.equipment_id == equipment_id)
             count_query = count_query.where(Objects_Equipment.equipment_id == equipment_id)
+
+        if contract_id:
+            # Issue → Objects_Equipment → Object → contract_id
+            query = query.join(Object, Object.id == Objects_Equipment.object_id)
+            count_query = count_query.join(Object, Object.id == Objects_Equipment.object_id)
+            query = query.where(Object.contract_id == contract_id)
+            count_query = count_query.where(Object.contract_id == contract_id)
     
     # Сортировка
     if sort_by and hasattr(Issue, sort_by):
@@ -269,7 +278,7 @@ async def get_paginated(
 # ========== ПОЛУЧЕНИЕ ДЛЯ ВЫПАДАЮЩИХ СПИСКОВ ==========
 
 @timer
-async def get_options(
+async def get_issue_options(
     session: AsyncSession,
     status: Optional[str] = None,
     is_resolved: Optional[bool] = None
@@ -291,7 +300,7 @@ async def get_options(
 # ========== ПРОВЕРКА УНИКАЛЬНОСТИ ==========
 
 @timer
-async def check_number_exists(
+async def check_issue_number_exists(
     session: AsyncSession,
     number: str,
     exclude_id: Optional[int] = None
@@ -307,7 +316,7 @@ async def check_number_exists(
 # ========== ПРОВЕРКА СУЩЕСТВОВАНИЯ СВЯЗАННЫХ ОБЪЕКТОВ ==========
 
 @timer
-async def check_object_equipment_exists(
+async def check_issue_object_equipment_exists(
     session: AsyncSession,
     object_equipment_id: int
 ) -> bool:
@@ -317,7 +326,7 @@ async def check_object_equipment_exists(
     return result.scalar_one_or_none() is not None
 
 @timer
-async def check_user_exists(
+async def check_issue_user_exists(
     session: AsyncSession,
     user_id: int
 ) -> bool:
@@ -329,7 +338,7 @@ async def check_user_exists(
 # ========== ПОДСЧЕТ СВЯЗАННЫХ ОБЪЕКТОВ ==========
 
 @timer
-async def count_by_object(
+async def count_issue_by_object(
     session: AsyncSession,
     object_id: int,
     resolved: Optional[bool] = None
@@ -347,7 +356,7 @@ async def count_by_object(
     return result.scalar() or 0
 
 @timer
-async def count_by_equipment(
+async def count_issue_by_equipment(
     session: AsyncSession,
     equipment_id: int,
     resolved: Optional[bool] = None
@@ -367,17 +376,17 @@ async def count_by_equipment(
 # ========== ОБНОВЛЕНИЕ СТАТУСА ==========
 
 @timer
-async def update_status(
+async def update_issue_status(
     session: AsyncSession,
     issue_id: int,
     status: str,
     resolved_date: Optional[date] = None
 ) -> Optional[Issue]:
     """Обновить статус неисправности"""
-    issue = await get_by_id(session, issue_id, load_relations=False)
+    issue = await get_issue_by_id(session, issue_id, load_relations=False)
     if not issue:
         return None
-    
+
     issue.status = status
     issue.is_resolved = (status == 'resolved' or status == 'closed')
     
@@ -391,7 +400,7 @@ async def update_status(
 # ========== СОЗДАНИЕ ==========
 
 @timer
-async def create(
+async def create_issue(
     session: AsyncSession,
     issue_create: IssueCreate,
     reported_by_id: int
@@ -411,13 +420,13 @@ async def create(
 # ========== ОБНОВЛЕНИЕ ==========
 
 @timer
-async def update(
+async def update_issue(
     session: AsyncSession,
     issue_id: int,
     issue_update: IssueUpdate
 ) -> Optional[Issue]:
     """Обновить неисправность"""
-    issue = await get_by_id(session, issue_id, load_relations=False)
+    issue = await get_issue_by_id(session, issue_id, load_relations=False)
     if not issue:
         return None
     
@@ -438,7 +447,7 @@ async def update(
 # ========== УДАЛЕНИЕ ==========
 
 @timer
-async def delete(
+async def delete_issue(
     session: AsyncSession,
     issue_id: int
 ) -> bool:

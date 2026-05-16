@@ -53,7 +53,7 @@ async def get_link_by_id(
     await check_permission(current_user, "object_equipment_read", "просмотра связей объект-оборудование")
     
     async with new_session() as session:
-        link = await link_data.get_by_id(session, link_id, load_relations=load_relations)
+        link = await link_data.get_objects_equipment_by_id(session, link_id, load_relations=load_relations)
         
         if not link:
             raise HTTPException(
@@ -74,14 +74,14 @@ async def get_links_by_object(
     
     async with new_session() as session:
         # Проверяем существование объекта
-        obj = await object_data.get_by_id(session, object_id)
+        obj = await object_data.get_object_by_id(session, object_id)
         if not obj:
             raise HTTPException(
                 status_code=404,
                 detail=f"Объект с id {object_id} не найден"
             )
         
-        links = await link_data.get_by_object(session, object_id, load_relations=True)
+        links = await link_data.get_objects_equipment_by_object(session, object_id, load_relations=True)
         return links
 
 async def get_links_by_equipment(
@@ -95,14 +95,17 @@ async def get_links_by_equipment(
     
     async with new_session() as session:
         # ✅ ИСПРАВЛЕНО: используем правильную функцию для проверки оборудования
-        equipment = await equipment_data.get_by_id(session, equipment_id)
+        equipment = await equipment_data.get_equipment_by_id(session, equipment_id)
         if not equipment:
             raise HTTPException(
                 status_code=404,
                 detail=f"Оборудование с id {equipment_id} не найдено"
             )
         
-        links = await link_data.get_by_equipment(session, equipment_id, load_relations=True)
+        links = await link_data.get_objects_equipment_by_equipment(
+                                                                    session, equipment_id, 
+                                                                    load_relations=True
+                                                                    )
         return links
 
 async def get_links_paginated(
@@ -119,7 +122,7 @@ async def get_links_paginated(
     await check_permission(current_user, "object_equipment_read", "просмотра списка связей")
     
     async with new_session() as session:
-        items, total = await link_data.get_paginated(
+        items, total = await link_data.get_objects_equipment_paginated(
             session=session,
             skip=pagination.skip,
             limit=pagination.limit,
@@ -145,14 +148,14 @@ async def get_equipment_on_object(
     
     async with new_session() as session:
         # Проверяем существование объекта
-        obj = await object_data.get_by_id(session, object_id)
+        obj = await object_data.get_object_by_id(session, object_id)
         if not obj:
             raise HTTPException(
                 status_code=404,
                 detail=f"Объект с id {object_id} не найден"
             )
         
-        links = await link_data.get_by_object(session, object_id, load_relations=True)
+        links = await link_data.get_objects_equipment_by_object(session, object_id, load_relations=True)
         
         result = []
         for link in links:
@@ -160,13 +163,19 @@ async def get_equipment_on_object(
                 "id": link.id,
                 "equipment_id": link.equipment_id,
                 "equipment_name": link.equipment.name if link.equipment else None,
-                "inventory_number": link.equipment.inventory_number if link.equipment else None,
-                "serial_number": link.equipment.serial_number if link.equipment else None,
+                "inventory_number": link.inventory_number,
+                "serial_number": link.serial_number,
                 "count": link.count,
-                "installation_date": link.equipment.installation_date if link.equipment else None,
-                "is_active": link.equipment.is_active if link.equipment else None
+                "installation_date": link.installation_date,
+                "is_active": link.equipment.is_active if link.equipment else None,
+                "spec_system_id": link.spec_system_id,
+                "spec_system_name": link.spec_system.name if link.spec_system else None,
+                "spec_system_short_name": link.spec_system.short_name if link.spec_system else None,
+                "spec_system_is_fire_protection": (
+                    link.spec_system.is_fire_protection if link.spec_system else None
+                ),
             })
-        
+
         return result
 
 async def get_link_with_details(
@@ -179,7 +188,7 @@ async def get_link_with_details(
     await check_permission(current_user, "object_equipment_read", "просмотра связей")
     
     async with new_session() as session:
-        link = await link_data.get_by_id(session, link_id, load_relations=True)
+        link = await link_data.get_objects_equipment_by_id(session, link_id, load_relations=True)
         
         if not link:
             raise HTTPException(
@@ -192,12 +201,18 @@ async def get_link_with_details(
             "object_id": link.object_id,
             "equipment_id": link.equipment_id,
             "count": link.count,
+            "inventory_number": link.inventory_number,
+            "serial_number": link.serial_number,
+            "installation_date": link.installation_date,
+            "spec_system_id": link.spec_system_id,
+            "spec_system_name": link.spec_system.name if link.spec_system else None,
+            "spec_system_short_name": link.spec_system.short_name if link.spec_system else None,
+            "spec_system_is_fire_protection": (
+                link.spec_system.is_fire_protection if link.spec_system else None
+            ),
             "object_name": link.object.name if link.object else None,
             "equipment_name": link.equipment.name if link.equipment else None,
-            "equipment_inventory_number": link.equipment.inventory_number if link.equipment else None,
-            "equipment_serial_number": link.equipment.serial_number if link.equipment else None,
-            "equipment_installation_date": link.equipment.installation_date if link.equipment else None,
-            "equipment_is_active": link.equipment.is_active if link.equipment else None
+            "equipment_is_active": link.equipment.is_active if link.equipment else None,
         }
 
 # ========== СОЗДАНИЕ ==========
@@ -214,7 +229,7 @@ async def add_equipment_to_object(
     
     async with new_session() as session:
         # Проверяем существование объекта
-        obj = await object_data.get_by_id(session, object_id)
+        obj = await object_data.get_object_by_id(session, object_id)
         if not obj:
             raise HTTPException(
                 status_code=404,
@@ -222,7 +237,7 @@ async def add_equipment_to_object(
             )
         
         # ✅ ИСПРАВЛЕНО: используем правильную функцию для проверки оборудования
-        equipment = await equipment_data.get_by_id(session, add_data.equipment_id)
+        equipment = await equipment_data.get_equipment_by_id(session, add_data.equipment_id)
         if not equipment:
             raise HTTPException(
                 status_code=404,
@@ -237,25 +252,38 @@ async def add_equipment_to_object(
             )
         
         # Проверяем, не добавлено ли уже это оборудование на объект
-        existing = await link_data.get_by_object_and_equipment(
+        existing = await link_data.get_objects_equipment_by_object_and_equipment(
             session, object_id, add_data.equipment_id
         )
-        
+
         if existing:
-            # Если уже есть, обновляем количество
+            # Уже есть — увеличиваем количество и обновляем поля экземпляра,
+            # если они явно переданы (последнее значение побеждает).
             existing.count += add_data.count
+            if add_data.inventory_number is not None:
+                existing.inventory_number = add_data.inventory_number
+            if add_data.serial_number is not None:
+                existing.serial_number = add_data.serial_number
+            if add_data.installation_date is not None:
+                existing.installation_date = add_data.installation_date
+            if add_data.spec_system_id is not None:
+                existing.spec_system_id = add_data.spec_system_id
             await session.commit()
             await session.refresh(existing)
             return existing
-        
+
         # Создаем новую связь
         link_create = ObjectsEquipmentCreate(
             object_id=object_id,
             equipment_id=add_data.equipment_id,
-            count=add_data.count
+            count=add_data.count,
+            inventory_number=add_data.inventory_number,
+            serial_number=add_data.serial_number,
+            installation_date=add_data.installation_date,
+            spec_system_id=add_data.spec_system_id,
         )
-        
-        link = await link_data.create(session, link_create)
+
+        link = await link_data.create_objects_equipment(session, link_create)
         return link
 
 # ========== ОБНОВЛЕНИЕ ==========
@@ -272,7 +300,7 @@ async def update_equipment_on_object(
     
     async with new_session() as session:
         # Проверяем существование записи
-        existing = await link_data.get_by_id(session, link_id, load_relations=True)
+        existing = await link_data.get_objects_equipment_by_id(session, link_id, load_relations=True)
         if not existing:
             raise HTTPException(
                 status_code=404,
@@ -282,7 +310,7 @@ async def update_equipment_on_object(
         # Если меняется оборудование, проверяем его существование
         if update_data.equipment_id and update_data.equipment_id != existing.equipment_id:
             # ✅ ИСПРАВЛЕНО: используем правильную функцию
-            equipment = await equipment_data.get_by_id(session, update_data.equipment_id)
+            equipment = await equipment_data.get_equipment_by_id(session, update_data.equipment_id)
             if not equipment:
                 raise HTTPException(
                     status_code=400,
@@ -297,7 +325,7 @@ async def update_equipment_on_object(
                 )
             
             # Проверяем, нет ли уже такой связки
-            duplicate = await link_data.get_by_object_and_equipment(
+            duplicate = await link_data.get_objects_equipment_by_object_and_equipment(
                 session, existing.object_id, update_data.equipment_id
             )
             if duplicate and duplicate.id != link_id:
@@ -307,7 +335,7 @@ async def update_equipment_on_object(
                 )
         
         # Обновление
-        link = await link_data.update(session, link_id, update_data)
+        link = await link_data.update_objects_equipment(session, link_id, update_data)
         return link
 
 async def update_equipment_count(
@@ -322,7 +350,7 @@ async def update_equipment_count(
     await check_permission(current_user, "object_equipment_modify", "изменения количества оборудования")
     
     async with new_session() as session:
-        link = await link_data.update_count(
+        link = await link_data.update_objects_equipment_count(
             session, 
             object_id, 
             equipment_id, 
@@ -350,14 +378,14 @@ async def remove_equipment_from_object(
     
     async with new_session() as session:
         # Проверяем существование записи
-        link = await link_data.get_by_id(session, link_id)
+        link = await link_data.get_objects_equipment_by_id(session, link_id)
         if not link:
             raise HTTPException(
                 status_code=404,
                 detail=f"Запись связи с id {link_id} не найдена"
             )
         
-        success = await link_data.delete(session, link_id)
+        success = await link_data.delete_objects_equipment(session, link_id)
         return success
 
 async def remove_specific_equipment(
@@ -371,7 +399,7 @@ async def remove_specific_equipment(
     await check_permission(current_user, "object_equipment_delete", "удаления оборудования с объекта")
     
     async with new_session() as session:
-        success = await link_data.delete_by_object_and_equipment(session, object_id, equipment_id)
+        success = await link_data.delete_objects_equipment_by_object_and_equipment(session, object_id, equipment_id)
         
         if not success:
             raise HTTPException(

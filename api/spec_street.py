@@ -139,10 +139,10 @@ async def update_spec_street(
     
     # Получаем количество связанных улиц для ответа
     async with spec_street_service.new_session() as session:
-        streets_count = await spec_street_service.spec_street_data.count_streets(
-                                                                                session, 
-                                                                                spec_street_id
-                                                                                )
+        streets_count = await spec_street_service.spec_street_data.count_spec_street_streets(
+                                                                                            session, 
+                                                                                            spec_street_id
+                                                                                            )
     
     return {
             "id": spec_street.id,

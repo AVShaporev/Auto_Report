@@ -48,7 +48,7 @@ async def get_period_by_id(
     await check_permission(current_user, "period_read", "просмотра периодов")
     
     async with new_session() as session:
-        period = await period_data.get_by_id(
+        period = await period_data.get_period_by_id(
             session, 
             period_id, 
             load_relations=load_relations
@@ -75,7 +75,7 @@ async def get_periods_paginated(
     await check_permission(current_user, "period_read", "просмотра списка периодов")
     
     async with new_session() as session:
-        items, total = await period_data.get_paginated(
+        items, total = await period_data.get_period_paginated(
             session=session,
             skip=pagination.skip,
             limit=pagination.limit,
@@ -97,7 +97,7 @@ async def get_all_periods(
     await check_permission(current_user, "period_read", "просмотра периодов")
     
     async with new_session() as session:
-        return await period_data.get_all(session, load_relations=load_relations)
+        return await period_data.get_period_all(session, load_relations=load_relations)
 
 async def get_period_options(
     current_user: User
@@ -108,7 +108,7 @@ async def get_period_options(
     await check_permission(current_user, "period_read", "просмотра периодов")
     
     async with new_session() as session:
-        return await period_data.get_options(session)
+        return await period_data.get_period_options(session)
 
 # ========== ПОЛУЧЕНИЕ СО СТАТИСТИКОЙ ==========
 
@@ -125,7 +125,7 @@ async def get_period_with_stats(
     
     async with new_session() as session:
         # Получаем период (без загрузки связанных данных)
-        period = await period_data.get_by_id(
+        period = await period_data.get_period_by_id(
             session, 
             period_id,
             load_relations=False
@@ -138,8 +138,8 @@ async def get_period_with_stats(
             )
         
         # Получаем количество связанных объектов
-        objects_count = await period_data.count_objects(session, period_id)
-        reports_count = await period_data.count_reports(session, period_id)
+        objects_count = await period_data.count_objects_by_period(session, period_id)
+        reports_count = await period_data.count_reports_by_period(session, period_id)
         
         # Возвращаем готовый словарь для ответа
         return {
@@ -164,7 +164,7 @@ async def get_periods_paginated_with_stats(
     
     async with new_session() as session:
         # Получаем периоды (без загрузки связанных данных)
-        items, total = await period_data.get_paginated(
+        items, total = await period_data.get_period_paginated(
             session=session,
             skip=pagination.skip,
             limit=pagination.limit,
@@ -177,8 +177,8 @@ async def get_periods_paginated_with_stats(
         # Для каждого периода получаем статистику
         result_items = []
         for item in items:
-            objects_count = await period_data.count_objects(session, item.id)
-            reports_count = await period_data.count_reports(session, item.id)
+            objects_count = await period_data.count_objects_by_period(session, item.id)
+            reports_count = await period_data.count_reports_by_period(session, item.id)
             
             result_items.append({
                 "id": item.id,
@@ -203,21 +203,21 @@ async def create_period(
     
     async with new_session() as session:
         # Проверка уникальности названия
-        if await period_data.check_name_exists(session, period_create.name):
+        if await period_data.check_period_name_exists(session, period_create.name):
             raise HTTPException(
                 status_code=400,
                 detail=f"Период с названием '{period_create.name}' уже существует"
             )
         
         # Проверка уникальности периодичности
-        if await period_data.check_period_exists(session, period_create.period):
+        if await period_data.check_period_period_exists(session, period_create.period):
             raise HTTPException(
                 status_code=400,
                 detail=f"Период с периодичностью '{period_create.period}' уже существует"
             )
         
         # Создание
-        period = await period_data.create(session, period_create)
+        period = await period_data.create_period(session, period_create)
         
         return period
 
@@ -235,7 +235,7 @@ async def update_period(
     
     async with new_session() as session:
         # Проверяем существование
-        existing = await period_data.get_by_id(session, period_id)
+        existing = await period_data.get_period_by_id(session, period_id)
         if not existing:
             raise HTTPException(
                 status_code=404,
@@ -244,7 +244,7 @@ async def update_period(
         
         # Проверка уникальности названия, если оно меняется
         if period_update.name and period_update.name != existing.name:
-            if await period_data.check_name_exists(session, period_update.name, period_id):
+            if await period_data.check_period_name_exists(session, period_update.name, period_id):
                 raise HTTPException(
                     status_code=400,
                     detail=f"Период с названием '{period_update.name}' уже существует"
@@ -252,14 +252,14 @@ async def update_period(
         
         # Проверка уникальности периодичности, если она меняется
         if period_update.period and period_update.period != existing.period:
-            if await period_data.check_period_exists(session, period_update.period, period_id):
+            if await period_data.check_period_period_exists(session, period_update.period, period_id):
                 raise HTTPException(
                     status_code=400,
                     detail=f"Период с периодичностью '{period_update.period}' уже существует"
                 )
         
         # Обновление
-        period = await period_data.update(session, period_id, period_update)
+        period = await period_data.update_period(session, period_id, period_update)
         
         return period
 
@@ -276,7 +276,7 @@ async def delete_period(
     
     async with new_session() as session:
         # Проверяем существование и связанные объекты
-        period = await period_data.get_by_id(
+        period = await period_data.get_period_by_id(
             session, 
             period_id, 
             load_relations=True
@@ -302,6 +302,6 @@ async def delete_period(
             )
         
         # Удаление
-        success = await period_data.delete(session, period_id)
+        success = await period_data.delete_period(session, period_id)
         
         return success

@@ -165,6 +165,12 @@ class Role(Base):
     spec_order_modify: Mapped[bool] = mapped_column(default=False)
     spec_order_delete: Mapped[bool] = mapped_column(default=False)
 
+    # права на типы обслуживаемых систем
+    spec_system_read: Mapped[bool] = mapped_column(default=False)
+    spec_system_create: Mapped[bool] = mapped_column(default=False)
+    spec_system_modify: Mapped[bool] = mapped_column(default=False)
+    spec_system_delete: Mapped[bool] = mapped_column(default=False)
+
     # права на заявки
     order_read: Mapped[bool] = mapped_column(default=False)
     order_create: Mapped[bool] = mapped_column(default=False)

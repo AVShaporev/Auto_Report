@@ -12,7 +12,7 @@ from utils.timer import timer
 # ========== ПОЛУЧЕНИЕ ==========
 
 @timer
-async def get_by_id(
+async def get_spec_arial_by_id(
     session: AsyncSession,
     spec_arial_id: int,
     *,
@@ -35,7 +35,7 @@ async def get_by_id(
     return result.scalar_one_or_none()
 
 @timer
-async def get_by_name(
+async def get_spec_arial_by_name(
     session: AsyncSession,
     name: str
 ) -> Optional[Spec_Arial]:
@@ -45,7 +45,7 @@ async def get_by_name(
     return result.scalar_one_or_none()
 
 @timer
-async def get_all(
+async def get_spec_arial_all(
     session: AsyncSession,
     *,
     load_arials: bool = False
@@ -60,7 +60,7 @@ async def get_all(
     return result.scalars().all()
 
 @timer
-async def get_paginated(
+async def get_spec_arial_paginated(
     session: AsyncSession,
     skip: int = 0,
     limit: int = 20,
@@ -112,7 +112,7 @@ async def get_paginated(
 # ========== ПОЛУЧЕНИЕ ДЛЯ ВЫПАДАЮЩИХ СПИСКОВ ==========
 
 @timer
-async def get_options(
+async def get_spec_arial_options(
     session: AsyncSession
 ) -> List[Spec_Arial]:
     """
@@ -125,7 +125,7 @@ async def get_options(
 # ========== ПРОВЕРКА УНИКАЛЬНОСТИ ==========
 
 @timer
-async def check_name_exists(
+async def check_spec_arial_name_exists(
     session: AsyncSession,
     name: str,
     exclude_id: Optional[int] = None
@@ -141,7 +141,7 @@ async def check_name_exists(
 # ========== ПОДСЧЕТ СВЯЗАННЫХ ОБЪЕКТОВ ==========
 
 @timer
-async def count_arials(
+async def count_arials_by_spec_arial(
     session: AsyncSession,
     spec_arial_id: int
 ) -> int:
@@ -161,7 +161,7 @@ async def count_arials(
 # ========== СОЗДАНИЕ ==========
 
 @timer
-async def create(
+async def create_spec_arial(
     session: AsyncSession,
     spec_arial_create: SpecArialCreate
 ) -> Spec_Arial:
@@ -175,13 +175,13 @@ async def create(
 # ========== ОБНОВЛЕНИЕ ==========
 
 @timer
-async def update(
+async def update_spec_arial(
     session: AsyncSession,
     spec_arial_id: int,
     spec_arial_update: SpecArialUpdate
 ) -> Optional[Spec_Arial]:
     """Обновить тип района"""
-    spec_arial = await get_by_id(session, spec_arial_id, load_arials=False)
+    spec_arial = await get_spec_arial_by_id(session, spec_arial_id, load_arials=False)
     if not spec_arial:
         return None
     
@@ -197,7 +197,7 @@ async def update(
 # ========== УДАЛЕНИЕ ==========
 
 @timer
-async def delete(
+async def delete_spec_arial(
     session: AsyncSession,
     spec_arial_id: int
 ) -> bool:

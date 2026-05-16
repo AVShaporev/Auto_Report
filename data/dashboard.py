@@ -106,7 +106,9 @@ async def get_dashboard_spec_stats(session: AsyncSession) -> Dict[str, Any]:
             (SELECT COUNT(*) FROM spec_job_titles) as spec_job_titles,
 
             (SELECT COUNT(*) FROM spec_equipments) as spec_equipments,
-            (SELECT COUNT(*) FROM spec_orders) as spec_orders
+            (SELECT COUNT(*) FROM spec_orders) as spec_orders,
+            (SELECT COUNT(*) FROM spec_systems) as spec_systems,
+            (SELECT COUNT(*) FROM operations) as operations
     """)
     result = await session.execute(query)
     row = result.fetchone()

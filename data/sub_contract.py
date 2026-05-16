@@ -13,7 +13,7 @@ from utils.timer import timer
 # ========== ПОЛУЧЕНИЕ ==========
 
 @timer
-async def get_by_id(
+async def get_sub_contract_by_id(
     session: AsyncSession,
     sub_contract_id: int,
     *,
@@ -21,22 +21,22 @@ async def get_by_id(
 ) -> Optional[Sub_Contract]:
     """
     Получить дополнительное соглашение по ID
-    
+
     Args:
         session: Сессия БД
         sub_contract_id: ID дополнительного соглашения
         load_relations: Если True, загрузить связанный контракт
     """
     query = select(Sub_Contract).where(Sub_Contract.id == sub_contract_id)
-    
+
     if load_relations:
         query = query.options(selectinload(Sub_Contract.contract_subject))
-    
+
     result = await session.execute(query)
     return result.scalar_one_or_none()
 
 @timer
-async def get_by_number(
+async def get_sub_contract_by_number(
     session: AsyncSession,
     number: str
 ) -> Optional[Sub_Contract]:
@@ -46,7 +46,7 @@ async def get_by_number(
     return result.scalar_one_or_none()
 
 @timer
-async def get_by_contract(
+async def get_sub_contract_by_contract(
     session: AsyncSession,
     contract_id: int
 ) -> List[Sub_Contract]:
@@ -56,22 +56,22 @@ async def get_by_contract(
     return result.scalars().all()
 
 @timer
-async def get_all(
+async def get_sub_contract_all(
     session: AsyncSession,
     *,
     load_relations: bool = False
 ) -> List[Sub_Contract]:
     """Получить все дополнительные соглашения"""
     query = select(Sub_Contract).order_by(Sub_Contract.date_of_consclusion.desc())
-    
+
     if load_relations:
         query = query.options(selectinload(Sub_Contract.contract_subject))
-    
+
     result = await session.execute(query)
     return result.scalars().all()
 
 @timer
-async def get_paginated(
+async def get_sub_contract_paginated(
     session: AsyncSession,
     skip: int = 0,
     limit: int = 20,
@@ -90,7 +90,7 @@ async def get_paginated(
     # Базовый запрос
     query = select(Sub_Contract)
     count_query = select(func.count()).select_from(Sub_Contract)
-    
+
     # Поиск по номеру и предмету
     if search:
         search_filter = or_(
@@ -99,21 +99,21 @@ async def get_paginated(
         )
         query = query.where(search_filter)
         count_query = count_query.where(search_filter)
-    
+
     # Фильтр по контракту
     if contract_id:
         query = query.where(Sub_Contract.contract_id == contract_id)
         count_query = count_query.where(Sub_Contract.contract_id == contract_id)
-    
+
     # Фильтр по дате
     if date_from:
         query = query.where(Sub_Contract.date_of_consclusion >= date_from)
         count_query = count_query.where(Sub_Contract.date_of_consclusion >= date_from)
-    
+
     if date_to:
         query = query.where(Sub_Contract.date_of_consclusion <= date_to)
         count_query = count_query.where(Sub_Contract.date_of_consclusion <= date_to)
-    
+
     # Сортировка
     if sort_by and hasattr(Sub_Contract, sort_by):
         column = getattr(Sub_Contract, sort_by)
@@ -123,27 +123,27 @@ async def get_paginated(
             query = query.order_by(column.asc())
     else:
         query = query.order_by(Sub_Contract.date_of_consclusion.desc())
-    
+
     # Загрузка связанных данных (если запрошено)
     if load_relations:
         query = query.options(selectinload(Sub_Contract.contract_subject))
-    
+
     # Пагинация
     query = query.offset(skip).limit(limit)
-    
+
     # Выполнение
     result = await session.execute(query)
     items = result.scalars().all()
-    
+
     total_result = await session.execute(count_query)
     total = total_result.scalar()
-    
+
     return items, total
 
 # ========== ПОЛУЧЕНИЕ ДЛЯ ВЫПАДАЮЩИХ СПИСКОВ ==========
 
 @timer
-async def get_options(
+async def get_sub_contract_options(
     session: AsyncSession,
     contract_id: Optional[int] = None
 ) -> List[Sub_Contract]:
@@ -151,17 +151,17 @@ async def get_options(
     Получить минимальную информацию о дополнительных соглашениях для выпадающих списков
     """
     query = select(Sub_Contract).order_by(Sub_Contract.date_of_consclusion.desc())
-    
+
     if contract_id:
         query = query.where(Sub_Contract.contract_id == contract_id)
-    
+
     result = await session.execute(query)
     return result.scalars().all()
 
 # ========== ПРОВЕРКА УНИКАЛЬНОСТИ ==========
 
 @timer
-async def check_number_exists(
+async def check_sub_contract_number_exists(
     session: AsyncSession,
     number: str,
     exclude_id: Optional[int] = None
@@ -170,7 +170,7 @@ async def check_number_exists(
     query = select(Sub_Contract).where(Sub_Contract.number == number)
     if exclude_id:
         query = query.where(Sub_Contract.id != exclude_id)
-    
+
     result = await session.execute(query)
     return result.scalar_one_or_none() is not None
 
@@ -183,7 +183,7 @@ async def check_contract_exists(
 ) -> bool:
     """Проверить, существует ли контракт с указанным ID"""
     from model.contract import Contract
-    
+
     query = select(Contract).where(Contract.id == contract_id)
     result = await session.execute(query)
     return result.scalar_one_or_none() is not None
@@ -191,12 +191,12 @@ async def check_contract_exists(
 # ========== СОЗДАНИЕ ==========
 
 @timer
-async def create(
+async def create_sub_contract(
     session: AsyncSession,
     sub_contract_create: SubContractCreate
 ) -> Sub_Contract:
     """Создать новое дополнительное соглашение"""
-    sub_contract = Sub_Contract(**sub_contract_create.dict())
+    sub_contract = Sub_Contract(**sub_contract_create.model_dump())
     session.add(sub_contract)
     await session.commit()
     await session.refresh(sub_contract)
@@ -205,21 +205,21 @@ async def create(
 # ========== ОБНОВЛЕНИЕ ==========
 
 @timer
-async def update(
+async def update_sub_contract(
     session: AsyncSession,
     sub_contract_id: int,
     sub_contract_update: SubContractUpdate
 ) -> Optional[Sub_Contract]:
     """Обновить дополнительное соглашение"""
-    sub_contract = await get_by_id(session, sub_contract_id, load_relations=False)
+    sub_contract = await get_sub_contract_by_id(session, sub_contract_id, load_relations=False)
     if not sub_contract:
         return None
-    
-    update_data = sub_contract_update.dict(exclude_unset=True)
+
+    update_data = sub_contract_update.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         if hasattr(sub_contract, field):
             setattr(sub_contract, field, value)
-    
+
     await session.commit()
     await session.refresh(sub_contract)
     return sub_contract
@@ -227,7 +227,7 @@ async def update(
 # ========== УДАЛЕНИЕ ==========
 
 @timer
-async def delete(
+async def delete_sub_contract(
     session: AsyncSession,
     sub_contract_id: int
 ) -> bool:
@@ -235,7 +235,7 @@ async def delete(
     sub_contract = await session.get(Sub_Contract, sub_contract_id)
     if not sub_contract:
         return False
-    
+
     await session.delete(sub_contract)
     await session.commit()
     return True

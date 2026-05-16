@@ -14,16 +14,20 @@ class OrderBase(BaseModel):
     
     model_config = ConfigDict(from_attributes=True)
 
-# Схема для создания заявки (без user_id)
+# Схема для создания заявки (без user_id и без number — номер генерится сервером)
 class OrderCreate(BaseModel):
-    """Схема для создания заявки"""
-    number: str = Field(..., min_length=1, max_length=50, description="Номер заявки")
+    """Схема для создания заявки.
+
+    Номер генерируется сервером по маске
+    "{object_id}/{MM}/{YYYY}/{customer.short_name}/{contract.short_subject}/{spec_order.short_name}/{N}",
+    где N — порядковый номер заявки в текущем месяце для пары (object, contract).
+    """
     spec_order_id: int = Field(..., ge=1, description="ID типа заявки")
     contract_id: int = Field(..., ge=1, description="ID контракта")
     object_id: int = Field(..., ge=1, description="ID объекта")
     description: Optional[str] = Field(None, max_length=1000, description="Описание заявки")
     status: str = Field("new", description="Статус заявки")
-    
+
     model_config = ConfigDict(from_attributes=True)
 
 # Схема для обновления заявки (все поля опциональны)
@@ -35,8 +39,7 @@ class OrderUpdate(BaseModel):
     object_id: Optional[int] = Field(None, ge=1)
     description: Optional[str] = Field(None, max_length=1000)
     status: Optional[str] = Field(None, description="Статус заявки")
-    report_id: Optional[int] = Field(None, ge=1)
-    
+
     model_config = ConfigDict(from_attributes=True)
 
 # Схема для ответа (с ID и связанными данными) - оставляем user_id для отображения
@@ -63,11 +66,20 @@ class OrderListResponse(BaseModel):
     number: str
     created_at: date
     status: str
+    report_id: Optional[int] = None
+
+    # FK-id'шники для фронта (фильтрация по типу/контракту/объекту,
+    # деривация period_id при создании отчёта без отдельного GET)
+    spec_order_id: Optional[int] = None
+    contract_id: Optional[int] = None
+    object_id: Optional[int] = None
+    period_id: Optional[int] = None
+
     spec_order_name: Optional[str] = None
     object_name: Optional[str] = None
     user_name: Optional[str] = None
     contract_number: Optional[str] = None
-    
+
     model_config = ConfigDict(from_attributes=True)
 
 # Схема для выпадающего списка

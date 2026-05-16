@@ -14,7 +14,7 @@ async def get_role_by_id(
     Получить роль по ID
     """
     async with new_session() as session:
-        res = await role_data.get_by_id(session, role_id, load_users)
+        res = await role_data.get_role_by_id(session, role_id, load_users)
         return res
 
 async def get_role_by_name(
@@ -24,7 +24,7 @@ async def get_role_by_name(
     Получить роль по названию
     """
     async with new_session() as session:
-        res = await role_data.get_by_name(session, name)
+        res = await role_data.get_role_by_name(session, name)
         return res
 
 async def get_all_roles(
@@ -34,7 +34,7 @@ async def get_all_roles(
     Получить все роли
     """
     async with new_session() as session:
-        res = await role_data.get_all(session, load_users)
+        res = await role_data.get_role_all(session, load_users)
         return res
 
 async def get_roles_paginated(
@@ -49,7 +49,7 @@ async def get_roles_paginated(
     Получить список ролей с пагинацией
     """
     async with new_session() as session:
-        roles, total = await role_data.get_paginated(
+        roles, total = await role_data.get_role_paginated(
             session=session,
             skip=pagination.skip,
             limit=pagination.limit,
@@ -69,11 +69,11 @@ async def create_role(
     """
     async with new_session() as session:
         # Проверяем уникальность имени
-        exists = await role_data.check_name_exists(session, role_create.name)
+        exists = await role_data.check_role_name_exists(session, role_create.name)
         if exists:
             raise HTTPException(status_code=400, detail=f"Роль с именем '{role_create.name}' уже существует")
         
-        return await role_data.create(session, role_create)
+        return await role_data.create_role(session, role_create)
 
 async def update_role(
     role_id: int,
@@ -84,17 +84,17 @@ async def update_role(
     """
     async with new_session() as session:
         # Проверяем существование роли
-        role = await role_data.get_by_id(session, role_id)
+        role = await role_data.get_role_by_id(session, role_id)
         if not role:
             raise HTTPException(status_code=404, detail=f"Роль с id {role_id} не найдена")
         
         # Проверяем уникальность имени, если оно меняется
         if role_update.name and role_update.name != role.name:
-            exists = await role_data.check_name_exists(session, role_update.name, role_id)
+            exists = await role_data.check_role_name_exists(session, role_update.name, role_id)
             if exists:
                 raise HTTPException(status_code=400, detail=f"Роль с именем '{role_update.name}' уже существует")
         
-        return await role_data.update(session, role_id, role_update)
+        return await role_data.update_role(session, role_id, role_update)
 
 async def delete_role(
     role_id: int
@@ -104,7 +104,7 @@ async def delete_role(
     """
     async with new_session() as session:
         try:
-            res = await role_data.delete(session, role_id)
+            res = await role_data.delete_role(session, role_id)
             return res
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))

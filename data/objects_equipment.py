@@ -15,7 +15,7 @@ from utils.timer import timer
 # ========== ПОЛУЧЕНИЕ ==========
 
 @timer
-async def get_by_id(
+async def get_objects_equipment_by_id(
     session: AsyncSession,
     link_id: int,
     *,
@@ -41,7 +41,7 @@ async def get_by_id(
     return result.scalar_one_or_none()
 
 @timer
-async def get_by_object_and_equipment(
+async def get_objects_equipment_by_object_and_equipment(
     session: AsyncSession,
     object_id: int,
     equipment_id: int
@@ -59,7 +59,7 @@ async def get_by_object_and_equipment(
     return result.scalar_one_or_none()
 
 @timer
-async def get_by_object(
+async def get_objects_equipment_by_object(
     session: AsyncSession,
     object_id: int,
     *,
@@ -82,7 +82,7 @@ async def get_by_object(
     return result.scalars().all()
 
 @timer
-async def get_by_equipment(
+async def get_objects_equipment_objects_equipment_by_equipment(
     session: AsyncSession,
     equipment_id: int,
     *,
@@ -105,7 +105,7 @@ async def get_by_equipment(
     return result.scalars().all()
 
 @timer
-async def get_all(
+async def get_objects_equipment_all(
     session: AsyncSession,
     *,
     load_relations: bool = False
@@ -125,7 +125,7 @@ async def get_all(
     return result.scalars().all()
 
 @timer
-async def get_paginated(
+async def get_objects_equipment_paginated(
     session: AsyncSession,
     skip: int = 0,
     limit: int = 20,
@@ -184,7 +184,7 @@ async def get_paginated(
 # ========== ПРОВЕРКА СУЩЕСТВОВАНИЯ ==========
 
 @timer
-async def check_exists(
+async def check_objects_equipment_exists(
     session: AsyncSession,
     object_id: int,
     equipment_id: int
@@ -200,7 +200,7 @@ async def check_exists(
     return result.scalar_one_or_none() is not None
 
 @timer
-async def check_object_exists(
+async def check_objects_equipment_object_exists(
     session: AsyncSession,
     object_id: int
 ) -> bool:
@@ -210,7 +210,7 @@ async def check_object_exists(
     return result.scalar_one_or_none() is not None
 
 @timer
-async def check_equipment_exists(
+async def check_objects_equipment_equipment_exists(
     session: AsyncSession,
     equipment_id: int
 ) -> bool:
@@ -222,7 +222,7 @@ async def check_equipment_exists(
 # ========== ПОДСЧЕТ ==========
 
 @timer
-async def count_by_object(
+async def count_objects_equipment_by_object(
     session: AsyncSession,
     object_id: int
 ) -> int:
@@ -235,7 +235,7 @@ async def count_by_object(
     return result.scalar() or 0
 
 @timer
-async def count_by_equipment(
+async def count_objects_equipment_by_equipment(
     session: AsyncSession,
     equipment_id: int
 ) -> int:
@@ -250,12 +250,12 @@ async def count_by_equipment(
 # ========== СОЗДАНИЕ ==========
 
 @timer
-async def create(
+async def create_objects_equipment(
     session: AsyncSession,
     link_create: ObjectsEquipmentCreate
 ) -> Objects_Equipment:
     """Создать новую связь объекта с оборудованием"""
-    link = Objects_Equipment(**link_create.dict())
+    link = Objects_Equipment(**link_create.model_dump())
     session.add(link)
     await session.commit()
     await session.refresh(link)
@@ -264,17 +264,17 @@ async def create(
 # ========== ОБНОВЛЕНИЕ ==========
 
 @timer
-async def update(
+async def update_objects_equipment(
     session: AsyncSession,
     link_id: int,
     link_update: ObjectsEquipmentUpdate
 ) -> Optional[Objects_Equipment]:
     """Обновить связь объекта с оборудованием"""
-    link = await get_by_id(session, link_id, load_relations=False)
+    link = await get_objects_equipment_by_id(session, link_id, load_relations=False)
     if not link:
         return None
-    
-    update_data = link_update.dict(exclude_unset=True)
+
+    update_data = link_update.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         if hasattr(link, field):
             setattr(link, field, value)
@@ -284,7 +284,7 @@ async def update(
     return link
 
 @timer
-async def update_count(
+async def update_objects_equipment_count(
     session: AsyncSession,
     object_id: int,
     equipment_id: int,
@@ -303,7 +303,7 @@ async def update_count(
 # ========== УДАЛЕНИЕ ==========
 
 @timer
-async def delete(
+async def delete_objects_equipment(
     session: AsyncSession,
     link_id: int
 ) -> bool:
@@ -317,7 +317,7 @@ async def delete(
     return True
 
 @timer
-async def delete_by_object_and_equipment(
+async def delete_objects_equipment_by_object_and_equipment(
     session: AsyncSession,
     object_id: int,
     equipment_id: int

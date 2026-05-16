@@ -3,7 +3,7 @@ from fastapi import HTTPException
 from model.user import User
 from model.spec_arial import Spec_Arial
 from data import spec_arial as spec_arial_data
-from schema.spec_arial import SpecArialCreate, SpecArialUpdate
+from schema.spec_arial import SpecArialCreate, SpecArialUpdate, SpecArialResponse
 from schema.pagination import PaginationParams
 from database.database import new_session
 
@@ -41,14 +41,14 @@ async def get_spec_arial_by_id(
     spec_arial_id: int,
     current_user: User,
     load_arials: bool = False
-) -> Spec_Arial:
+) -> SpecArialResponse:
     """
     Получить тип района по ID с проверкой прав
     """
     await check_permission(current_user, "spec_arial_read", "просмотра типов районов")
     
     async with new_session() as session:
-        spec_arial = await spec_arial_data.get_by_id(
+        spec_arial = await spec_arial_data.get_spec_arial_by_id(
             session, 
             spec_arial_id, 
             load_arials=load_arials
@@ -75,7 +75,7 @@ async def get_spec_arials_paginated(
     await check_permission(current_user, "spec_arial_read", "просмотра списка типов районов")
     
     async with new_session() as session:
-        items, total = await spec_arial_data.get_paginated(
+        items, total = await spec_arial_data.get_spec_arial_paginated(
             session=session,
             skip=pagination.skip,
             limit=pagination.limit,
@@ -97,7 +97,7 @@ async def get_all_spec_arials(
     await check_permission(current_user, "spec_arial_read", "просмотра типов районов")
     
     async with new_session() as session:
-        return await spec_arial_data.get_all(session, load_arials=load_arials)
+        return await spec_arial_data.get_spec_arial_all(session, load_arials=load_arials)
 
 async def get_spec_arial_options(
     current_user: User
@@ -108,7 +108,7 @@ async def get_spec_arial_options(
     await check_permission(current_user, "spec_arial_read", "просмотра типов районов")
     
     async with new_session() as session:
-        return await spec_arial_data.get_options(session)
+        return await spec_arial_data.get_spec_arial_options(session)
 
 # ========== ПОЛУЧЕНИЕ СО СТАТИСТИКОЙ ==========
 
@@ -125,7 +125,7 @@ async def get_spec_arial_with_stats(
     
     async with new_session() as session:
         # Получаем тип района (без загрузки районов)
-        spec_arial = await spec_arial_data.get_by_id(
+        spec_arial = await spec_arial_data.get_spec_arial_by_id(
             session, 
             spec_arial_id,
             load_arials=False
@@ -138,7 +138,7 @@ async def get_spec_arial_with_stats(
             )
         
         # Получаем ТОЛЬКО количество связанных районов
-        arials_count = await spec_arial_data.count_arials(
+        arials_count = await spec_arial_data.count_arials_by_spec_arial(
             session, 
             spec_arial_id
         )
@@ -147,6 +147,7 @@ async def get_spec_arial_with_stats(
         return {
             "id": spec_arial.id,
             "name": spec_arial.name,
+            "description": spec_arial.description,
             "arials_count": arials_count
         }
 
@@ -164,7 +165,7 @@ async def get_spec_arials_paginated_with_stats(
     
     async with new_session() as session:
         # Получаем типы районов (без загрузки районов)
-        items, total = await spec_arial_data.get_paginated(
+        items, total = await spec_arial_data.get_spec_arial_paginated(
             session=session,
             skip=pagination.skip,
             limit=pagination.limit,
@@ -177,13 +178,14 @@ async def get_spec_arials_paginated_with_stats(
         # Для каждого типа района получаем количество районов
         result_items = []
         for item in items:
-            arials_count = await spec_arial_data.count_arials(
+            arials_count = await spec_arial_data.count_arials_by_spec_arial(
                 session, 
                 item.id
             )
             result_items.append({
                 "id": item.id,
                 "name": item.name,
+                "description": item.description,
                 "arials_count": arials_count
             })
         
@@ -202,14 +204,14 @@ async def create_spec_arial(
     
     async with new_session() as session:
         # Проверка уникальности названия
-        if await spec_arial_data.check_name_exists(session, spec_arial_create.name):
+        if await spec_arial_data.check_spec_arial_name_exists(session, spec_arial_create.name):
             raise HTTPException(
                 status_code=400,
                 detail=f"Тип района с названием '{spec_arial_create.name}' уже существует"
             )
         
         # Создание
-        spec_arial = await spec_arial_data.create(session, spec_arial_create)
+        spec_arial = await spec_arial_data.create_spec_arial(session, spec_arial_create)
         
         return spec_arial
 
@@ -227,7 +229,7 @@ async def update_spec_arial(
     
     async with new_session() as session:
         # Проверяем существование
-        existing = await spec_arial_data.get_by_id(session, spec_arial_id)
+        existing = await spec_arial_data.get_spec_arial_by_id(session, spec_arial_id)
         if not existing:
             raise HTTPException(
                 status_code=404,
@@ -236,14 +238,22 @@ async def update_spec_arial(
         
         # Проверка уникальности названия, если оно меняется
         if spec_arial_update.name and spec_arial_update.name != existing.name:
-            if await spec_arial_data.check_name_exists(session, spec_arial_update.name, spec_arial_id):
+            if await spec_arial_data.check_spec_arial_name_exists(
+                                                                session,
+                                                                spec_arial_update.name,
+                                                                spec_arial_id
+                                                                ):
                 raise HTTPException(
                     status_code=400,
                     detail=f"Тип района с названием '{spec_arial_update.name}' уже существует"
                 )
         
         # Обновление
-        spec_arial = await spec_arial_data.update(session, spec_arial_id, spec_arial_update)
+        spec_arial = await spec_arial_data.update_spec_arial(
+                                                        session,
+                                                        spec_arial_id,
+                                                        spec_arial_update
+                                                        )
         
         return spec_arial
 
@@ -260,7 +270,7 @@ async def delete_spec_arial(
     
     async with new_session() as session:
         # Проверяем существование и связанные районы
-        spec_arial = await spec_arial_data.get_by_id(
+        spec_arial = await spec_arial_data.get_spec_arial_by_id(
             session, 
             spec_arial_id, 
             load_arials=True
@@ -276,10 +286,12 @@ async def delete_spec_arial(
         if spec_arial.arials and len(spec_arial.arials) > 0:
             raise HTTPException(
                 status_code=400,
-                detail=f"Невозможно удалить тип района '{spec_arial.name}': есть связанные районы ({len(spec_arial.arials)} шт.)"
+                detail=f"Невозможно удалить тип района \
+                            '{spec_arial.name}': есть связанные \
+                            районы ({len(spec_arial.arials)} шт.)"
             )
         
         # Удаление
-        success = await spec_arial_data.delete(session, spec_arial_id)
+        success = await spec_arial_data.delete_spec_arial(session, spec_arial_id)
         
         return success

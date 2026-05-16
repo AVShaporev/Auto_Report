@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Depends, Query, HTTPException
 from typing import Optional, List
-from datetime import date
 
 from model.user import User
 from schema.equipment import (
@@ -19,11 +18,9 @@ router = APIRouter(prefix="/api/equipment", tags=["equipment"])
 @router.get("/list", response_model=PaginatedResponse[EquipmentListResponse])
 async def get_equipment_list(
     pagination: PaginationParams = Depends(),
-    search: Optional[str] = Query(None, description="Поиск по названию, инвентарному или серийному номеру"),
+    search: Optional[str] = Query(None, description="Поиск по названию"),
     spec_equipment_id: Optional[int] = Query(None, ge=1, description="Фильтр по типу оборудования"),
     object_id: Optional[int] = Query(None, ge=1, description="Фильтр по объекту"),
-    installation_date_from: Optional[date] = Query(None, description="Дата установки с"),
-    installation_date_to: Optional[date] = Query(None, description="Дата установки по"),
     is_active: Optional[bool] = Query(None, description="Только активное/списанное"),
     sort_by: str = Query("name", description="Поле сортировки"),
     sort_order: str = Query("asc", regex="^(asc|desc)$"),
@@ -31,7 +28,7 @@ async def get_equipment_list(
 ):
     """
     Получить список оборудования с пагинацией
-    
+
     - **object_id** - если указан, возвращает только оборудование для этого объекта
     """
     items, total = await equipment_service.get_equipments_paginated_with_details(
@@ -40,15 +37,13 @@ async def get_equipment_list(
         search=search,
         spec_equipment_id=spec_equipment_id,
         object_id=object_id,
-        installation_date_from=installation_date_from,
-        installation_date_to=installation_date_to,
         is_active=is_active,
         sort_by=sort_by,
         sort_order=sort_order
     )
-    
+
     pages = (total + pagination.limit - 1) // pagination.limit
-    
+
     return PaginatedResponse(
         items=items,
         total=total,
@@ -71,43 +66,15 @@ async def get_equipment_options(
         object_id=object_id,
         is_active=is_active
     )
-    
+
     return [
         {
             "id": item.id,
             "name": item.name,
-            "inventory_number": item.inventory_number,
-            "serial_number": item.serial_number,
             "is_active": item.is_active
         }
         for item in equipments
     ]
-
-# ========== ОСТАЛЬНЫЕ ЭНДПОИНТЫ (без изменений) ==========
-
-@router.get("/by-inventory/{inventory_number}", response_model=EquipmentResponse)
-async def get_equipment_by_inventory(
-    inventory_number: str,
-    current_user: User = Depends(get_current_active_user)
-):
-    """Получить оборудование по инвентарному номеру"""
-    equipment = await equipment_service.get_equipment_by_inventory_number(
-        inventory_number,
-        current_user
-    )
-    return await equipment_service.get_equipment_with_details(equipment.id, current_user)
-
-@router.get("/by-serial/{serial_number}", response_model=EquipmentResponse)
-async def get_equipment_by_serial(
-    serial_number: str,
-    current_user: User = Depends(get_current_active_user)
-):
-    """Получить оборудование по серийному номеру"""
-    equipment = await equipment_service.get_equipment_by_serial_number(
-        serial_number,
-        current_user
-    )
-    return await equipment_service.get_equipment_with_details(equipment.id, current_user)
 
 @router.get("/{equipment_id}", response_model=EquipmentResponse)
 async def get_equipment_by_id(
@@ -156,7 +123,7 @@ async def toggle_equipment_active(
     equipment = await equipment_service.get_equipment_by_id(equipment_id, current_user)
     update_data = EquipmentUpdate(is_active=not equipment.is_active)
     equipment = await equipment_service.update_equipment(equipment_id, update_data, current_user)
-    
+
     return {
         "status": "success",
         "message": f"Статус оборудования изменен на {'активно' if equipment.is_active else 'списано'}"

@@ -166,7 +166,7 @@ async def create_spec_equipment(
                                 spec_equipment_create: SpecEquipmentCreate
                                 ) -> Spec_Equipment:
     """Создать новый тип оборудования"""
-    spec_equipment = Spec_Equipment(**spec_equipment_create.dict())
+    spec_equipment = Spec_Equipment(**spec_equipment_create.model_dump())
     session.add(spec_equipment)
     await session.commit()
     await session.refresh(spec_equipment)
@@ -181,11 +181,11 @@ async def update_spec_equipment(
                                 spec_equipment_update: SpecEquipmentUpdate
                                 ) -> Optional[Spec_Equipment]:
     """Обновить тип оборудования"""
-    spec_equipment = await get_by_id(session, spec_equipment_id, load_equipments=False)
+    spec_equipment = await get_spec_equipment_by_id(session, spec_equipment_id, load_equipments=False)
     if not spec_equipment:
         return None
-    
-    update_data = spec_equipment_update.dict(exclude_unset=True)
+
+    update_data = spec_equipment_update.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         if hasattr(spec_equipment, field):
             setattr(spec_equipment, field, value)

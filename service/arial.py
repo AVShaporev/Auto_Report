@@ -144,13 +144,13 @@ async def get_arial_options_by_spec(
     
     async with new_session() as session:
         # Проверяем существование типа района
-        if not await spec_arial_data.check_arial_name_exists(session, spec_arial_id):
+        if not await spec_arial_data.get_spec_arial_by_id(session, spec_arial_id):
             raise HTTPException(
                 status_code=404,
                 detail=f"Тип района с id {spec_arial_id} не найден"
             )
-        
-        return await arial_data.get_arial__options_by_spec_arial(session, spec_arial_id)
+
+        return await arial_data.get_arial_options_by_spec_arial(session, spec_arial_id)
 
 # ========== ПОЛУЧЕНИЕ СО СТАТИСТИКОЙ ==========
 

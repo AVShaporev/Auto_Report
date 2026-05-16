@@ -3,7 +3,7 @@ from fastapi import HTTPException
 from model.user import User
 from model.spec_street import Spec_Street
 from data import spec_street as spec_street_data
-from schema.spec_street import SpecStreetCreate, SpecStreetUpdate
+from schema.spec_street import SpecStreetCreate, SpecStreetUpdate, SpecStreetResponse
 from schema.pagination import PaginationParams
 from database.database import new_session
 
@@ -41,7 +41,7 @@ async def get_spec_street_by_id(
                                 spec_street_id: int,
                                 current_user: User,
                                 load_streets: bool = False
-                                ) -> Spec_Street:
+                                ) -> SpecStreetResponse:
     """
     Получить тип улицы по ID с проверкой прав
     """
@@ -147,6 +147,8 @@ async def get_spec_street_with_stats(
         return {
                 "id": spec_street.id,
                 "name": spec_street.name,
+                "short_name": spec_street.short_name,
+                "description": spec_street.description,
                 "streets_count": streets_count
                 }
 
@@ -184,6 +186,8 @@ async def get_spec_streets_paginated_with_stats(
             result_items.append({
                                 "id": item.id,
                                 "name": item.name,
+                                "short_name": item.short_name,
+                                "description": item.description,
                                 "streets_count": streets_count
                                 })
         

@@ -27,30 +27,18 @@ async def get_spec_contract_list(
     
     Требуется право: spec_contract_read
     """
-    items, total = await spec_contract_service.get_spec_contracts_paginated(
+    items, total = await spec_contract_service.get_spec_contracts_paginated_with_stats(
         pagination=pagination,
         current_user=current_user,
         search=search,
         sort_by=sort_by,
         sort_order=sort_order
     )
-    
-    # Преобразуем в список для ответа
-    result_items = []
-    for item in items:
-        # Получаем количество связанных договоров
-        contracts_count = len(item.contracts) if item.contracts else 0
-        
-        result_items.append({
-            "id": item.id,
-            "name": item.name,
-            "contracts_count": contracts_count
-        })
-    
+
     pages = (total + pagination.limit - 1) // pagination.limit
-    
+
     return PaginatedResponse(
-        items=result_items,
+        items=items,
         total=total,
         page=pagination.page,
         per_page=pagination.limit,
@@ -90,18 +78,10 @@ async def get_spec_contract_by_id(
     
     Требуется право: spec_contract_read
     """
-    spec_contract = await spec_contract_service.get_spec_contract_by_id(
+    return await spec_contract_service.get_spec_contract_with_stats(
         spec_contract_id,
-        current_user,
-        load_contracts=True
+        current_user
     )
-    
-    # Формируем ответ
-    return {
-        "id": spec_contract.id,
-        "name": spec_contract.name,
-        "contracts_count": len(spec_contract.contracts) if spec_contract.contracts else 0
-    }
 
 @router.post("/create", response_model=SpecContractResponse)
 async def create_spec_contract(
@@ -135,20 +115,11 @@ async def update_spec_contract(
     
     Требуется право: spec_contract_modify
     """
-    spec_contract = await spec_contract_service.update_spec_contract(
+    return await spec_contract_service.update_spec_contract_with_stats(
         spec_contract_id,
         spec_contract_data,
         current_user
     )
-    
-    # Получаем количество связанных договоров
-    contracts_count = len(spec_contract.contracts) if spec_contract.contracts else 0
-    
-    return {
-        "id": spec_contract.id,
-        "name": spec_contract.name,
-        "contracts_count": contracts_count
-    }
 
 @router.delete("/{spec_contract_id}")
 async def delete_spec_contract(

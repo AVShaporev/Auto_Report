@@ -230,7 +230,7 @@ async def update_organization(
     """
     Обновить организацию
     """
-    organization = await get_by_id(session, org_id, load_relations=False)
+    organization = await get_organization_by_id(session, org_id, load_relations=False)
     if not organization:
         return None
     
@@ -256,7 +256,7 @@ async def delete_organization(
     """
     Удалить организацию
     """
-    organization = await get_by_id(session, org_id, load_relations=False)
+    organization = await get_organization_by_id(session, org_id, load_relations=False)
     if not organization:
         return False
     

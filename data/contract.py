@@ -298,7 +298,7 @@ async def update_contract(
     contract_update: ContractUpdate
 ) -> Optional[Contract]:
     """Обновить контракт"""
-    contract = await get_by_id(session, contract_id, load_relations=False)
+    contract = await get_contract_by_id(session, contract_id, load_relations=False)
     if not contract:
         return None
     

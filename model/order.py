@@ -17,7 +17,11 @@ class Order(Base):
     contract_id: Mapped[int] = mapped_column(ForeignKey("contracts.id"), nullable=False)
     object_id: Mapped[int] = mapped_column(ForeignKey("objects.id"), nullable=False)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
-    report_id: Mapped[int] = mapped_column(ForeignKey("reports.id"), nullable=True)  # Может быть NULL до создания отчёта
+    report_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("reports.id", ondelete="SET NULL"),
+        nullable=True,
+        unique=True,
+    )
     created_at: Mapped[date] = mapped_column(default=date.today)  # Добавил дату создания
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # Добавил описание
     status: Mapped[str] = mapped_column(default="new")  # Добавил статус заявки

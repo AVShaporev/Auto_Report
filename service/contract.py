@@ -177,7 +177,9 @@ async def get_contract_with_stats(
             "sub_contracts_count": sub_contracts_count,
             "objects_count": objects_count,
             "reports_count": reports_count,
-            "orders_count": orders_count
+            "orders_count": orders_count,
+            "created_at": contract.created_at,
+            "updated_at": contract.updated_at,
         }
 
 async def get_contracts_paginated_with_stats(

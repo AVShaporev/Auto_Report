@@ -22,13 +22,25 @@ class ReportBase(BaseModel):
 # ========== СХЕМЫ ДЛЯ СОЗДАНИЯ ==========
 
 class ReportCreate(BaseModel):
-    """Схема для создания отчета (без user_id)"""
-    number: str = Field(..., min_length=1, max_length=50, description="Номер отчета")
-    period_id: int = Field(..., ge=1, description="ID периода")
-    contract_id: int = Field(..., ge=1, description="ID контракта")
-    object_id: int = Field(..., ge=1, description="ID объекта")
+    """Схема для создания отчета (без user_id).
+
+    Номер генерируется сервером по маске
+    "{object_id}/{MM}/{YYYY}/{customer.short_name}/{contract.short_subject}"
+    из переданного report_period (формат "YYYY-MM").
+
+    period_id / contract_id / object_id опциональны: если не переданы,
+    бэк вытащит их из выбранной заявки (order.object.period_id,
+    order.contract_id, order.object_id). Если переданы — должны совпадать
+    с тем, что лежит на заявке.
+    """
+    order_id: int = Field(..., ge=1, description="ID заявки (связь 1:1)")
+    period_id: Optional[int] = Field(None, ge=1, description="ID периода (опц., возьмётся из заявки)")
+    contract_id: Optional[int] = Field(None, ge=1, description="ID контракта (опц., возьмётся из заявки)")
+    object_id: Optional[int] = Field(None, ge=1, description="ID объекта (опц., возьмётся из заявки)")
     description: Optional[str] = Field(None, max_length=1000, description="Описание отчета")
-    
+    report_period: str = Field(..., pattern=r"^\d{4}-(0[1-9]|1[0-2])$",
+                               description="Отчётный период в формате YYYY-MM")
+
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -73,8 +85,9 @@ class ReportResponse(BaseModel):
     contract_number: Optional[str] = Field(None, description="Номер контракта")
     object_name: Optional[str] = Field(None, description="Название объекта")
     user_name: Optional[str] = Field(None, description="Имя пользователя")
-    order_number: Optional[str] = Field(None, description="Номер заявки")
-    
+    order_id: Optional[int] = Field(None, description="ID связанной заявки")
+    order_number: Optional[str] = Field(None, description="Номер связанной заявки")
+
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -90,7 +103,9 @@ class ReportListResponse(BaseModel):
     contract_number: Optional[str] = None
     object_name: Optional[str] = None
     user_name: Optional[str] = None
-    
+    order_id: Optional[int] = None
+    order_number: Optional[str] = None
+
     model_config = ConfigDict(from_attributes=True)
 
 

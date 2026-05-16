@@ -2,14 +2,14 @@ from typing import List, Optional
 from datetime import datetime
 
 from fastapi import (
-                        APIRouter, 
-                        Response, 
-                        Request, 
+                        APIRouter,
+                        Response,
+                        Request,
                         Depends,
                         Form,
-                        Depends,
                         Query,
-                        HTTPException
+                        HTTPException,
+                        status,
                     )
 from fastapi.responses import (
                                 HTMLResponse,
@@ -20,7 +20,6 @@ from service.user import (get_all,
                             get_one,
                             create,
                             modify,
-                            delete_by_name,
                             delete_by_id,
                             get_users_paginated)
 
@@ -28,7 +27,7 @@ from model.user import User
 
 from service.auth import (get_current_user)
 
-from schema.user import UserResponse, UserRequest
+from schema.user import UserResponse, UserRequest, UserUpdate
 from schema.pagination import PaginationParams, PaginatedResponse
 
 from model.role import Role
@@ -127,16 +126,17 @@ async def delete(request: Request, user: User = Depends(get_current_user), user_
 @router.put('/{user_id}')
 async def put_modify_user(
                             user_id: int,
-                            user: UserResponse,
+                            user: UserUpdate,
                             user_auth: User = Depends(get_current_user)
                             ):
-
+    # Раньше здесь был `user = UserUpdate()` — это стирало тело запроса
+    # (клиентские данные терялись, в сервис уходил пустой объект). Убрано.
     error_msg = None
-    user = UserResponse(
-                        )
-    
+
     if user_auth:
-        if user_auth.role.role_modify:
+        # Раньше тут стояло `role.role_modify` — копипаста из эндпоинтов ролей.
+        # Для user-эндпоинта корректный флаг — `role.user_modify`.
+        if user_auth.role.user_modify:
             try:
                 user = await modify(user_id = user_id, user = user)
                 modify_ok = True
