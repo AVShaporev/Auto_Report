@@ -42,12 +42,18 @@
         </tr>
     </thead>
     <tbody>
-        {% for row in equipment_rows %}
+        {% for group in equipment_groups %}
+        <tr class="section-row">
+            <td class="col-num"><strong>{{ group.index }}.</strong></td>
+            <td class="col-name" colspan="2"><strong>{{ group.system_name }}</strong></td>
+        </tr>
+        {% for row in group.rows %}
         <tr>
-            <td class="col-num">{{ loop.index }}</td>
+            <td class="col-num">{{ row.index }}.</td>
             <td class="col-name">{{ row.name }}</td>
             <td class="col-count">{{ row.count }}</td>
         </tr>
+        {% endfor %}
         {% else %}
         <tr>
             <td class="col-num">—</td>

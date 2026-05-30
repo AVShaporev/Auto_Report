@@ -1,0 +1,118 @@
+@page {
+    size: A4;
+    margin: 18mm 16mm 18mm 20mm;
+}
+
+body {
+    font-family: 'DejaVu Sans', 'Arial', sans-serif;
+    font-size: 11pt;
+    line-height: 1.0;
+    color: #000;
+}
+
+.doc-header {
+    text-align: center;
+    margin-bottom: 12pt;
+}
+
+.doc-title {
+    font-size: 14pt;
+    font-weight: bold;
+    margin: 0 0 6pt 0;
+}
+
+.doc-date {
+    margin: 0;
+    font-size: 11pt;
+}
+
+.intro {
+    text-align: justify;
+    text-indent: 1.25cm;
+    margin: 0 0 6pt 0;
+}
+
+.field-line {
+    margin: 3pt 0 0 0;
+}
+
+.field-label {
+    margin: 0;
+}
+
+.field-hint {
+    margin: 0 0 4pt 0;
+    font-size: 9.5pt;
+    color: #555;
+    text-align: center;
+    font-style: italic;
+}
+
+.field-value {
+    font-weight: bold;
+}
+
+.section {
+    margin: 8pt 0 0 0;
+}
+
+.section-title {
+    margin: 8pt 0 2pt 0;
+    font-weight: bold;
+}
+
+.fill-line {
+    margin: 2pt 0;
+    font-family: 'DejaVu Sans Mono', 'Courier New', monospace;
+}
+
+.note {
+    text-align: justify;
+    margin: 8pt 0 0 0;
+    font-size: 10pt;
+}
+
+.disclaimer {
+    text-align: justify;
+    margin: 10pt 0 0 0;
+    font-size: 9.5pt;
+    font-style: italic;
+    color: #333;
+}
+
+table.signatures {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 14pt;
+    page-break-inside: avoid;
+}
+
+table.signatures td.sig-cell {
+    width: 50%;
+    vertical-align: top;
+    padding: 0 8pt;
+}
+
+.sig-role {
+    font-weight: bold;
+    margin: 0 0 4pt 0;
+}
+
+.sig-job {
+    margin: 0;
+}
+
+.sig-name {
+    margin: 8pt 0 0 0;
+}
+
+.sig-line {
+    margin: 10pt 0 0 0;
+}
+
+.sig-hint {
+    margin: 0;
+    font-size: 9pt;
+    color: #555;
+    font-style: italic;
+}

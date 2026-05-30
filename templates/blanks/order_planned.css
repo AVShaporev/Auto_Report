@@ -72,6 +72,18 @@ table.equipment .col-count {
     text-align: center;
 }
 
+table.equipment tr.section-row td {
+    background-color: #f4f4f4;
+}
+
+table.equipment tr.section-row .col-num {
+    text-align: left;
+}
+
+table.equipment tr.section-row .col-name {
+    text-align: left;
+}
+
 .remarks {
     margin: 10pt 0;
 }
