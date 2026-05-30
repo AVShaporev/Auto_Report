@@ -28,6 +28,11 @@ engine = create_async_engine(
                                 # pool_size=5,
                                 # max_overflow=10
                                 )
+
+# Диагностический счётчик SQL-запросов на HTTP-запрос — используется middleware
+from utils.sql_counter import install as _install_sql_counter
+_install_sql_counter(engine)
+
 async_session_maker = async_sessionmaker(engine, expire_on_commit=False)
 
 AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False)

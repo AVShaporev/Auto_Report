@@ -9,6 +9,7 @@ from starlette.requests import Request
 
 from config import settings
 from utils.json_logger import current_user_var, json_logger
+from utils import sql_counter
 
 
 def _extract_username(request: Request) -> Optional[str]:
@@ -31,6 +32,7 @@ class LogRequestsMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         username = _extract_username(request)
         marker = current_user_var.set(username)
+        sql_counter.reset()
         started_at = datetime.now()
         start = time.perf_counter()
         status_code: Optional[int] = None
@@ -44,7 +46,27 @@ class LogRequestsMiddleware(BaseHTTPMiddleware):
         finally:
             ended_at = datetime.now()
             duration = time.perf_counter() - start
-            logger.info(f"{request.method} {request.url.path} - {status_code} - {duration:.3f}s")
+
+            sql_snap = sql_counter.snapshot()
+            sql_count = sql_snap["count"] if sql_snap else 0
+            sql_time = sql_snap["total_time_sec"] if sql_snap else 0.0
+            sql_suffix = f" | SQL: {sql_count} queries, {sql_time:.3f}s" if sql_snap else ""
+
+            logger.info(
+                f"{request.method} {request.url.path} - {status_code} - "
+                f"{duration:.3f}s{sql_suffix}"
+            )
+
+            # Если запросов подозрительно много — дампим топ-5 для диагностики N+1
+            top_queries = None
+            if sql_snap and sql_snap["count"] >= 20:
+                top_queries = sql_snap["queries"].most_common(5)
+                logger.warning(
+                    f"⚠ Подозрение на N+1: {sql_count} SQL за один запрос. Топ-5:"
+                )
+                for q, n in top_queries:
+                    logger.warning(f"   {n}× {q}")
+
             try:
                 json_logger.write({
                     "kind": "http",
@@ -55,6 +77,9 @@ class LogRequestsMiddleware(BaseHTTPMiddleware):
                     "started_at": started_at.isoformat(),
                     "ended_at": ended_at.isoformat(),
                     "duration_sec": round(duration, 4),
+                    "sql_count": sql_count,
+                    "sql_time_sec": round(sql_time, 4),
+                    "sql_top": [{"sql": q, "count": n} for q, n in (top_queries or [])] or None,
                 })
             except Exception as e:
                 logger.warning(f"JSON-лог HTTP не записан: {e!r}")
