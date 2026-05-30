@@ -132,7 +132,7 @@ async def upload_attachment(
                 detail="Вы можете добавлять вложения только в свои отчёты",
             )
 
-        if report.check_pass:
+        if report.status and report.status.code == 'approved':
             raise HTTPException(
                 status_code=400,
                 detail="Отчёт утверждён — изменять вложения нельзя",
@@ -189,7 +189,7 @@ async def delete_attachment(
                 status_code=403,
                 detail="Вы можете удалять вложения только в своих отчётах",
             )
-        if report and report.check_pass:
+        if report and report.status and report.status.code == 'approved':
             raise HTTPException(
                 status_code=400,
                 detail="Отчёт утверждён — изменять вложения нельзя",

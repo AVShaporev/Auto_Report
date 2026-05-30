@@ -129,12 +129,27 @@ async def get_equipment_with_details(
                 detail=f"Оборудование с id {equipment_id} не найдено"
             )
 
+        # Регламент ТО = операции, привязанные к типу оборудования
+        # (Spec_Equipment.operations — m2m через operations_spec_equipments).
+        operations = []
+        if equipment.spec_equipment and equipment.spec_equipment.operations:
+            for op in sorted(equipment.spec_equipment.operations, key=lambda o: (o.name or "").lower()):
+                operations.append({
+                    "id": op.id,
+                    "name": op.name,
+                    "short_name": op.short_name,
+                    "description": op.description,
+                })
+
         return {
             "id": equipment.id,
             "name": equipment.name,
             "is_active": equipment.is_active,
             "spec_equipment_id": equipment.spec_equipment_id,
-            "spec_equipment_name": equipment.spec_equipment.name if equipment.spec_equipment else None
+            "spec_equipment_name": equipment.spec_equipment.name if equipment.spec_equipment else None,
+            "spec_system_id": equipment.spec_system_id,
+            "spec_system_name": equipment.spec_system.name if equipment.spec_system else None,
+            "operations": operations,
         }
 
 async def get_equipments_paginated_with_details(
@@ -172,7 +187,9 @@ async def get_equipments_paginated_with_details(
                 "id": item.id,
                 "name": item.name,
                 "is_active": item.is_active,
-                "spec_equipment_name": item.spec_equipment.name if item.spec_equipment else None
+                "spec_equipment_name": item.spec_equipment.name if item.spec_equipment else None,
+                "spec_system_id": item.spec_system_id,
+                "spec_system_name": item.spec_system.name if item.spec_system else None,
             })
 
         return result_items, total

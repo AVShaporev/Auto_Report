@@ -7,6 +7,7 @@ from datetime import date
 from model.user import User
 from model.order import Order
 from model.contract import Contract
+from model.object import Object
 from model.spec_order import Spec_Order
 from data import order as order_data
 from schema.order import OrderCreate, OrderUpdate
@@ -79,6 +80,10 @@ async def get_orders_paginated(
     status: Optional[str] = None,
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
+    region_id: Optional[List[int]] = None,
+    arial_id: Optional[List[int]] = None,
+    locality_id: Optional[List[int]] = None,
+    street_id: Optional[List[int]] = None,
     sort_by: str = "created_at",
     sort_order: str = "desc"
 ) -> Tuple[List[Order], int]:
@@ -86,7 +91,7 @@ async def get_orders_paginated(
     Получить список заявок с пагинацией
     """
     await check_permission(current_user, "order_read", "просмотра списка заявок")
-    
+
     async with new_session() as session:
         items, total = await order_data.get_order_paginated(
             session=session,
@@ -100,11 +105,15 @@ async def get_orders_paginated(
             status=status,
             date_from=date_from,
             date_to=date_to,
+            region_id=region_id,
+            arial_id=arial_id,
+            locality_id=locality_id,
+            street_id=street_id,
             sort_by=sort_by,
             sort_order=sort_order,
             load_relations=True  # Загружаем связанные данные для ответа
         )
-        
+
         return items, total
 
 async def get_orders_by_current_user(
@@ -210,6 +219,10 @@ async def get_orders_paginated_with_details(
     status: Optional[str] = None,
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
+    region_id: Optional[List[int]] = None,
+    arial_id: Optional[List[int]] = None,
+    locality_id: Optional[List[int]] = None,
+    street_id: Optional[List[int]] = None,
     sort_by: str = "created_at",
     sort_order: str = "desc"
 ) -> Tuple[List[dict], int]:
@@ -217,7 +230,7 @@ async def get_orders_paginated_with_details(
     Получить список заявок с детальной информацией для ответа
     """
     await check_permission(current_user, "order_read", "просмотра списка заявок")
-    
+
     async with new_session() as session:
         # Получаем заявки с загрузкой связанных данных
         items, total = await order_data.get_order_paginated(
@@ -232,6 +245,10 @@ async def get_orders_paginated_with_details(
             status=status,
             date_from=date_from,
             date_to=date_to,
+            region_id=region_id,
+            arial_id=arial_id,
+            locality_id=locality_id,
+            street_id=street_id,
             sort_by=sort_by,
             sort_order=sort_order,
             load_relations=True
@@ -308,6 +325,12 @@ async def create_order(
         if not spec_order:
             raise HTTPException(status_code=400, detail="Тип заявки не найден")
 
+        # number_in_contract — порядковый номер объекта в рамках своего
+        # контракта; используется в номере заявки вместо глобального object_id.
+        obj = await session.get(Object, order_create.object_id)
+        if not obj:
+            raise HTTPException(status_code=400, detail="Объект не найден")
+
         today = date.today()
         year, month = today.year, today.month
 
@@ -326,7 +349,7 @@ async def create_order(
         short_order = (spec_order.short_name or "").strip() or "—"
 
         generated_number = (
-            f"{order_create.object_id}/{month:02d}/{year:04d}/"
+            f"{obj.number_in_contract}/{month:02d}/{year:04d}/"
             f"{short_customer}/{short_subject}/{short_order}/{seq}"
         )
 

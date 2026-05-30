@@ -1,13 +1,15 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, or_, and_
-from sqlalchemy.orm import selectinload
+from sqlalchemy import select, func, or_, and_, false
+from sqlalchemy.orm import selectinload, raiseload
 from typing import Optional, List, Tuple
 from datetime import date
 
 from model.contract import Contract
+from model.object import Object as ObjectModel
 from schema.contract import ContractCreate, ContractUpdate
 
 from utils.timer import timer
+from utils.loading import shallow_load
 
 
 
@@ -60,16 +62,29 @@ async def get_contract_all(
     *,
     load_relations: bool = False
 ) -> List[Contract]:
-    """Получить все контракты"""
+    """Получить все контракты.
+
+    Под `load_relations=True` подгружаем spec_contract/customer/executor и
+    объекты (для подсчёта в эндпоинте), но `shallow_load` отрубает дальнейший
+    каскад (у Contract это reports/orders/sub_contracts через lazy="selectin",
+    у Object — 11 эагер-связей). Это снижает /contract/all с ~330 SQL до
+    единиц запросов.
+    """
     query = select(Contract).order_by(Contract.number)
-    
+
     if load_relations:
         query = query.options(
-            selectinload(Contract.spec_contract),
-            selectinload(Contract.customer),
-            selectinload(Contract.executor)
+            *shallow_load(
+                Contract.spec_contract,
+                Contract.customer,
+                Contract.executor,
+                Contract.objects,
+            ),
+            raiseload(Contract.reports),
+            raiseload(Contract.orders),
+            raiseload(Contract.sub_contract_subjects),
         )
-    
+
     result = await session.execute(query)
     return result.scalars().all()
 
@@ -85,6 +100,7 @@ async def get_contract_paginated(
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
     type_contract: Optional[str] = None,
+    status: Optional[str] = None,
     sort_by: str = "number",
     sort_order: str = "asc",
     *,
@@ -131,7 +147,23 @@ async def get_contract_paginated(
     if date_to:
         query = query.where(Contract.date_of_completion <= date_to)
         count_query = count_query.where(Contract.date_of_completion <= date_to)
-    
+
+    # Фильтр по статусу. У контракта нет отдельного поля статуса:
+    # активный = срок действия не истёк, истёкший = истёк.
+    # 'terminated' оставлен для совместимости с фронтом — в модели нет признака
+    # расторжения, поэтому возвращаем пустой результат (FALSE).
+    if status == "active":
+        today = date.today()
+        query = query.where(Contract.date_of_completion >= today)
+        count_query = count_query.where(Contract.date_of_completion >= today)
+    elif status == "expired":
+        today = date.today()
+        query = query.where(Contract.date_of_completion < today)
+        count_query = count_query.where(Contract.date_of_completion < today)
+    elif status == "terminated":
+        query = query.where(false())
+        count_query = count_query.where(false())
+
     # Сортировка
     if sort_by and hasattr(Contract, sort_by):
         column = getattr(Contract, sort_by)
@@ -142,14 +174,23 @@ async def get_contract_paginated(
     else:
         query = query.order_by(Contract.number)
     
-    # Загрузка связанных данных (если запрошено)
+    # Загрузка связанных данных (если запрошено).
+    # Сервис при `load_relations=True` строит словарь со счётчиком объектов
+    # (`len(item.objects)`), поэтому подгружаем objects, но shallow — иначе
+    # каждый Object стал бы дёргать свои 11 lazy="selectin" связей.
     if load_relations:
         query = query.options(
-            selectinload(Contract.spec_contract),
-            selectinload(Contract.customer),
-            selectinload(Contract.executor)
+            *shallow_load(
+                Contract.spec_contract,
+                Contract.customer,
+                Contract.executor,
+                Contract.objects,
+            ),
+            raiseload(Contract.reports),
+            raiseload(Contract.orders),
+            raiseload(Contract.sub_contract_subjects),
         )
-    
+
     # Пагинация
     query = query.offset(skip).limit(limit)
     
@@ -268,12 +309,34 @@ async def count_contract_orders(
 ) -> int:
     """Посчитать количество заявок"""
     from model.order import Order
-    
+
     query = select(func.count()).select_from(Order).where(
         Order.contract_id == contract_id
     )
     result = await session.execute(query)
     return result.scalar() or 0
+
+
+@timer
+async def count_contract_issues(
+    session: AsyncSession,
+    contract_id: int
+) -> int:
+    """Посчитать неисправности по контракту через Issue → Objects_Equipment → Object."""
+    from model.issue import Issue
+    from model.objects_equipment import Objects_Equipment
+    from model.object import Object
+
+    query = (
+        select(func.count())
+        .select_from(Issue)
+        .join(Objects_Equipment, Objects_Equipment.id == Issue.object_equipment_id)
+        .join(Object, Object.id == Objects_Equipment.object_id)
+        .where(Object.contract_id == contract_id)
+    )
+    result = await session.execute(query)
+    return result.scalar() or 0
+
 
 # ========== СОЗДАНИЕ ==========
 

@@ -2,7 +2,7 @@
 from typing import List, Optional, TYPE_CHECKING
 from datetime import date
 
-from sqlalchemy import ForeignKey, Text
+from sqlalchemy import ForeignKey, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from database.database import Base, int_pk, str_uniq, str_null_true
@@ -10,7 +10,16 @@ from database.database import Base, int_pk, str_uniq, str_null_true
 
 # модель объекта
 class Object(Base):
-    
+
+    # Порядковый номер объекта в рамках своего контракта — используется
+    # как «номер объекта» в номерах актов/отчётов вместо глобального id.
+    __table_args__ = (
+        UniqueConstraint(
+            "contract_id", "number_in_contract",
+            name="uq_object_contract_number_in_contract",
+        ),
+    )
+
     id: Mapped[int_pk]
     name: Mapped[str]
     build_number: Mapped[str_null_true]
@@ -25,6 +34,7 @@ class Object(Base):
     spec_room_id: Mapped[Optional[int]] = mapped_column(ForeignKey("spec_rooms.id"), nullable=True)
     period_id: Mapped[int] = mapped_column(ForeignKey("periods.id"))
     contract_id: Mapped[int] = mapped_column(ForeignKey("contracts.id"))
+    number_in_contract: Mapped[int] = mapped_column(nullable=False)
 
     # Все отношения через строки
     region: Mapped["Region"] = relationship(

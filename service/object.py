@@ -71,6 +71,8 @@ async def get_objects_paginated(
     locality_id: Optional[int] = None,
     street_id: Optional[int] = None,
     contract_id: Optional[int] = None,
+    customer_id: Optional[int] = None,
+    executor_id: Optional[int] = None,
     period_id: Optional[int] = None,
     sort_by: str = "name",
     sort_order: str = "asc"
@@ -79,7 +81,7 @@ async def get_objects_paginated(
     Получить список объектов с пагинацией
     """
     await check_permission(current_user, "object_read", "просмотра списка объектов")
-    
+
     async with new_session() as session:
         items, total = await object_data.get_object_paginated(
             session=session,
@@ -91,12 +93,14 @@ async def get_objects_paginated(
             locality_id=locality_id,
             street_id=street_id,
             contract_id=contract_id,
+            customer_id=customer_id,
+            executor_id=executor_id,
             period_id=period_id,
             sort_by=sort_by,
             sort_order=sort_order,
             load_relations=True
         )
-        
+
         return items, total
 
 async def get_all_objects(
@@ -169,6 +173,7 @@ async def get_object_with_stats(
         # Возвращаем готовый словарь для ответа
         return {
             "id": obj.id,
+            "number_in_contract": obj.number_in_contract,
             "name": obj.name,
             "build_number": obj.build_number,
             "room_number": obj.room_number,
@@ -205,6 +210,8 @@ async def get_objects_paginated_with_stats(
     locality_id: Optional[int] = None,
     street_id: Optional[int] = None,
     contract_id: Optional[int] = None,
+    customer_id: Optional[int] = None,
+    executor_id: Optional[int] = None,
     period_id: Optional[int] = None,
     sort_by: str = "name",
     sort_order: str = "asc"
@@ -213,7 +220,7 @@ async def get_objects_paginated_with_stats(
     Получить список объектов со статистикой для ответа
     """
     await check_permission(current_user, "object_read", "просмотра списка объектов")
-    
+
     async with new_session() as session:
         # Получаем объекты с загрузкой связанных данных
         items, total = await object_data.get_object_paginated(
@@ -226,6 +233,8 @@ async def get_objects_paginated_with_stats(
             locality_id=locality_id,
             street_id=street_id,
             contract_id=contract_id,
+            customer_id=customer_id,
+            executor_id=executor_id,
             period_id=period_id,
             sort_by=sort_by,
             sort_order=sort_order,
@@ -249,6 +258,7 @@ async def get_objects_paginated_with_stats(
             
             result_items.append({
                 "id": item.id,
+                "number_in_contract": item.number_in_contract,
                 "name": item.name,
                 "build_number": item.build_number,
                 "room_number": item.room_number,
@@ -256,6 +266,7 @@ async def get_objects_paginated_with_stats(
                 "region_name": item.region.name if item.region else None,
                 "locality_name": item.locality.name if item.locality else None,
                 "street_name": item.street.name if item.street else None,
+                "contract_id": item.contract_id,
                 "contract_number": item.contract.number if item.contract else None,
                 "equipments_count": equipments_count,
                 "address": address

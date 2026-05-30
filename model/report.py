@@ -12,7 +12,10 @@ class Report(Base):
     
     id: Mapped[int_pk]
     number: Mapped[str] = mapped_column(unique=True, nullable=False)
-    check_pass: Mapped[bool] = mapped_column(default=False)
+    status_id: Mapped[int] = mapped_column(
+        ForeignKey("spec_statuss.id"),
+        nullable=False,
+    )
     period_id: Mapped[int] = mapped_column(ForeignKey("periods.id"), nullable=False)
     contract_id: Mapped[int] = mapped_column(ForeignKey("contracts.id"), nullable=False)
     object_id: Mapped[int] = mapped_column(ForeignKey("objects.id"), nullable=False)
@@ -44,6 +47,12 @@ class Report(Base):
                                             back_populates="reports",
                                             lazy="selectin"
                                         )
+
+    status: Mapped["Spec_Status"] = relationship(
+        "Spec_Status",
+        back_populates="reports",
+        lazy="selectin",
+    )
 
     order: Mapped[Optional["Order"]] = relationship(
                                                         "Order",

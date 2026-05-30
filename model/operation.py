@@ -24,16 +24,27 @@ class Operation(Base):
     Справочник операций для типов оборудования.
 
     Связь с Spec_Equipment — many-to-many через operations_spec_equipments.
+    Период обслуживания (period) — опциональная ссылка на справочник periods.
     Поле description приходит автоматически из Base.
     """
 
     id: Mapped[int_pk]
     name: Mapped[str_uniq]
     short_name: Mapped[Optional[str]] = mapped_column(nullable=True)
+    period_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("periods.id"),
+        nullable=True,
+    )
 
     spec_equipments: Mapped[List["Spec_Equipment"]] = relationship(
         "Spec_Equipment",
         secondary=operations_spec_equipments,
+        back_populates="operations",
+        lazy="selectin",
+    )
+
+    period: Mapped[Optional["Period"]] = relationship(
+        "Period",
         back_populates="operations",
         lazy="selectin",
     )

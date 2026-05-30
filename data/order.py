@@ -1,13 +1,15 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, or_, and_
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload, raiseload
 from typing import Optional, List, Tuple
 from datetime import date
 
 from model.order import Order
+from model.object import Object
 from schema.order import OrderCreate, OrderUpdate
 
 from utils.timer import timer
+from utils.loading import shallow_load
 
 
 
@@ -73,10 +75,13 @@ async def get_order_all(
 
     if load_relations:
         query = query.options(
-            selectinload(Order.spec_order),
-            selectinload(Order.contract),
-            selectinload(Order.object),
-            selectinload(Order.user)
+            *shallow_load(
+                Order.spec_order,
+                Order.contract,
+                Order.object,
+                Order.user,
+            ),
+            raiseload(Order.report),
         )
 
     result = await session.execute(query)
@@ -95,6 +100,10 @@ async def get_order_paginated(
     status: Optional[str] = None,
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
+    region_id: Optional[List[int]] = None,
+    arial_id: Optional[List[int]] = None,
+    locality_id: Optional[List[int]] = None,
+    street_id: Optional[List[int]] = None,
     sort_by: str = "created_at",
     sort_order: str = "desc",
     *,
@@ -145,6 +154,25 @@ async def get_order_paginated(
         query = query.where(Order.created_at <= date_to)
         count_query = count_query.where(Order.created_at <= date_to)
 
+    # Фильтры по адресу объекта заявки (через JOIN с objects).
+    # Каждый фильтр — список id; внутри одного фильтра OR (IN), между фильтрами AND.
+    address_filters = (region_id, arial_id, locality_id, street_id)
+    if any(f for f in address_filters):
+        query = query.join(Object, Order.object_id == Object.id)
+        count_query = count_query.join(Object, Order.object_id == Object.id)
+        if region_id:
+            query = query.where(Object.region_id.in_(region_id))
+            count_query = count_query.where(Object.region_id.in_(region_id))
+        if arial_id:
+            query = query.where(Object.arial_id.in_(arial_id))
+            count_query = count_query.where(Object.arial_id.in_(arial_id))
+        if locality_id:
+            query = query.where(Object.locality_id.in_(locality_id))
+            count_query = count_query.where(Object.locality_id.in_(locality_id))
+        if street_id:
+            query = query.where(Object.street_id.in_(street_id))
+            count_query = count_query.where(Object.street_id.in_(street_id))
+
     # Сортировка
     if sort_by and hasattr(Order, sort_by):
         column = getattr(Order, sort_by)
@@ -155,13 +183,20 @@ async def get_order_paginated(
     else:
         query = query.order_by(Order.created_at.desc())
 
-    # Загрузка связанных данных (если запрошено)
+    # Загрузка связанных данных (если запрошено).
+    # `shallow_load` отрубает каскад «contract→customer→spec_arial→…», который
+    # на модели по-умолчанию помечен `lazy="selectin/joined"` и взрывал список
+    # заявок до 400 SQL-запросов на /order/list. См. utils/loading.py.
     if load_relations:
         query = query.options(
-            selectinload(Order.spec_order),
-            selectinload(Order.contract),
-            selectinload(Order.object),
-            selectinload(Order.user)
+            *shallow_load(
+                Order.spec_order,
+                Order.contract,
+                Order.object,
+                Order.user,
+            ),
+            # report тоже помечен на модели lazy="selectin" — отрубаем
+            raiseload(Order.report),
         )
 
     # Пагинация

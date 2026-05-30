@@ -1,6 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, or_, and_
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload, raiseload
 from typing import Optional, List, Tuple
 from datetime import date
 
@@ -10,9 +10,11 @@ from model.contract import Contract
 from model.object import Object
 from model.user import User
 from model.order import Order
+from model.spec_status import Spec_Status
 from schema.report import ReportCreate, ReportUpdate
 
 from utils.timer import timer
+from utils.loading import shallow_load
 
 
 # ========== ПОЛУЧЕНИЕ ==========
@@ -40,7 +42,8 @@ async def get_report_by_id(
             selectinload(Report.contract),
             selectinload(Report.object),
             selectinload(Report.user),
-            selectinload(Report.order)
+            selectinload(Report.order),
+            selectinload(Report.status),
         )
 
     result = await session.execute(query)
@@ -67,10 +70,16 @@ async def get_report_all(
 
     if load_relations:
         query = query.options(
-            selectinload(Report.period),
-            selectinload(Report.contract),
-            selectinload(Report.object),
-            selectinload(Report.user)
+            *shallow_load(
+                Report.period,
+                Report.contract,
+                Report.object,
+                Report.user,
+                Report.status,
+            ),
+            # фантомные auto-selectin, не нужные в списке
+            raiseload(Report.attachments),
+            raiseload(Report.order),
         )
 
     result = await session.execute(query)
@@ -86,7 +95,7 @@ async def get_report_paginated(
     contract_id: Optional[int] = None,
     object_id: Optional[int] = None,
     user_id: Optional[int] = None,
-    check_pass: Optional[bool] = None,
+    status_id: Optional[int] = None,
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
     sort_by: str = "created_at",
@@ -127,9 +136,9 @@ async def get_report_paginated(
         query = query.where(Report.user_id == user_id)
         count_query = count_query.where(Report.user_id == user_id)
 
-    if check_pass is not None:
-        query = query.where(Report.check_pass == check_pass)
-        count_query = count_query.where(Report.check_pass == check_pass)
+    if status_id is not None:
+        query = query.where(Report.status_id == status_id)
+        count_query = count_query.where(Report.status_id == status_id)
 
     if date_from:
         query = query.where(Report.created_at >= date_from)
@@ -149,14 +158,21 @@ async def get_report_paginated(
     else:
         query = query.order_by(Report.created_at.desc())
 
-    # Загрузка связанных данных (если запрошено)
+    # Загрузка связанных данных (если запрошено).
+    # Без shallow_load — каждый Report тянул бы spec_status + period + contract +
+    # object + user + order, а внутри ещё всё, что у этих моделей помечено
+    # lazy="selectin/joined". На 100 записях это сотни SQL-запросов.
     if load_relations:
         query = query.options(
-            selectinload(Report.period),
-            selectinload(Report.contract),
-            selectinload(Report.object),
-            selectinload(Report.user),
-            selectinload(Report.order),
+            *shallow_load(
+                Report.period,
+                Report.contract,
+                Report.object,
+                Report.user,
+                Report.order,
+                Report.status,
+            ),
+            raiseload(Report.attachments),
         )
 
     # Пагинация
@@ -176,15 +192,19 @@ async def get_report_paginated(
 @timer
 async def get_report_options(
     session: AsyncSession,
-    check_pass: Optional[bool] = None
+    status_id: Optional[int] = None
 ) -> List[Report]:
     """
     Получить минимальную информацию об отчетах для выпадающих списков
     """
-    query = select(Report).order_by(Report.created_at.desc())
+    query = (
+        select(Report)
+        .options(selectinload(Report.status))
+        .order_by(Report.created_at.desc())
+    )
 
-    if check_pass is not None:
-        query = query.where(Report.check_pass == check_pass)
+    if status_id is not None:
+        query = query.where(Report.status_id == status_id)
 
     result = await session.execute(query)
     return result.scalars().all()
@@ -261,23 +281,35 @@ async def count_orders_by_report(
     result = await session.execute(query)
     return result.scalar() or 0
 
-# ========== УТВЕРЖДЕНИЕ ОТЧЕТА ==========
+# ========== СМЕНА СТАТУСА ==========
 
 @timer
-async def approve_report(
+async def update_report_status(
     session: AsyncSession,
     report_id: int,
-    check_pass: bool = True
+    status_id: int,
 ) -> Optional[Report]:
-    """Утвердить или отклонить отчет"""
+    """Установить статус отчёта (FK на spec_statuss)."""
     report = await get_report_by_id(session, report_id, load_relations=False)
     if not report:
         return None
 
-    report.check_pass = check_pass
+    report.status_id = status_id
     await session.commit()
     await session.refresh(report)
     return report
+
+
+@timer
+async def get_spec_status_by_code(
+    session: AsyncSession,
+    code: str,
+) -> Optional[Spec_Status]:
+    """Вспомогательное: найти статус справочника по коду."""
+    query = select(Spec_Status).where(Spec_Status.code == code)
+    result = await session.execute(query)
+    return result.scalar_one_or_none()
+
 
 # ========== СОЗДАНИЕ ==========
 
@@ -288,6 +320,7 @@ async def create_report(
     user_id: int,
     number: str,
     order: Order,
+    status_id: int,
 ) -> Report:
     """Создать новый отчет и атомарно привязать его к заявке (1:1)."""
     report_data = report_create.model_dump()
@@ -295,7 +328,7 @@ async def create_report(
     report_data.pop('order_id', None)  # связь хранится в orders.report_id
     report_data['user_id'] = user_id
     report_data['number'] = number
-    report_data['check_pass'] = False
+    report_data['status_id'] = status_id
 
     report = Report(**report_data)
     session.add(report)

@@ -6,7 +6,7 @@ from model.user import User
 from schema.report import (
     ReportCreate,
     ReportUpdate,
-    ReportApprove,
+    ReportStatusUpdate,
     ReportResponse,
     ReportListResponse,
     ReportOptionResponse
@@ -25,7 +25,7 @@ async def get_report_list(
     contract_id: Optional[int] = Query(None, ge=1, description="Фильтр по контракту"),
     object_id: Optional[int] = Query(None, ge=1, description="Фильтр по объекту"),
     user_id: Optional[int] = Query(None, ge=1, description="Фильтр по пользователю"),
-    check_pass: Optional[bool] = Query(None, description="Фильтр по утверждению"),
+    status_id: Optional[int] = Query(None, ge=1, description="Фильтр по статусу (FK spec_statuss.id)"),
     date_from: Optional[date] = Query(None, description="Дата создания с"),
     date_to: Optional[date] = Query(None, description="Дата создания по"),
     sort_by: str = Query("created_at", description="Поле сортировки"),
@@ -34,7 +34,7 @@ async def get_report_list(
 ):
     """
     Получить список отчетов с пагинацией
-    
+
     Требуется право: report_read
     """
     items, total = await report_service.get_reports_paginated_with_details(
@@ -45,7 +45,7 @@ async def get_report_list(
         contract_id=contract_id,
         object_id=object_id,
         user_id=user_id,
-        check_pass=check_pass,
+        status_id=status_id,
         date_from=date_from,
         date_to=date_to,
         sort_by=sort_by,
@@ -65,26 +65,28 @@ async def get_report_list(
 @router.get("/my", response_model=PaginatedResponse[ReportListResponse])
 async def get_my_reports(
     pagination: PaginationParams = Depends(),
-    check_pass: Optional[bool] = Query(None, description="Фильтр по утверждению"),
+    status_id: Optional[int] = Query(None, ge=1, description="Фильтр по статусу"),
     current_user: User = Depends(get_current_active_user)
 ):
     """
     Получить список своих отчетов
-    
+
     Требуется право: report_read
     """
     items, total = await report_service.get_reports_by_current_user(
         pagination=pagination,
         current_user=current_user,
-        check_pass=check_pass
+        status_id=status_id
     )
-    
+
     result_items = []
     for item in items:
         result_items.append({
             "id": item.id,
             "number": item.number,
-            "check_pass": item.check_pass,
+            "status_id": item.status_id,
+            "status_name": item.status.name if item.status else None,
+            "status_code": item.status.code if item.status else None,
             "created_at": item.created_at,
             "period_name": item.period.name if item.period else None,
             "contract_number": item.contract.number if item.contract else None,
@@ -104,21 +106,22 @@ async def get_my_reports(
 
 @router.get("/options", response_model=List[ReportOptionResponse])
 async def get_report_options(
-    check_pass: Optional[bool] = Query(None, description="Фильтр по утверждению"),
+    status_id: Optional[int] = Query(None, ge=1, description="Фильтр по статусу"),
     current_user: User = Depends(get_current_active_user)
 ):
     """
     Получить список отчетов для выпадающих списков
-    
+
     Требуется право: report_read
     """
-    reports = await report_service.get_report_options(current_user, check_pass=check_pass)
-    
+    reports = await report_service.get_report_options(current_user, status_id=status_id)
+
     return [
         {
             "id": report.id,
             "number": report.number,
-            "check_pass": report.check_pass
+            "status_id": report.status_id,
+            "status_code": report.status.code if report.status else None,
         }
         for report in reports
     ]
@@ -128,16 +131,22 @@ async def get_unapproved_reports(
     current_user: User = Depends(get_current_active_user)
 ):
     """
-    Получить список неутвержденных отчетов
-    
+    Получить список неутверждённых отчётов (статус с кодом 'not_approved').
+
     Требуется право: report_read
     """
+    from data import report as report_data
+    from database.database import new_session
+    async with new_session() as session:
+        st = await report_data.get_spec_status_by_code(session, 'not_approved')
+    status_id = st.id if st else None
+
     items, _ = await report_service.get_reports_paginated_with_details(
         pagination=PaginationParams(page=1, per_page=100),
         current_user=current_user,
-        check_pass=False
+        status_id=status_id,
     )
-    
+
     return items
 
 @router.get("/{report_id}", response_model=ReportResponse)
@@ -195,23 +204,23 @@ async def update_report(
     
     return await report_service.get_report_with_details(report.id, current_user)
 
-@router.patch("/{report_id}/approve", response_model=ReportResponse)
-async def approve_report(
+@router.patch("/{report_id}/status", response_model=ReportResponse)
+async def update_report_status(
     report_id: int,
-    approve_data: ReportApprove,
+    status_update: ReportStatusUpdate,
     current_user: User = Depends(get_current_active_user)
 ):
     """
-    Утвердить или отклонить отчет
-    
+    Установить статус отчёта (FK на spec_statuss).
+
     Требуется право: report_modify
     """
-    report = await report_service.approve_report(
+    report = await report_service.update_report_status(
         report_id,
-        approve_data,
+        status_update,
         current_user
     )
-    
+
     return await report_service.get_report_with_details(report.id, current_user)
 
 @router.delete("/{report_id}")

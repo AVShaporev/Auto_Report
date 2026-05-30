@@ -157,6 +157,7 @@ async def get_contract_with_stats(
         objects_count = await contract_data.count_contract_objects(session, contract_id)
         reports_count = await contract_data.count_contract_reports(session, contract_id)
         orders_count = await contract_data.count_contract_orders(session, contract_id)
+        issues_count = await contract_data.count_contract_issues(session, contract_id)
         
         # Возвращаем готовый словарь для ответа
         return {
@@ -178,6 +179,7 @@ async def get_contract_with_stats(
             "objects_count": objects_count,
             "reports_count": reports_count,
             "orders_count": orders_count,
+            "issues_count": issues_count,
             "created_at": contract.created_at,
             "updated_at": contract.updated_at,
         }
@@ -192,6 +194,7 @@ async def get_contracts_paginated_with_stats(
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
     type_contract: Optional[str] = None,
+    status: Optional[str] = None,
     sort_by: str = "number",
     sort_order: str = "asc"
 ) -> Tuple[List[dict], int]:
@@ -213,6 +216,7 @@ async def get_contracts_paginated_with_stats(
             date_from=date_from,
             date_to=date_to,
             type_contract=type_contract,
+            status=status,
             sort_by=sort_by,
             sort_order=sort_order,
             load_relations=True
@@ -230,7 +234,9 @@ async def get_contracts_paginated_with_stats(
                 "short_subject": item.short_subject,
                 "type_contract": item.type_contract,
                 "spec_contract_name": item.spec_contract.name if item.spec_contract else None,
+                "customer_id": item.customer_id,
                 "customer_name": item.customer.short_name if item.customer else None,
+                "executor_id": item.executor_id,
                 "executor_name": item.executor.short_name if item.executor else None,
                 "objects_count": len(item.objects) if item.objects else 0
             })

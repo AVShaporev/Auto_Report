@@ -18,7 +18,7 @@ async def get_operation_by_id(
 ) -> Optional[Operation]:
     query = (
         select(Operation)
-        .options(selectinload(Operation.spec_equipments))
+        .options(selectinload(Operation.spec_equipments), selectinload(Operation.period))
         .where(Operation.id == operation_id)
     )
     result = await session.execute(query)
@@ -41,7 +41,7 @@ async def get_operation_all(
 ) -> List[Operation]:
     query = (
         select(Operation)
-        .options(selectinload(Operation.spec_equipments))
+        .options(selectinload(Operation.spec_equipments), selectinload(Operation.period))
         .order_by(Operation.name)
     )
     result = await session.execute(query)
@@ -58,7 +58,10 @@ async def get_operation_paginated(
     sort_by: str = "name",
     sort_order: str = "asc",
 ) -> Tuple[List[Operation], int]:
-    query = select(Operation).options(selectinload(Operation.spec_equipments))
+    query = select(Operation).options(
+        selectinload(Operation.spec_equipments),
+        selectinload(Operation.period),
+    )
     count_query = select(func.count(func.distinct(Operation.id))).select_from(Operation)
 
     if search:
@@ -103,7 +106,11 @@ async def get_operation_options(
     session: AsyncSession,
     spec_equipment_id: Optional[int] = None,
 ) -> List[Operation]:
-    query = select(Operation).order_by(Operation.name)
+    query = (
+        select(Operation)
+        .options(selectinload(Operation.period))
+        .order_by(Operation.name)
+    )
     if spec_equipment_id:
         query = (
             query.join(Operation.spec_equipments)
@@ -141,6 +148,18 @@ async def get_spec_equipments_by_ids(
     return result.scalars().all()
 
 
+@timer
+async def check_period_exists(
+    session: AsyncSession,
+    period_id: int,
+) -> bool:
+    from model.period import Period
+    result = await session.execute(
+        select(Period.id).where(Period.id == period_id)
+    )
+    return result.scalar_one_or_none() is not None
+
+
 # ========== CRUD ==========
 
 @timer
@@ -150,16 +169,18 @@ async def create_operation(
     short_name: Optional[str],
     description: Optional[str],
     spec_equipments: List[Spec_Equipment],
+    period_id: Optional[int] = None,
 ) -> Operation:
     operation = Operation(
         name=name,
         short_name=short_name,
         description=description,
+        period_id=period_id,
     )
     operation.spec_equipments = spec_equipments
     session.add(operation)
     await session.commit()
-    await session.refresh(operation, attribute_names=["spec_equipments"])
+    await session.refresh(operation, attribute_names=["spec_equipments", "period"])
     return operation
 
 
@@ -172,7 +193,10 @@ async def update_operation(
     short_name: Optional[str] = None,
     description: Optional[str] = None,
     spec_equipments: Optional[List[Spec_Equipment]] = None,
+    period_id: Optional[int] = None,
+    period_id_set: bool = False,
 ) -> Optional[Operation]:
+    """period_id_set=True означает, что period_id передан явно (даже если None — снимаем привязку)."""
     operation = await get_operation_by_id(session, operation_id)
     if not operation:
         return None
@@ -185,9 +209,11 @@ async def update_operation(
         operation.description = description
     if spec_equipments is not None:
         operation.spec_equipments = spec_equipments
+    if period_id_set:
+        operation.period_id = period_id
 
     await session.commit()
-    await session.refresh(operation, attribute_names=["spec_equipments"])
+    await session.refresh(operation, attribute_names=["spec_equipments", "period"])
     return operation
 
 

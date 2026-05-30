@@ -29,6 +29,21 @@ def _check_admin(current_user: User) -> None:
         )
 
 
+def _to_local_naive(dt: Optional[datetime]) -> Optional[datetime]:
+    """Приводит datetime к naive-локальному.
+
+    Логи на диске пишутся как naive-local (`datetime.now().isoformat()` без TZ),
+    поэтому фильтрующая граница тоже должна быть naive-local. Если клиент
+    прислал aware-значение (например, UTC `...Z`), переводим в локальную зону
+    и срезаем tzinfo, иначе comparison с naive timestamp из файла кинет TypeError.
+    """
+    if dt is None:
+        return None
+    if dt.tzinfo is not None:
+        return dt.astimezone().replace(tzinfo=None)
+    return dt
+
+
 def _parse_week_range(name: str) -> Optional[Tuple[date, date]]:
     m = _FILENAME_RE.match(name)
     if not m:
@@ -130,6 +145,11 @@ async def list_logs(
     current_user: User,
 ) -> Tuple[List[LogEntry], int]:
     _check_admin(current_user)
+
+    df_naive = _to_local_naive(filters.date_from)
+    dt_naive = _to_local_naive(filters.date_to)
+    if df_naive is not filters.date_from or dt_naive is not filters.date_to:
+        filters = filters.model_copy(update={"date_from": df_naive, "date_to": dt_naive})
 
     sort_key = filters.sort_by if filters.sort_by in _SORT_KEYS else "started_at"
     reverse = (filters.sort_order or "desc").lower() != "asc"

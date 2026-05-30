@@ -120,6 +120,55 @@ def _build_equipment_rows(obj: ObjectModel) -> list[dict]:
     return rows
 
 
+def _build_equipment_groups(obj: ObjectModel) -> list[dict]:
+    """Сгруппировать оборудование объекта по типу обслуживаемой системы.
+
+    Используется в акте ТО: каждый раздел — это `spec_system`, нумерация
+    многоуровневая («1.» → «1.1.»). Оборудование без `spec_system` собирается
+    в отдельный раздел «Оборудование», который идёт в конце.
+    """
+    buckets: dict = {}
+    for oe in (obj.objects_equipments or []):
+        if not oe.equipment:
+            continue
+        key = oe.spec_system_id  # int или None
+        if key not in buckets:
+            buckets[key] = {
+                "name": oe.spec_system.name if oe.spec_system else None,
+                "items": [],
+            }
+        buckets[key]["items"].append({
+            "name": oe.equipment.name or "—",
+            "count": oe.count if oe.count is not None else 0,
+        })
+
+    with_system = sorted(
+        ((k, v) for k, v in buckets.items() if k is not None),
+        key=lambda kv: (kv[1]["name"] or "").lower(),
+    )
+    ordered: list = list(with_system)
+    if None in buckets:
+        ordered.append((None, buckets[None]))
+
+    groups = []
+    for sec_idx, (_, bucket) in enumerate(ordered, start=1):
+        bucket["items"].sort(key=lambda it: (it["name"] or "").lower())
+        rows = [
+            {
+                "index": f"{sec_idx}.{item_idx}",
+                "name": it["name"],
+                "count": it["count"],
+            }
+            for item_idx, it in enumerate(bucket["items"], start=1)
+        ]
+        groups.append({
+            "index": sec_idx,
+            "system_name": bucket["name"] or "Оборудование",
+            "rows": rows,
+        })
+    return groups
+
+
 async def _load_order_with_relations(session, order_id: int) -> Order:
     stmt = (
         select(Order)
@@ -200,7 +249,7 @@ async def render_order_pdf(order_id: int, current_user: User) -> Tuple[bytes, st
                 "room_number": order.object.room_number or "",
             },
             "object_address": _build_address(order.object),
-            "equipment_rows": _build_equipment_rows(order.object),
+            "equipment_groups": _build_equipment_groups(order.object),
         }
 
     template = _jinja_env.get_template(template_name)
@@ -252,4 +301,40 @@ async def render_order_primary_pdf(order_id: int, current_user: User) -> Tuple[b
 
     pdf_bytes = HTML(string=html_str, base_url=str(TEMPLATES_DIR)).write_pdf()
     filename = f"act_primary_{order_id}.pdf"
+    return pdf_bytes, filename
+
+
+async def render_order_defect_pdf(order_id: int, current_user: User) -> Tuple[bytes, str]:
+    """
+    Сформировать PDF акта о проведении диагностических и ремонтных работ (дефектовка).
+    Поля разделов и дату оставляем пустыми (заполняются вручную).
+    """
+    await check_permission(current_user, "order_read", "формирования PDF акта дефектовки")
+
+    async with new_session() as session:
+        order = await _load_order_with_relations(session, order_id)
+
+        contract = order.contract
+        customer = _organization_to_dict(contract.customer)
+        executor = _organization_to_dict(contract.executor)
+
+        ctx = {
+            "order": {
+                "id": order.id,
+                "number": order.number,
+            },
+            "customer": customer,
+            "executor": executor,
+            "object": {
+                "id": order.object.id,
+                "name": order.object.name or "—",
+            },
+            "object_address": _build_address(order.object),
+        }
+
+    template = _jinja_env.get_template("order_defect.html")
+    html_str = template.render(**ctx)
+
+    pdf_bytes = HTML(string=html_str, base_url=str(TEMPLATES_DIR)).write_pdf()
+    filename = f"act_defect_{order_id}.pdf"
     return pdf_bytes, filename

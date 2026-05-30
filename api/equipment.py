@@ -71,7 +71,8 @@ async def get_equipment_options(
         {
             "id": item.id,
             "name": item.name,
-            "is_active": item.is_active
+            "is_active": item.is_active,
+            "spec_equipment_id": item.spec_equipment_id,
         }
         for item in equipments
     ]

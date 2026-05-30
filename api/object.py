@@ -23,8 +23,8 @@ from core.dependencies import get_current_active_user
 
 class BulkFireJournalRequest(BaseModel):
     """Тело запроса для массового скачивания журналов ПЗ по объектам."""
-    object_ids: List[int] = Field(..., min_length=1, max_length=200,
-                                   description="ID объектов (1..200 за раз)")
+    object_ids: List[int] = Field(..., min_length=1, max_length=10,
+                                   description="ID объектов (1..10 за раз — рендер тяжёлый)")
     blank_rows: int = Field(25, ge=0, le=100,
                              description="Количество пустых строк в каждом разделе")
 
@@ -43,6 +43,8 @@ async def get_object_list(
     locality_id: Optional[int] = Query(None, ge=1, description="Фильтр по населенному пункту"),
     street_id: Optional[int] = Query(None, ge=1, description="Фильтр по улице"),
     contract_id: Optional[int] = Query(None, ge=1, description="Фильтр по контракту"),
+    customer_id: Optional[int] = Query(None, ge=1, description="Фильтр по заказчику (через контракт)"),
+    executor_id: Optional[int] = Query(None, ge=1, description="Фильтр по подрядчику (через контракт)"),
     period_id: Optional[int] = Query(None, ge=1, description="Фильтр по периоду"),
     sort_by: str = Query("name", description="Поле сортировки"),
     sort_order: str = Query("asc", regex="^(asc|desc)$"),
@@ -50,7 +52,7 @@ async def get_object_list(
 ):
     """
     Получить список объектов с пагинацией
-    
+
     Требуется право: object_read
     """
     items, total = await object_service.get_objects_paginated_with_stats(
@@ -62,6 +64,8 @@ async def get_object_list(
         locality_id=locality_id,
         street_id=street_id,
         contract_id=contract_id,
+        customer_id=customer_id,
+        executor_id=executor_id,
         period_id=period_id,
         sort_by=sort_by,
         sort_order=sort_order
@@ -137,6 +141,7 @@ async def get_all_objects(
         
         result.append({
             "id": obj.id,
+            "number_in_contract": obj.number_in_contract,
             "name": obj.name,
             "build_number": obj.build_number,
             "room_number": obj.room_number,
@@ -144,6 +149,7 @@ async def get_all_objects(
             "region_name": obj.region.name if obj.region else None,
             "locality_name": obj.locality.name if obj.locality else None,
             "street_name": obj.street.name if obj.street else None,
+            "contract_id": obj.contract_id,
             "contract_number": obj.contract.number if obj.contract else None,
             "equipments_count": len(obj.objects_equipments) if obj.objects_equipments else 0,
             "address": address
@@ -251,6 +257,7 @@ async def create_object(
     
     return {
         "id": obj.id,
+        "number_in_contract": obj.number_in_contract,
         "name": obj.name,
         "build_number": obj.build_number,
         "room_number": obj.room_number,
@@ -296,21 +303,22 @@ async def update_object(
     
     # Получаем статистику для ответа
     async with object_service.new_session() as session:
-        equipments_count = await object_service.object_data.count_equipments(
-            session, 
+        equipments_count = await object_service.object_data.count_object_equipments(
+            session,
             object_id
         )
-        reports_count = await object_service.object_data.count_reports(
-            session, 
+        reports_count = await object_service.object_data.count_object_reports(
+            session,
             object_id
         )
-        orders_count = await object_service.object_data.count_orders(
-            session, 
+        orders_count = await object_service.object_data.count_object_orders(
+            session,
             object_id
         )
     
     return {
         "id": obj.id,
+        "number_in_contract": obj.number_in_contract,
         "name": obj.name,
         "build_number": obj.build_number,
         "room_number": obj.room_number,

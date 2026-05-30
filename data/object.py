@@ -1,12 +1,13 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, or_
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload, raiseload
 from typing import Optional, List, Tuple
 
 from model.object import Object
 from schema.object import ObjectCreate, ObjectUpdate
 
 from utils.timer import timer
+from utils.loading import shallow_load
 
 
 
@@ -68,13 +69,21 @@ async def get_object_all(
     
     if load_relations:
         query = query.options(
-            selectinload(Object.region),
-            selectinload(Object.arial),
-            selectinload(Object.locality),
-            selectinload(Object.street),
-            selectinload(Object.contract)
+            *shallow_load(
+                Object.region,
+                Object.arial,
+                Object.locality,
+                Object.street,
+                Object.contract,
+                Object.objects_equipments,  # для подсчёта equipments_count
+            ),
+            raiseload(Object.spec_build),
+            raiseload(Object.spec_room),
+            raiseload(Object.period),
+            raiseload(Object.reports),
+            raiseload(Object.orders),
         )
-    
+
     result = await session.execute(query)
     return result.scalars().all()
 
@@ -89,6 +98,8 @@ async def get_object_paginated(
     locality_id: Optional[int] = None,
     street_id: Optional[int] = None,
     contract_id: Optional[int] = None,
+    customer_id: Optional[int] = None,
+    executor_id: Optional[int] = None,
     period_id: Optional[int] = None,
     sort_by: str = "name",
     sort_order: str = "asc",
@@ -96,12 +107,16 @@ async def get_object_paginated(
     load_relations: bool = False
 ) -> Tuple[List[Object], int]:
     """
-    Получить список объектов с пагинацией и фильтрацией
+    Получить список объектов с пагинацией и фильтрацией.
+
+    customer_id/executor_id фильтруют через JOIN с Contract (Object → Contract → Organization).
     """
+    from model.contract import Contract
+
     # Базовый запрос
     query = select(Object)
     count_query = select(func.count()).select_from(Object)
-    
+
     # Поиск по названию
     if search:
         search_filter = or_(
@@ -110,28 +125,40 @@ async def get_object_paginated(
         )
         query = query.where(search_filter)
         count_query = count_query.where(search_filter)
-    
+
     # Фильтры
     if region_id:
         query = query.where(Object.region_id == region_id)
         count_query = count_query.where(Object.region_id == region_id)
-    
+
     if arial_id:
         query = query.where(Object.arial_id == arial_id)
         count_query = count_query.where(Object.arial_id == arial_id)
-    
+
     if locality_id:
         query = query.where(Object.locality_id == locality_id)
         count_query = count_query.where(Object.locality_id == locality_id)
-    
+
     if street_id:
         query = query.where(Object.street_id == street_id)
         count_query = count_query.where(Object.street_id == street_id)
-    
+
     if contract_id:
         query = query.where(Object.contract_id == contract_id)
         count_query = count_query.where(Object.contract_id == contract_id)
-    
+
+    # Фильтры по заказчику/подрядчику через Contract.
+    # JOIN навешиваем только если фильтр задан, чтобы не плодить лишние JOINы.
+    if customer_id or executor_id:
+        query = query.join(Contract, Contract.id == Object.contract_id)
+        count_query = count_query.join(Contract, Contract.id == Object.contract_id)
+        if customer_id:
+            query = query.where(Contract.customer_id == customer_id)
+            count_query = count_query.where(Contract.customer_id == customer_id)
+        if executor_id:
+            query = query.where(Contract.executor_id == executor_id)
+            count_query = count_query.where(Contract.executor_id == executor_id)
+
     if period_id:
         query = query.where(Object.period_id == period_id)
         count_query = count_query.where(Object.period_id == period_id)
@@ -146,16 +173,26 @@ async def get_object_paginated(
     else:
         query = query.order_by(Object.name)
     
-    # Загрузка связанных данных (если запрошено)
+    # Загрузка связанных данных (если запрошено).
+    # Object имеет 11 связей с lazy="selectin" — без shallow_load цепной
+    # каскад на пагинированном списке снова даёт сотни SQL-запросов.
     if load_relations:
         query = query.options(
-            selectinload(Object.region),
-            selectinload(Object.arial),
-            selectinload(Object.locality),
-            selectinload(Object.street),
-            selectinload(Object.contract)
+            *shallow_load(
+                Object.region,
+                Object.arial,
+                Object.locality,
+                Object.street,
+                Object.contract,
+                Object.objects_equipments,
+            ),
+            raiseload(Object.spec_build),
+            raiseload(Object.spec_room),
+            raiseload(Object.period),
+            raiseload(Object.reports),
+            raiseload(Object.orders),
         )
-    
+
     # Пагинация
     query = query.offset(skip).limit(limit)
     
@@ -346,13 +383,32 @@ async def count_object_orders(
 
 # ========== СОЗДАНИЕ ==========
 
+async def _next_number_in_contract(
+    session: AsyncSession, contract_id: int
+) -> int:
+    """Следующий свободный number_in_contract в рамках контракта (max+1)."""
+    q = select(func.coalesce(func.max(Object.number_in_contract), 0)).where(
+        Object.contract_id == contract_id
+    )
+    return ((await session.execute(q)).scalar() or 0) + 1
+
+
 @timer
 async def create_object(
     session: AsyncSession,
     object_create: ObjectCreate
 ) -> Object:
-    """Создать новый объект"""
-    obj = Object(**object_create.dict())
+    """Создать новый объект.
+
+    number_in_contract присваивается сервером как max+1 в рамках contract_id —
+    это «номер объекта по договору», который потом используется в номерах
+    актов/отчётов вместо глобального object.id.
+    """
+    payload = object_create.dict()
+    payload["number_in_contract"] = await _next_number_in_contract(
+        session, object_create.contract_id
+    )
+    obj = Object(**payload)
     session.add(obj)
     await session.commit()
     await session.refresh(obj)
@@ -366,16 +422,34 @@ async def update_object(
     object_id: int,
     object_update: ObjectUpdate
 ) -> Optional[Object]:
-    """Обновить объект"""
+    """Обновить объект.
+
+    При смене contract_id перевыпускаем number_in_contract как max+1 в новом
+    контракте — старое значение в новом контракте было бы не гарантированно
+    уникальным.
+    """
     obj = await get_object_by_id(session, object_id, load_relations=False)
     if not obj:
         return None
-    
+
     update_data = object_update.dict(exclude_unset=True)
+    # number_in_contract клиент задавать не может — оно генерится сервером.
+    update_data.pop("number_in_contract", None)
+
+    new_contract_id = update_data.get("contract_id")
+    contract_changed = (
+        new_contract_id is not None and new_contract_id != obj.contract_id
+    )
+
     for field, value in update_data.items():
         if hasattr(obj, field):
             setattr(obj, field, value)
-    
+
+    if contract_changed:
+        obj.number_in_contract = await _next_number_in_contract(
+            session, new_contract_id
+        )
+
     await session.commit()
     await session.refresh(obj)
     return obj

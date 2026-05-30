@@ -24,6 +24,12 @@ class Period(Base):
                                                     lazy="selectin"
                                                     )
 
+    operations: Mapped[List["Operation"]] = relationship(
+        "Operation",
+        back_populates="period",
+        lazy="selectin",
+    )
+
     def __str__(self):
         return f"{self.__class__.__name__}(id={self.id}, name={self.name})"
 

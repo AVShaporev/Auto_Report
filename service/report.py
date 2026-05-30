@@ -7,7 +7,7 @@ from model.report import Report
 from model.contract import Contract
 from model.object import Object
 from data import report as report_data
-from schema.report import ReportCreate, ReportUpdate, ReportApprove
+from schema.report import ReportCreate, ReportUpdate, ReportStatusUpdate
 from schema.pagination import PaginationParams
 from database.database import new_session
 from datetime import date
@@ -75,7 +75,7 @@ async def get_reports_paginated(
     contract_id: Optional[int] = None,
     object_id: Optional[int] = None,
     user_id: Optional[int] = None,
-    check_pass: Optional[bool] = None,
+    status_id: Optional[int] = None,
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
     sort_by: str = "created_at",
@@ -96,7 +96,7 @@ async def get_reports_paginated(
             contract_id=contract_id,
             object_id=object_id,
             user_id=user_id,
-            check_pass=check_pass,
+            status_id=status_id,
             date_from=date_from,
             date_to=date_to,
             sort_by=sort_by,
@@ -109,23 +109,23 @@ async def get_reports_paginated(
 async def get_reports_by_current_user(
     pagination: PaginationParams,
     current_user: User,
-    check_pass: Optional[bool] = None
+    status_id: Optional[int] = None
 ) -> Tuple[List[Report], int]:
     """
     Получить отчеты текущего пользователя
     """
     await check_permission(current_user, "report_read", "просмотра своих отчетов")
-    
+
     async with new_session() as session:
         items, total = await report_data.get_report_paginated(
             session=session,
             skip=pagination.skip,
             limit=pagination.limit,
             user_id=current_user.id,
-            check_pass=check_pass,
+            status_id=status_id,
             load_relations=True
         )
-        
+
         return items, total
 
 async def get_all_reports(
@@ -142,15 +142,15 @@ async def get_all_reports(
 
 async def get_report_options(
     current_user: User,
-    check_pass: Optional[bool] = None
+    status_id: Optional[int] = None
 ) -> List[Report]:
     """
     Получить минимальную информацию об отчетах для выпадающих списков
     """
     await check_permission(current_user, "report_read", "просмотра отчетов")
-    
+
     async with new_session() as session:
-        return await report_data.get_report_options(session, check_pass=check_pass)
+        return await report_data.get_report_options(session, status_id=status_id)
 
 # ========== ПОЛУЧЕНИЕ С ДЕТАЛЬНОЙ ИНФОРМАЦИЕЙ ==========
 
@@ -181,7 +181,7 @@ async def get_report_with_details(
         return {
             "id": report.id,
             "number": report.number,
-            "check_pass": report.check_pass,
+            "status_id": report.status_id,
             "period_id": report.period_id,
             "contract_id": report.contract_id,
             "object_id": report.object_id,
@@ -192,6 +192,8 @@ async def get_report_with_details(
             "contract_number": report.contract.number if report.contract else None,
             "object_name": report.object.name if report.object else None,
             "user_name": report.user.name if report.user else None,
+            "status_name": report.status.name if report.status else None,
+            "status_code": report.status.code if report.status else None,
             "order_id": report.order.id if report.order else None,
             "order_number": report.order.number if report.order else None,
         }
@@ -204,7 +206,7 @@ async def get_reports_paginated_with_details(
     contract_id: Optional[int] = None,
     object_id: Optional[int] = None,
     user_id: Optional[int] = None,
-    check_pass: Optional[bool] = None,
+    status_id: Optional[int] = None,
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
     sort_by: str = "created_at",
@@ -225,7 +227,7 @@ async def get_reports_paginated_with_details(
             contract_id=contract_id,
             object_id=object_id,
             user_id=user_id,
-            check_pass=check_pass,
+            status_id=status_id,
             date_from=date_from,
             date_to=date_to,
             sort_by=sort_by,
@@ -238,7 +240,9 @@ async def get_reports_paginated_with_details(
             result_items.append({
                 "id": item.id,
                 "number": item.number,
-                "check_pass": item.check_pass,
+                "status_id": item.status_id,
+                "status_name": item.status.name if item.status else None,
+                "status_code": item.status.code if item.status else None,
                 "created_at": item.created_at,
                 "period_name": item.period.name if item.period else None,
                 "contract_number": item.contract.number if item.contract else None,
@@ -371,15 +375,29 @@ async def create_report(
 
         short_name = (contract.customer.short_name or "").strip() or "—"
         short_subject = (contract.short_subject or "").strip() or "—"
-        generated_number = f"{obj.id}/{month:02d}/{year:04d}/{short_name}/{short_subject}"
+        # В качестве «номера объекта» в номере отчёта используем
+        # number_in_contract (порядковый в рамках контракта), а не глобальный id.
+        generated_number = (
+            f"{obj.number_in_contract}/{month:02d}/{year:04d}/"
+            f"{short_name}/{short_subject}"
+        )
 
         if await report_data.check_report_number_exists(session, generated_number):
             raise HTTPException(
                 status_code=400,
                 detail=(
-                    f"Отчёт за {month:02d}.{year} по объекту id={obj.id} "
+                    f"Отчёт за {month:02d}.{year} по объекту "
+                    f"№{obj.number_in_contract} (id={obj.id}) "
                     f"уже существует (номер '{generated_number}')"
                 )
+            )
+
+        # Дефолтный статус для нового отчёта — 'not_approved'.
+        default_status = await report_data.get_spec_status_by_code(session, 'not_approved')
+        if not default_status:
+            raise HTTPException(
+                status_code=500,
+                detail="Не найден статус 'not_approved' в справочнике spec_statuss",
             )
 
         # Создание — передаём user_id из current_user, сгенерированный номер и заявку
@@ -389,6 +407,7 @@ async def create_report(
             current_user.id,
             number=generated_number,
             order=order,
+            status_id=default_status.id,
         )
 
         return report
@@ -450,27 +469,36 @@ async def update_report(
         
         return report
 
-# ========== УТВЕРЖДЕНИЕ ОТЧЕТА ==========
+# ========== СМЕНА СТАТУСА ОТЧЁТА ==========
 
-async def approve_report(
+async def update_report_status(
     report_id: int,
-    approve_data: ReportApprove,
+    status_update: ReportStatusUpdate,
     current_user: User
 ) -> Report:
     """
-    Утвердить или отклонить отчет
+    Установить статус отчёта (FK на spec_statuss).
     """
-    await check_permission(current_user, "report_modify", "утверждения отчетов")
-    
+    await check_permission(current_user, "report_modify", "смены статуса отчётов")
+
     async with new_session() as session:
-        report = await report_data.approve_report(session, report_id, approve_data.check_pass)
-        
+        # Проверяем, что статус существует.
+        from data import spec_status as spec_status_data
+        status = await spec_status_data.get_spec_status_by_id(session, status_update.status_id)
+        if not status:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Статус с id {status_update.status_id} не существует",
+            )
+
+        report = await report_data.update_report_status(session, report_id, status_update.status_id)
+
         if not report:
             raise HTTPException(
                 status_code=404,
                 detail=f"Отчет с id {report_id} не найден"
             )
-        
+
         return report
 
 # ========== УДАЛЕНИЕ ==========

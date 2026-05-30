@@ -29,13 +29,18 @@ async def get_contract_list(
     date_from: Optional[date] = Query(None, description="Дата заключения с"),
     date_to: Optional[date] = Query(None, description="Дата заключения по"),
     type_contract: Optional[str] = Query(None, description="Фильтр по типу"),
+    status: Optional[str] = Query(
+        None,
+        regex="^(active|expired|terminated)$",
+        description="Фильтр по статусу: active (срок не истёк), expired (срок истёк), terminated (расторгнут)"
+    ),
     sort_by: str = Query("number", description="Поле сортировки"),
     sort_order: str = Query("asc", regex="^(asc|desc)$"),
     current_user: User = Depends(get_current_active_user)
 ):
     """
     Получить список контрактов с пагинацией
-    
+
     Требуется право: contract_read
     """
     items, total = await contract_service.get_contracts_paginated_with_stats(
@@ -48,6 +53,7 @@ async def get_contract_list(
         date_from=date_from,
         date_to=date_to,
         type_contract=type_contract,
+        status=status,
         sort_by=sort_by,
         sort_order=sort_order
     )
@@ -113,7 +119,9 @@ async def get_all_contracts(
             "short_subject": item.short_subject,
             "type_contract": item.type_contract,
             "spec_contract_name": item.spec_contract.name if item.spec_contract else None,
+            "customer_id": item.customer_id,
             "customer_name": item.customer.name if item.customer else None,
+            "executor_id": item.executor_id,
             "executor_name": item.executor.name if item.executor else None,
             "objects_count": len(item.objects) if item.objects else 0
         }

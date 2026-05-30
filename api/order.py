@@ -18,7 +18,7 @@ from schema.order import (
 )
 from schema.pagination import PaginationParams, PaginatedResponse
 from service import order as order_service
-from service.order_pdf import render_order_pdf, render_order_primary_pdf
+from service.order_pdf import render_order_pdf, render_order_primary_pdf, render_order_defect_pdf
 from core.dependencies import get_current_active_user
 
 
@@ -26,7 +26,7 @@ class BulkPdfRequest(BaseModel):
     """Тело запроса для массового скачивания PDF-актов по заявкам."""
     order_ids: List[int] = Field(..., min_length=1, max_length=200,
                                   description="ID заявок (1..200 за раз)")
-    kind: str = Field("to", description="Тип акта: 'to' (плановый) или 'primary' (первичный)")
+    kind: str = Field("to", description="Тип акта: 'to' (плановый), 'primary' (первичный) или 'defect' (дефектовка)")
 
 
 def _safe_zip_name(name: str) -> str:
@@ -46,13 +46,17 @@ async def get_order_list(
     status: Optional[str] = Query(None, description="Фильтр по статусу"),
     date_from: Optional[date] = Query(None, description="Дата создания с"),
     date_to: Optional[date] = Query(None, description="Дата создания по"),
+    region_id: Optional[List[int]] = Query(None, description="Фильтр по регионам объекта (можно несколько)"),
+    arial_id: Optional[List[int]] = Query(None, description="Фильтр по районам объекта (можно несколько)"),
+    locality_id: Optional[List[int]] = Query(None, description="Фильтр по нас. пунктам объекта (можно несколько)"),
+    street_id: Optional[List[int]] = Query(None, description="Фильтр по улицам объекта (можно несколько)"),
     sort_by: str = Query("created_at", description="Поле сортировки"),
     sort_order: str = Query("desc", regex="^(asc|desc)$"),
     current_user: User = Depends(get_current_active_user)
 ):
     """
     Получить список заявок с пагинацией
-    
+
     Требуется право: order_read
     """
     items, total = await order_service.get_orders_paginated_with_details(
@@ -66,6 +70,10 @@ async def get_order_list(
         status=status,
         date_from=date_from,
         date_to=date_to,
+        region_id=region_id,
+        arial_id=arial_id,
+        locality_id=locality_id,
+        street_id=street_id,
         sort_by=sort_by,
         sort_order=sort_order
     )
@@ -169,13 +177,19 @@ async def bulk_order_pdf(
     """
     Сформировать ZIP-архив с PDF-актами по списку заявок.
 
-    `kind='to'` — акт ТО (плановый), `kind='primary'` — акт первичного обследования.
+    `kind='to'` — акт ТО (плановый), `kind='primary'` — акт первичного обследования,
+    `kind='defect'` — акт дефектовки (диагностических и ремонтных работ).
     Требуется право: `order_read` (проверяется внутри render-функций).
     """
-    if payload.kind not in ("to", "primary"):
-        raise HTTPException(400, detail="kind должен быть 'to' или 'primary'")
+    render_by_kind = {
+        "to": render_order_pdf,
+        "primary": render_order_primary_pdf,
+        "defect": render_order_defect_pdf,
+    }
+    if payload.kind not in render_by_kind:
+        raise HTTPException(400, detail="kind должен быть 'to', 'primary' или 'defect'")
 
-    render_fn = render_order_pdf if payload.kind == "to" else render_order_primary_pdf
+    render_fn = render_by_kind[payload.kind]
 
     buf = io.BytesIO()
     errors: list[str] = []
@@ -242,6 +256,28 @@ async def get_order_primary_pdf(
     Требуется право: order_read
     """
     pdf_bytes, filename = await render_order_primary_pdf(order_id, current_user)
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+        },
+    )
+
+
+@router.get("/{order_id}/defect/pdf")
+async def get_order_defect_pdf(
+    order_id: int,
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Сформировать PDF акта дефектовки (диагностических и ремонтных работ) по заявке.
+
+    Поля разделов и дата оставляются пустыми для ручного заполнения.
+
+    Требуется право: order_read
+    """
+    pdf_bytes, filename = await render_order_defect_pdf(order_id, current_user)
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",

@@ -22,8 +22,8 @@ async def get_dashboard_stats(session: AsyncSession) -> Dict[str, Any]:
             (SELECT COUNT(*) FROM reports) as reports,
             
             (SELECT COUNT(*) FROM orders WHERE status = 'pending') as pending_orders,
-            (SELECT COUNT(*) FROM issues WHERE status NOT IN ('resolved', 'closed')) as unresolved_issues,
-            (SELECT COUNT(*) FROM issues WHERE is_critical = true AND status NOT IN ('resolved', 'closed')) as critical_issues
+            (SELECT COUNT(*) FROM issues WHERE is_resolved = false) as unresolved_issues,
+            (SELECT COUNT(*) FROM issues WHERE is_critical = true AND is_resolved = false) as critical_issues
     """)
     result = await session.execute(query)
     row = result.fetchone()
@@ -108,7 +108,8 @@ async def get_dashboard_spec_stats(session: AsyncSession) -> Dict[str, Any]:
             (SELECT COUNT(*) FROM spec_equipments) as spec_equipments,
             (SELECT COUNT(*) FROM spec_orders) as spec_orders,
             (SELECT COUNT(*) FROM spec_systems) as spec_systems,
-            (SELECT COUNT(*) FROM operations) as operations
+            (SELECT COUNT(*) FROM operations) as operations,
+            (SELECT COUNT(*) FROM periods) as periods
     """)
     result = await session.execute(query)
     row = result.fetchone()

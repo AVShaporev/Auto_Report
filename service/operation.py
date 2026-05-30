@@ -36,6 +36,8 @@ def _pack(op: Operation) -> dict:
         "name": op.name,
         "short_name": op.short_name,
         "description": op.description,
+        "period_id": op.period_id,
+        "period_name": op.period.name if op.period else None,
         "spec_equipments": [
             {"id": se.id, "name": se.name} for se in (op.spec_equipments or [])
         ],
@@ -47,6 +49,8 @@ def _pack_list(op: Operation) -> dict:
         "id": op.id,
         "name": op.name,
         "short_name": op.short_name,
+        "period_id": op.period_id,
+        "period_name": op.period.name if op.period else None,
         "spec_equipments_count": len(op.spec_equipments or []),
         "spec_equipments": [
             {"id": se.id, "name": se.name} for se in (op.spec_equipments or [])
@@ -105,7 +109,13 @@ async def get_operation_options(
     async with new_session() as session:
         items = await operation_data.get_operation_options(session, spec_equipment_id)
         return [
-            {"id": op.id, "name": op.name, "short_name": op.short_name}
+            {
+                "id": op.id,
+                "name": op.name,
+                "short_name": op.short_name,
+                "period_id": op.period_id,
+                "period_name": op.period.name if op.period else None,
+            }
             for op in items
         ]
 
@@ -132,12 +142,19 @@ async def create_operation(
                 400, detail=f"Не найдены типы оборудования с id: {missing}"
             )
 
+        if payload.period_id is not None:
+            if not await operation_data.check_period_exists(session, payload.period_id):
+                raise HTTPException(
+                    400, detail=f"Период с id {payload.period_id} не существует",
+                )
+
         op = await operation_data.create_operation(
             session,
             name=payload.name,
             short_name=payload.short_name,
             description=payload.description,
             spec_equipments=spec_equipments,
+            period_id=payload.period_id,
         )
         return _pack(op)
 
@@ -175,6 +192,16 @@ async def update_operation(
                     400, detail=f"Не найдены типы оборудования с id: {missing}"
                 )
 
+        # period_id присутствует в payload, если фронт явно его прислал
+        # (включая null — снять привязку). model_fields_set отделяет «не указано»
+        # от «явный null».
+        period_id_set = "period_id" in payload.model_fields_set
+        if period_id_set and payload.period_id is not None:
+            if not await operation_data.check_period_exists(session, payload.period_id):
+                raise HTTPException(
+                    400, detail=f"Период с id {payload.period_id} не существует",
+                )
+
         op = await operation_data.update_operation(
             session,
             operation_id,
@@ -182,6 +209,8 @@ async def update_operation(
             short_name=payload.short_name,
             description=payload.description,
             spec_equipments=spec_equipments,
+            period_id=payload.period_id,
+            period_id_set=period_id_set,
         )
         return _pack(op)
 
