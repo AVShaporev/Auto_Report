@@ -72,7 +72,13 @@ logger.add(
     colorize=True
 )
 
-# Добавляем вывод в файл с ротацией
+# Добавляем вывод в файл с ротацией.
+# enqueue=True — пишем через фоновую очередь: один writer-thread владеет файлом,
+# остальные процессы (uvicorn reload spawn'ит worker; antivirus; VS Code, держащий
+# app.log открытым на просмотр) не конкурируют за хэндл. Без этого на Windows
+# rotation падает с WinError 32 (file locked by another process) на os.rename.
+# delay=True — не открывать файл до первой записи (reloader-процесс может и не
+# дойти до неё). catch=True — rotation-ошибка не должна валить приложение.
 logger.add(
     LOG_DIR / "app.log",
     format="{time:YYYY-MM-DD HH:mm:ss} - {name} - {level} - {message}",
@@ -80,7 +86,10 @@ logger.add(
     rotation="10 MB",  # Ротация при достижении 10 MB
     retention="30 days",  # Хранить 30 дней
     compression="zip",  # Сжимать старые файлы
-    encoding="utf-8"
+    encoding="utf-8",
+    enqueue=True,
+    delay=True,
+    catch=True,
 )
 
 logger.info("🚀 Логирование Loguru настроено")
