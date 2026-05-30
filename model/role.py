@@ -188,13 +188,26 @@ class Role(Base):
     issue_create: Mapped[bool] = mapped_column(default=False)
     issue_modify: Mapped[bool] = mapped_column(default=False)
     issue_delete: Mapped[bool] = mapped_column(default=False)
+
+    # права на статусы неисправностей (справочник)
+    spec_status_read: Mapped[bool] = mapped_column(default=False)
+    spec_status_create: Mapped[bool] = mapped_column(default=False)
+    spec_status_modify: Mapped[bool] = mapped_column(default=False)
+    spec_status_delete: Mapped[bool] = mapped_column(default=False)
+
+    # права на приоритеты неисправностей (справочник)
+    spec_priority_read: Mapped[bool] = mapped_column(default=False)
+    spec_priority_create: Mapped[bool] = mapped_column(default=False)
+    spec_priority_modify: Mapped[bool] = mapped_column(default=False)
+    spec_priority_delete: Mapped[bool] = mapped_column(default=False)
             
     # Определяем отношения: одна роль может принаддлежать нескольким пользователям
-    # Отношение через строку
+    # lazy="select" (default) — НЕ грузим автоматически. data/role.py явно
+    # использует .options(selectinload(Role.users)) там, где это нужно
+    # (списки ролей, удаление с проверкой назначенных юзеров).
     users: Mapped[List["User"]] = relationship(
                                                     "User",
-                                                    back_populates="role",
-                                                    lazy="selectin"
+                                                    back_populates="role"
                                                 )
 
     def __repr__(self):

@@ -40,6 +40,9 @@ from model.report import Report
 from model.spec_order import Spec_Order
 from model.order import Order
 from model.report_attachment import Report_Attachment
+from model.issue import Issue
+from model.issue_attachment import Issue_Attachment
+from model.spec_status import Spec_Status
 
 print(Base.metadata.tables['users']._columns)
 

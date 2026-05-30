@@ -26,6 +26,8 @@ from api import spec_equipment as api_spec_equipment
 from api import equipment as api_equipment
 from api import operation as api_operation
 from api import spec_order as api_spec_order
+from api import spec_status as api_spec_status
+from api import spec_priority as api_spec_priority
 from api import spec_system as api_spec_system
 from api import order as api_order
 from api import report as api_report
@@ -48,6 +50,7 @@ from api import organization as api_organization
 from api import period as api_period
 from api import object as api_object
 from api import issue as api_issue
+from api import issue_attachment as api_issue_attachment
 from api import objects_equipment as api_objects_equipment
 from api import dashboard  as api_dashboard
 from api import log as api_log
@@ -112,6 +115,8 @@ app.include_router(api_spec_equipment.router)
 app.include_router(api_equipment.router)
 app.include_router(api_operation.router)
 app.include_router(api_spec_order.router)
+app.include_router(api_spec_status.router)
+app.include_router(api_spec_priority.router)
 app.include_router(api_spec_system.router)
 app.include_router(api_order.router)
 app.include_router(api_report.router)
@@ -134,6 +139,7 @@ app.include_router(api_organization.router)
 app.include_router(api_period.router)
 app.include_router(api_object.router)
 app.include_router(api_issue.router)
+app.include_router(api_issue_attachment.router)
 app.include_router(api_objects_equipment.router)
 app.include_router(api_dashboard.router)
 app.include_router(api_log.router)

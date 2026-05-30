@@ -41,7 +41,8 @@ async def get_issue_by_id(
             selectinload(Issue.object_equipment)
                 .selectinload(Objects_Equipment.equipment),  # Загружаем оборудование через связь
             selectinload(Issue.reported_by),
-            selectinload(Issue.assigned_to)
+            selectinload(Issue.assigned_to),
+            selectinload(Issue.priority),
         )
     
     result = await session.execute(query)
@@ -75,10 +76,16 @@ async def get_issue_by_object(
     object_id: int
 ) -> List[Issue]:
     """Получить все неисправности для объекта (через связующую таблицу)"""
-    query = select(Issue).join(
-        Objects_Equipment,
-        Objects_Equipment.id == Issue.object_equipment_id
-    ).where(Objects_Equipment.object_id == object_id).order_by(Issue.detected_date.desc())
+    query = (
+        select(Issue)
+        .join(Objects_Equipment, Objects_Equipment.id == Issue.object_equipment_id)
+        .where(Objects_Equipment.object_id == object_id)
+        .options(
+            selectinload(Issue.object_equipment).selectinload(Objects_Equipment.object),
+            selectinload(Issue.object_equipment).selectinload(Objects_Equipment.equipment),
+        )
+        .order_by(Issue.detected_date.desc())
+    )
     result = await session.execute(query)
     return result.scalars().all()
 
@@ -88,10 +95,16 @@ async def get_issue_by_equipment(
     equipment_id: int
 ) -> List[Issue]:
     """Получить все неисправности для оборудования (через связующую таблицу)"""
-    query = select(Issue).join(
-        Objects_Equipment,
-        Objects_Equipment.id == Issue.object_equipment_id
-    ).where(Objects_Equipment.equipment_id == equipment_id).order_by(Issue.detected_date.desc())
+    query = (
+        select(Issue)
+        .join(Objects_Equipment, Objects_Equipment.id == Issue.object_equipment_id)
+        .where(Objects_Equipment.equipment_id == equipment_id)
+        .options(
+            selectinload(Issue.object_equipment).selectinload(Objects_Equipment.object),
+            selectinload(Issue.object_equipment).selectinload(Objects_Equipment.equipment),
+        )
+        .order_by(Issue.detected_date.desc())
+    )
     result = await session.execute(query)
     return result.scalars().all()
 
@@ -148,8 +161,8 @@ async def get_issue_paginated(
     equipment_id: Optional[int] = None,
     contract_id: Optional[int] = None,
     object_equipment_id: Optional[int] = None,
-    status: Optional[str] = None,
-    priority: Optional[str] = None,
+    status_id: Optional[int] = None,
+    priority_id: Optional[int] = None,
     is_resolved: Optional[bool] = None,
     is_critical: Optional[bool] = None,
     reported_by_id: Optional[int] = None,
@@ -183,13 +196,13 @@ async def get_issue_paginated(
         query = query.where(Issue.object_equipment_id == object_equipment_id)
         count_query = count_query.where(Issue.object_equipment_id == object_equipment_id)
     
-    if status:
-        query = query.where(Issue.status == status)
-        count_query = count_query.where(Issue.status == status)
-    
-    if priority:
-        query = query.where(Issue.priority == priority)
-        count_query = count_query.where(Issue.priority == priority)
+    if status_id:
+        query = query.where(Issue.status_id == status_id)
+        count_query = count_query.where(Issue.status_id == status_id)
+
+    if priority_id:
+        query = query.where(Issue.priority_id == priority_id)
+        count_query = count_query.where(Issue.priority_id == priority_id)
     
     if is_resolved is not None:
         query = query.where(Issue.is_resolved == is_resolved)
@@ -280,17 +293,17 @@ async def get_issue_paginated(
 @timer
 async def get_issue_options(
     session: AsyncSession,
-    status: Optional[str] = None,
+    status_id: Optional[int] = None,
     is_resolved: Optional[bool] = None
 ) -> List[Issue]:
     """
     Получить минимальную информацию о неисправностях для выпадающих списков
     """
     query = select(Issue).order_by(Issue.detected_date.desc())
-    
-    if status:
-        query = query.where(Issue.status == status)
-    
+
+    if status_id:
+        query = query.where(Issue.status_id == status_id)
+
     if is_resolved is not None:
         query = query.where(Issue.is_resolved == is_resolved)
     
@@ -379,20 +392,26 @@ async def count_issue_by_equipment(
 async def update_issue_status(
     session: AsyncSession,
     issue_id: int,
-    status: str,
+    status_id: int,
     resolved_date: Optional[date] = None
 ) -> Optional[Issue]:
     """Обновить статус неисправности"""
+    from model.spec_status import Spec_Status
+
     issue = await get_issue_by_id(session, issue_id, load_relations=False)
     if not issue:
         return None
 
-    issue.status = status
-    issue.is_resolved = (status == 'resolved' or status == 'closed')
-    
-    if status == 'resolved' and resolved_date:
+    new_status = await session.get(Spec_Status, status_id)
+    if not new_status:
+        return None
+
+    issue.status_id = status_id
+    issue.is_resolved = new_status.code in ('resolved', 'closed')
+
+    if new_status.code == 'resolved' and resolved_date:
         issue.resolved_date = resolved_date
-    
+
     await session.commit()
     await session.refresh(issue)
     return issue
@@ -403,14 +422,18 @@ async def update_issue_status(
 async def create_issue(
     session: AsyncSession,
     issue_create: IssueCreate,
-    reported_by_id: int
+    reported_by_id: int,
+    status_id: int,
+    *,
+    number: str,
 ) -> Issue:
-    """Создать новую неисправность"""
+    """Создать новую неисправность. `number` генерится в сервисе."""
     issue_data = issue_create.dict()
+    issue_data['number'] = number
     issue_data['reported_by_id'] = reported_by_id
-    issue_data['status'] = 'new'
+    issue_data['status_id'] = status_id
     issue_data['is_resolved'] = False
-    
+
     issue = Issue(**issue_data)
     session.add(issue)
     await session.commit()
@@ -431,11 +454,7 @@ async def update_issue(
         return None
     
     update_data = issue_update.dict(exclude_unset=True)
-    
-    # Автоматически обновляем is_resolved при изменении статуса
-    if 'status' in update_data:
-        update_data['is_resolved'] = (update_data['status'] in ['resolved', 'closed'])
-    
+
     for field, value in update_data.items():
         if hasattr(issue, field):
             setattr(issue, field, value)

@@ -49,6 +49,7 @@ from model.equipment import Equipment
 from model.order import Order
 from model.report import Report
 from model.sub_contract import Sub_Contract
+from model.spec_priority import Spec_Priority
 from model.issue import Issue
 from model.objects_equipment import Objects_Equipment
 
@@ -62,5 +63,5 @@ __all__ = [
     'Equipment', 'Contract', 'Period', 'Object',
     'Order', 'Report', 'User', 'Role', 'Organization',
     'Spec_Job_Title', 'Arial' , 'Order', 'Report', 'Sub_Contract',
-    'Issue', 'Objects_Equipment'
+    'Spec_Priority', 'Issue', 'Objects_Equipment'
 ]

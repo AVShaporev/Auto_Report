@@ -1,7 +1,14 @@
 from typing import Optional, List, Tuple
 from fastapi import HTTPException
+from sqlalchemy import select, func, extract
+from sqlalchemy.orm import selectinload
+
 from model.user import User
 from model.issue import Issue
+from model.objects_equipment import Objects_Equipment
+from model.object import Object
+from model.contract import Contract
+from model.organization import Organization
 from data import issue as issue_data
 from schema.issue import IssueCreate, IssueUpdate, IssueStatusUpdate
 from schema.pagination import PaginationParams
@@ -69,8 +76,8 @@ async def get_issues_paginated(
     search: Optional[str] = None,
     object_id: Optional[int] = None,
     equipment_id: Optional[int] = None,
-    status: Optional[str] = None,
-    priority: Optional[str] = None,
+    status_id: Optional[int] = None,
+    priority_id: Optional[int] = None,
     is_resolved: Optional[bool] = None,
     is_critical: Optional[bool] = None,
     reported_by_id: Optional[int] = None,
@@ -84,7 +91,7 @@ async def get_issues_paginated(
     Получить список неисправностей с пагинацией
     """
     await check_permission(current_user, "issue_read", "просмотра списка неисправностей")
-    
+
     async with new_session() as session:
         items, total = await issue_data.get_issue_paginated(
             session=session,
@@ -93,8 +100,8 @@ async def get_issues_paginated(
             search=search,
             object_id=object_id,
             equipment_id=equipment_id,
-            status=status,
-            priority=priority,
+            status_id=status_id,
+            priority_id=priority_id,
             is_resolved=is_resolved,
             is_critical=is_critical,
             reported_by_id=reported_by_id,
@@ -111,21 +118,21 @@ async def get_issues_paginated(
 async def get_issues_by_current_user(
     pagination: PaginationParams,
     current_user: User,
-    status: Optional[str] = None,
+    status_id: Optional[int] = None,
     is_resolved: Optional[bool] = None
 ) -> Tuple[List[Issue], int]:
     """
     Получить неисправности, сообщенные текущим пользователем
     """
     await check_permission(current_user, "issue_read", "просмотра своих неисправностей")
-    
+
     async with new_session() as session:
         items, total = await issue_data.get_issue_paginated(
             session=session,
             skip=pagination.skip,
             limit=pagination.limit,
             reported_by_id=current_user.id,
-            status=status,
+            status_id=status_id,
             is_resolved=is_resolved,
             load_relations=True
         )
@@ -135,21 +142,21 @@ async def get_issues_by_current_user(
 async def get_issues_assigned_to_current_user(
     pagination: PaginationParams,
     current_user: User,
-    status: Optional[str] = None,
+    status_id: Optional[int] = None,
     is_resolved: Optional[bool] = None
 ) -> Tuple[List[Issue], int]:
     """
     Получить неисправности, назначенные текущему пользователю
     """
     await check_permission(current_user, "issue_read", "просмотра назначенных неисправностей")
-    
+
     async with new_session() as session:
         items, total = await issue_data.get_issue_paginated(
             session=session,
             skip=pagination.skip,
             limit=pagination.limit,
             assigned_to_id=current_user.id,
-            status=status,
+            status_id=status_id,
             is_resolved=is_resolved,
             load_relations=True
         )
@@ -209,11 +216,15 @@ async def get_issue_with_details(
         
         # Инвентарный номер хранится на связке Objects_Equipment (per-instance),
         # объект/оборудование — через её отношения.
+        object_id = None
         object_name = None
+        equipment_id = None
         equipment_name = None
         equipment_inventory_number = None
 
         if issue.object_equipment:
+            object_id = issue.object_equipment.object_id
+            equipment_id = issue.object_equipment.equipment_id
             equipment_inventory_number = issue.object_equipment.inventory_number
             if issue.object_equipment.object:
                 object_name = issue.object_equipment.object.name
@@ -225,20 +236,26 @@ async def get_issue_with_details(
             "number": issue.number,
             "title": issue.title,
             "description": issue.description,
-            "status": issue.status,
-            "priority": issue.priority,
+            "status_id": issue.status_id,
+            "status_name": issue.status.name if issue.status else None,
+            "status_code": issue.status.code if issue.status else None,
+            "priority_id": issue.priority_id,
+            "priority_name": issue.priority.name if issue.priority else None,
+            "priority_code": issue.priority.code if issue.priority else None,
             "detected_date": issue.detected_date,
             "resolved_date": issue.resolved_date,
             "is_resolved": issue.is_resolved,
             "is_critical": issue.is_critical,
             "created_at": issue.created_at,
             "updated_at": issue.updated_at,
-            "object_equipment_id": issue.object_equipment_id,  # ✅ новый ID связи
+            "object_equipment_id": issue.object_equipment_id,
             "reported_by_id": issue.reported_by_id,
             "assigned_to_id": issue.assigned_to_id,
-            "object_name": object_name,  # ✅ получаем через связь
-            "equipment_name": equipment_name,  # ✅ получаем через связь
-            "equipment_inventory_number": equipment_inventory_number,  # ✅ получаем через связь
+            "object_id": object_id,
+            "object_name": object_name,
+            "equipment_id": equipment_id,
+            "equipment_name": equipment_name,
+            "equipment_inventory_number": equipment_inventory_number,
             "reported_by_name": issue.reported_by.name if issue.reported_by else None,
             "assigned_to_name": issue.assigned_to.name if issue.assigned_to else None
         }
@@ -250,8 +267,8 @@ async def get_issues_paginated_with_details(
     object_id: Optional[int] = None,
     equipment_id: Optional[int] = None,
     contract_id: Optional[int] = None,
-    status: Optional[str] = None,
-    priority: Optional[str] = None,
+    status_id: Optional[int] = None,
+    priority_id: Optional[int] = None,
     is_resolved: Optional[bool] = None,
     is_critical: Optional[bool] = None,
     reported_by_id: Optional[int] = None,
@@ -275,8 +292,8 @@ async def get_issues_paginated_with_details(
             object_id=object_id,
             equipment_id=equipment_id,
             contract_id=contract_id,
-            status=status,
-            priority=priority,
+            status_id=status_id,
+            priority_id=priority_id,
             is_resolved=is_resolved,
             is_critical=is_critical,
             reported_by_id=reported_by_id,
@@ -290,27 +307,37 @@ async def get_issues_paginated_with_details(
         
         result_items = []
         for item in items:
+            object_id_ = None
             object_name = None
+            equipment_id_ = None
             equipment_name = None
-            
+
             if item.object_equipment:
+                object_id_ = item.object_equipment.object_id
+                equipment_id_ = item.object_equipment.equipment_id
                 if item.object_equipment.object:
                     object_name = item.object_equipment.object.name
                 if item.object_equipment.equipment:
                     equipment_name = item.object_equipment.equipment.name
-            
+
             result_items.append({
                 "id": item.id,
                 "number": item.number,
                 "title": item.title,
-                "status": item.status,
-                "priority": item.priority,
+                "status_id": item.status_id,
+                "status_name": item.status.name if item.status else None,
+                "status_code": item.status.code if item.status else None,
+                "priority_id": item.priority_id,
+                "priority_name": item.priority.name if item.priority else None,
+                "priority_code": item.priority.code if item.priority else None,
                 "detected_date": item.detected_date,
                 "resolved_date": item.resolved_date,
                 "is_resolved": item.is_resolved,
                 "is_critical": item.is_critical,
-                "created_at": item.created_at,  # ✅ Добавлено!
+                "created_at": item.created_at,
+                "object_id": object_id_,
                 "object_name": object_name,
+                "equipment_id": equipment_id_,
                 "equipment_name": equipment_name,
                 "reported_by_name": item.reported_by.name if item.reported_by else None,
                 "assigned_to_name": item.assigned_to.name if item.assigned_to else None
@@ -329,22 +356,15 @@ async def create_issue(
     reported_by_id автоматически берется из current_user
     """
     await check_permission(current_user, "issue_create", "создания неисправностей")
-    
+
     async with new_session() as session:
-        # Проверка уникальности номера
-        if await issue_data.check_issue_number_exists(session, issue_create.number):
-            raise HTTPException(
-                status_code=400,
-                detail=f"Неисправность с номером '{issue_create.number}' уже существует"
-            )
-        
         # Проверяем существование связи объект-оборудование
         if not await issue_data.check_issue_object_equipment_exists(session, issue_create.object_equipment_id):
             raise HTTPException(
                 status_code=400,
                 detail=f"Связь объекта с оборудованием с id {issue_create.object_equipment_id} не существует"
             )
-        
+
         # Проверка существования назначенного пользователя (если указан)
         if issue_create.assigned_to_id:
             if not await issue_data.check_issue_user_exists(session, issue_create.assigned_to_id):
@@ -352,10 +372,89 @@ async def create_issue(
                     status_code=400,
                     detail=f"Пользователь с id {issue_create.assigned_to_id} не существует"
                 )
-        
-        # Создание - передаем reported_by_id из current_user
-        issue = await issue_data.create(session, issue_create, current_user.id)
-        
+
+        # Проверка существования приоритета
+        from data import spec_priority as spec_priority_data
+        if not await spec_priority_data.get_spec_priority_by_id(session, issue_create.priority_id):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Приоритет с id {issue_create.priority_id} не существует"
+            )
+
+        # Подгружаем связку с объектом и его контрактом/заказчиком —
+        # нужно для генерации номера неисправности.
+        link = (await session.execute(
+            select(Objects_Equipment)
+            .options(
+                selectinload(Objects_Equipment.object)
+                    .selectinload(Object.contract)
+                    .selectinload(Contract.customer),
+            )
+            .where(Objects_Equipment.id == issue_create.object_equipment_id)
+        )).scalar_one_or_none()
+        if not link or not link.object:
+            raise HTTPException(status_code=400, detail="Связь объекта с оборудованием не найдена")
+        obj = link.object
+        contract = obj.contract
+        if not contract:
+            raise HTTPException(status_code=400, detail="У объекта не указан контракт")
+        if not contract.customer:
+            raise HTTPException(status_code=400, detail="У контракта не указан заказчик")
+
+        today = date.today()
+        year, month = today.year, today.month
+
+        # Порядковый номер в текущем месяце по паре (object, contract) — issues привязаны
+        # к объекту через Objects_Equipment, поэтому нужен join.
+        count_stmt = (
+            select(func.count(Issue.id))
+            .join(Objects_Equipment, Issue.object_equipment_id == Objects_Equipment.id)
+            .where(
+                Objects_Equipment.object_id == obj.id,
+                Objects_Equipment.equipment_id != None,  # noqa: E711
+                Objects_Equipment.object_id == obj.id,
+                extract('year', Issue.created_at) == year,
+                extract('month', Issue.created_at) == month,
+            )
+        )
+        existing_count = (await session.execute(count_stmt)).scalar() or 0
+        seq = existing_count + 1
+
+        short_customer = (contract.customer.short_name or "").strip() or "—"
+        short_subject = (contract.short_subject or "").strip() or "—"
+
+        generated_number = (
+            f"{obj.number_in_contract}/{month:02d}/{year:04d}/"
+            f"{short_customer}/{short_subject}/Н/{seq}"
+        )
+
+        # Финальная проверка уникальности (на случай гонок и ручных правок).
+        if await issue_data.check_issue_number_exists(session, generated_number):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Не удалось сгенерировать уникальный номер неисправности "
+                    f"('{generated_number}' уже существует). Повторите попытку."
+                )
+            )
+
+        # Статус по умолчанию для новой неисправности — код 'new'
+        from data import spec_status as spec_status_data
+        default_status = await spec_status_data.get_spec_status_by_code(session, 'new')
+        if not default_status:
+            raise HTTPException(
+                status_code=500,
+                detail="Не найден статус по умолчанию (code='new') в справочнике статусов"
+            )
+
+        issue = await issue_data.create_issue(
+            session,
+            issue_create,
+            current_user.id,
+            default_status.id,
+            number=generated_number,
+        )
+
         return issue
 
 # ========== ОБНОВЛЕНИЕ ==========
@@ -411,6 +510,14 @@ async def update_issue(
                         status_code=400,
                         detail=f"Пользователь с id {update_data['assigned_to_id']} не существует"
                     )
+
+        if 'priority_id' in update_data and update_data['priority_id'] != existing.priority_id:
+            from data import spec_priority as spec_priority_data
+            if not await spec_priority_data.get_spec_priority_by_id(session, update_data['priority_id']):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Приоритет с id {update_data['priority_id']} не существует"
+                )
         
         # Обновление
         issue = await issue_data.update_issue(session, issue_id, issue_update)
@@ -428,7 +535,7 @@ async def update_issue_status(
     Обновить статус неисправности
     """
     await check_permission(current_user, "issue_modify", "изменения статуса неисправностей")
-    
+
     async with new_session() as session:
         # Проверяем существование
         existing = await issue_data.get_issue_by_id(session, issue_id)
@@ -437,15 +544,30 @@ async def update_issue_status(
                 status_code=404,
                 detail=f"Неисправность с id {issue_id} не найдена"
             )
-        
+
+        # Проверяем существование статуса и валидируем дату устранения по его коду
+        from data import spec_status as spec_status_data
+        new_status = await spec_status_data.get_spec_status_by_id(session, status_update.status_id)
+        if not new_status:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Статус с id {status_update.status_id} не существует"
+            )
+
+        if new_status.code == 'resolved' and not status_update.resolved_date:
+            raise HTTPException(
+                status_code=400,
+                detail="Для статуса с кодом 'resolved' необходимо указать дату устранения"
+            )
+
         # Обновление статуса
         issue = await issue_data.update_issue_status(
-            session, 
-            issue_id, 
-            status_update.status,
+            session,
+            issue_id,
+            status_update.status_id,
             status_update.resolved_date
         )
-        
+
         return issue
 
 # ========== НАЗНАЧЕНИЕ ОТВЕТСТВЕННОГО ==========
@@ -511,5 +633,9 @@ async def delete_issue(
         
         # Удаление
         success = await issue_data.delete_issue(session, issue_id)
-        
+        if success:
+            # CASCADE удалит записи issue_attachments в БД, файлы — отдельно с диска.
+            from service.issue_attachment import cleanup_issue_directory
+            cleanup_issue_directory(issue_id)
+
         return success

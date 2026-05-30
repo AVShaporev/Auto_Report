@@ -24,8 +24,8 @@ async def get_issue_list(
     object_id: Optional[int] = Query(None, ge=1, description="Фильтр по объекту"),
     equipment_id: Optional[int] = Query(None, ge=1, description="Фильтр по оборудованию"),
     contract_id: Optional[int] = Query(None, ge=1, description="Фильтр по договору"),
-    status: Optional[str] = Query(None, description="Фильтр по статусу"),
-    priority: Optional[str] = Query(None, description="Фильтр по приоритету"),
+    status_id: Optional[int] = Query(None, ge=1, description="Фильтр по статусу (ID из справочника)"),
+    priority_id: Optional[int] = Query(None, ge=1, description="Фильтр по приоритету (ID из справочника)"),
     is_resolved: Optional[bool] = Query(None, description="Только устраненные/неустраненные"),
     is_critical: Optional[bool] = Query(None, description="Только критические"),
     reported_by_id: Optional[int] = Query(None, ge=1, description="Фильтр по создателю"),
@@ -48,8 +48,8 @@ async def get_issue_list(
         object_id=object_id,
         equipment_id=equipment_id,
         contract_id=contract_id,
-        status=status,
-        priority=priority,
+        status_id=status_id,
+        priority_id=priority_id,
         is_resolved=is_resolved,
         is_critical=is_critical,
         reported_by_id=reported_by_id,
@@ -73,7 +73,7 @@ async def get_issue_list(
 @router.get("/my", response_model=PaginatedResponse[IssueListResponse])
 async def get_my_issues(
     pagination: PaginationParams = Depends(),
-    status: Optional[str] = Query(None, description="Фильтр по статусу"),
+    status_id: Optional[int] = Query(None, ge=1, description="Фильтр по статусу (ID из справочника)"),
     is_resolved: Optional[bool] = Query(None, description="Только устраненные/неустраненные"),
     current_user: User = Depends(get_current_active_user)
 ):
@@ -85,7 +85,7 @@ async def get_my_issues(
     items, total = await issue_service.get_issues_by_current_user(
         pagination=pagination,
         current_user=current_user,
-        status=status,
+        status_id=status_id,
         is_resolved=is_resolved
     )
     
@@ -95,8 +95,12 @@ async def get_my_issues(
             "id": item.id,
             "number": item.number,
             "title": item.title,
-            "status": item.status,
-            "priority": item.priority,
+            "status_id": item.status_id,
+            "status_name": item.status.name if item.status else None,
+            "status_code": item.status.code if item.status else None,
+            "priority_id": item.priority_id,
+            "priority_name": item.priority.name if item.priority else None,
+            "priority_code": item.priority.code if item.priority else None,
             "detected_date": item.detected_date,
             "is_resolved": item.is_resolved,
             "is_critical": item.is_critical,
@@ -118,7 +122,7 @@ async def get_my_issues(
 @router.get("/assigned", response_model=PaginatedResponse[IssueListResponse])
 async def get_assigned_issues(
     pagination: PaginationParams = Depends(),
-    status: Optional[str] = Query(None, description="Фильтр по статусу"),
+    status_id: Optional[int] = Query(None, ge=1, description="Фильтр по статусу (ID из справочника)"),
     is_resolved: Optional[bool] = Query(None, description="Только устраненные/неустраненные"),
     current_user: User = Depends(get_current_active_user)
 ):
@@ -130,7 +134,7 @@ async def get_assigned_issues(
     items, total = await issue_service.get_issues_assigned_to_current_user(
         pagination=pagination,
         current_user=current_user,
-        status=status,
+        status_id=status_id,
         is_resolved=is_resolved
     )
     
@@ -140,8 +144,12 @@ async def get_assigned_issues(
             "id": item.id,
             "number": item.number,
             "title": item.title,
-            "status": item.status,
-            "priority": item.priority,
+            "status_id": item.status_id,
+            "status_name": item.status.name if item.status else None,
+            "status_code": item.status.code if item.status else None,
+            "priority_id": item.priority_id,
+            "priority_name": item.priority.name if item.priority else None,
+            "priority_code": item.priority.code if item.priority else None,
             "detected_date": item.detected_date,
             "is_resolved": item.is_resolved,
             "is_critical": item.is_critical,
@@ -171,18 +179,27 @@ async def get_issues_by_object(
     Требуется право: issue_read
     """
     issues = await issue_service.get_issues_by_object(object_id, current_user)
-    
+
     return [
         {
             "id": item.id,
             "number": item.number,
             "title": item.title,
-            "status": item.status,
-            "priority": item.priority,
+            "status_id": item.status_id,
+            "status_name": item.status.name if item.status else None,
+            "status_code": item.status.code if item.status else None,
+            "priority_id": item.priority_id,
+            "priority_name": item.priority.name if item.priority else None,
+            "priority_code": item.priority.code if item.priority else None,
             "detected_date": item.detected_date,
+            "resolved_date": item.resolved_date,
             "is_resolved": item.is_resolved,
             "is_critical": item.is_critical,
-            "equipment_name": item.equipment.name if item.equipment else None
+            "created_at": item.created_at,
+            "object_id": item.object_equipment.object_id if item.object_equipment else None,
+            "object_name": item.object_equipment.object.name if item.object_equipment and item.object_equipment.object else None,
+            "equipment_id": item.object_equipment.equipment_id if item.object_equipment else None,
+            "equipment_name": item.object_equipment.equipment.name if item.object_equipment and item.object_equipment.equipment else None,
         }
         for item in issues
     ]
@@ -198,44 +215,60 @@ async def get_issues_by_equipment(
     Требуется право: issue_read
     """
     issues = await issue_service.get_issues_by_equipment(equipment_id, current_user)
-    
+
     return [
         {
             "id": item.id,
             "number": item.number,
             "title": item.title,
-            "status": item.status,
-            "priority": item.priority,
+            "status_id": item.status_id,
+            "status_name": item.status.name if item.status else None,
+            "status_code": item.status.code if item.status else None,
+            "priority_id": item.priority_id,
+            "priority_name": item.priority.name if item.priority else None,
+            "priority_code": item.priority.code if item.priority else None,
             "detected_date": item.detected_date,
+            "resolved_date": item.resolved_date,
             "is_resolved": item.is_resolved,
             "is_critical": item.is_critical,
-            "object_name": item.object.name if item.object else None
+            "created_at": item.created_at,
+            "object_id": item.object_equipment.object_id if item.object_equipment else None,
+            "object_name": item.object_equipment.object.name if item.object_equipment and item.object_equipment.object else None,
+            "equipment_id": item.object_equipment.equipment_id if item.object_equipment else None,
+            "equipment_name": item.object_equipment.equipment.name if item.object_equipment and item.object_equipment.equipment else None,
         }
         for item in issues
     ]
 
 @router.get("/options", response_model=List[IssueOptionResponse])
 async def get_issue_options(
-    status: Optional[str] = Query(None, description="Фильтр по статусу"),
+    status_id: Optional[int] = Query(None, ge=1, description="Фильтр по статусу (ID из справочника)"),
     current_user: User = Depends(get_current_active_user)
 ):
     """
     Получить список неисправностей для выпадающих списков
-    
+
     Требуется право: issue_read
     """
     issues = await issue_service.get_issues_paginated(
         pagination=PaginationParams(page=1, per_page=100),
         current_user=current_user,
-        status=status
+        status_id=status_id
     )
-    
+
     return [
         {
             "id": item.id,
             "number": item.number,
             "title": item.title,
-            "status": item.status
+            "status_id": item.status_id,
+            "status_code": item.status.code if item.status else None,
+            "status_name": item.status.name if item.status else None,
+            "priority_id": item.priority_id,
+            "priority_name": item.priority.name if item.priority else None,
+            "priority_code": item.priority.code if item.priority else None,
+            "detected_date": item.detected_date,
+            "is_resolved": item.is_resolved
         }
         for item in issues[0]
     ]

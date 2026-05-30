@@ -1,4 +1,4 @@
-from typing import Optional, TYPE_CHECKING
+from typing import List, Optional, TYPE_CHECKING
 from datetime import date, datetime
 from sqlalchemy import ForeignKey, String, Text, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -20,9 +20,17 @@ class Issue(Base):
     title: Mapped[str] = mapped_column(String(200), nullable=False, comment="Краткое описание")
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True, comment="Подробное описание")
     
-    # Статус и приоритет
-    status: Mapped[str] = mapped_column(String(20), default="new", comment="Статус: new, in_progress, resolved, closed")
-    priority: Mapped[str] = mapped_column(String(20), default="medium", comment="Приоритет: low, medium, high, critical")
+    # Статус (справочник spec_statuss) и приоритет (справочник spec_prioritys)
+    status_id: Mapped[int] = mapped_column(
+        ForeignKey("spec_statuss.id"),
+        nullable=False,
+        comment="ID статуса из справочника spec_statuss"
+    )
+    priority_id: Mapped[int] = mapped_column(
+        ForeignKey("spec_prioritys.id"),
+        nullable=False,
+        comment="ID приоритета из справочника spec_prioritys"
+    )
     
     # Даты
     detected_date: Mapped[date] = mapped_column(nullable=False, comment="Дата обнаружения")
@@ -54,6 +62,18 @@ class Issue(Base):
     )
 
     # 👇 ИЗМЕНЕНО: отношения
+    status: Mapped["Spec_Status"] = relationship(
+        "Spec_Status",
+        back_populates="issues",
+        lazy="selectin"
+    )
+
+    priority: Mapped["Spec_Priority"] = relationship(
+        "Spec_Priority",
+        back_populates="issues",
+        lazy="selectin"
+    )
+
     object_equipment: Mapped["Objects_Equipment"] = relationship(
         "Objects_Equipment",
         back_populates="issues",
@@ -72,6 +92,13 @@ class Issue(Base):
         foreign_keys=[assigned_to_id],
         back_populates="assigned_issues",
         lazy="selectin"
+    )
+
+    attachments: Mapped[List["Issue_Attachment"]] = relationship(
+        "Issue_Attachment",
+        back_populates="issue",
+        cascade="all, delete-orphan",
+        lazy="selectin",
     )
 
     def __str__(self):
