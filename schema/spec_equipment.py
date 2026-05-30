@@ -11,21 +11,23 @@ class SpecEquipmentBase(BaseModel):
 # Схема для создания типа оборудования
 class SpecEquipmentCreate(SpecEquipmentBase):
     """Схема для создания типа оборудования"""
-    pass
+    description: Optional[str] = Field(None, max_length=1000, description="Описание/комментарий")
 
 # Схема для обновления типа оборудования (все поля опциональны)
 class SpecEquipmentUpdate(BaseModel):
     """Схема для обновления типа оборудования"""
     name: Optional[str] = Field(None, min_length=2, max_length=100)
-    
+    description: Optional[str] = Field(None, max_length=1000)
+
     model_config = ConfigDict(from_attributes=True)
 
 # Схема для ответа (с ID)
 class SpecEquipmentResponse(SpecEquipmentBase):
     """Полная информация о типе оборудования"""
     id: int
+    description: Optional[str] = None
     equipments_count: Optional[int] = Field(0, description="Количество оборудования этого типа")
-    
+
     model_config = ConfigDict(from_attributes=True)
 
 # Краткая схема для списка
@@ -33,8 +35,9 @@ class SpecEquipmentListResponse(BaseModel):
     """Краткая информация о типе оборудования для списков"""
     id: int
     name: str
+    description: Optional[str] = None
     equipments_count: int = 0
-    
+
     model_config = ConfigDict(from_attributes=True)
 
 # Схема для выпадающего списка

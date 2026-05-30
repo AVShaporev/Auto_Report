@@ -25,12 +25,13 @@ class ObjectBase(BaseModel):
 # Схема для создания объекта
 class ObjectCreate(ObjectBase):
     """Схема для создания объекта"""
-    pass
+    description: Optional[str] = Field(None, max_length=1000, description="Описание/комментарий")
 
 # Схема для обновления объекта (все поля опциональны)
 class ObjectUpdate(BaseModel):
     """Схема для обновления объекта"""
     name: Optional[str] = Field(None, min_length=2, max_length=200)
+    description: Optional[str] = Field(None, max_length=1000)
     build_number: Optional[str] = Field(None, max_length=50)
     room_number: Optional[str] = Field(None, max_length=50)
     responsible_face: Optional[str] = Field(None, min_length=2, max_length=100)
@@ -51,7 +52,9 @@ class ObjectUpdate(BaseModel):
 class ObjectResponse(ObjectBase):
     """Полная информация об объекте"""
     id: int
-    
+    description: Optional[str] = None
+    number_in_contract: int = Field(..., description="Порядковый номер объекта в рамках своего контракта (используется в номерах актов/отчётов)")
+
     # Связанные данные (названия)
     region_name: Optional[str] = Field(None, description="Название региона")
     arial_name: Optional[str] = Field(None, description="Название района")
@@ -73,6 +76,7 @@ class ObjectResponse(ObjectBase):
 class ObjectListResponse(BaseModel):
     """Краткая информация об объекте для списков"""
     id: int
+    number_in_contract: Optional[int] = None
     name: str
     build_number: Optional[str] = None
     room_number: Optional[str] = None
@@ -80,9 +84,11 @@ class ObjectListResponse(BaseModel):
     region_name: Optional[str] = None
     locality_name: Optional[str] = None
     street_name: Optional[str] = None
+    contract_id: Optional[int] = None
     contract_number: Optional[str] = None
+    description: Optional[str] = None
     equipments_count: int = 0
-    
+
     model_config = ConfigDict(from_attributes=True)
 
 # Схема для выпадающего списка

@@ -12,22 +12,24 @@ class SpecOrderBase(BaseModel):
 # Схема для создания типа заявки
 class SpecOrderCreate(SpecOrderBase):
     """Схема для создания типа заявки"""
-    pass
+    description: Optional[str] = Field(None, max_length=1000, description="Описание/комментарий")
 
 # Схема для обновления типа заявки (все поля опциональны)
 class SpecOrderUpdate(BaseModel):
     """Схема для обновления типа заявки"""
     name: Optional[str] = Field(None, min_length=2, max_length=100)
     short_name: Optional[str] = Field(None, max_length=50)
-    
+    description: Optional[str] = Field(None, max_length=1000)
+
     model_config = ConfigDict(from_attributes=True)
 
 # Схема для ответа (с ID)
 class SpecOrderResponse(SpecOrderBase):
     """Полная информация о типе заявки"""
     id: int
+    description: Optional[str] = None
     orders_count: Optional[int] = Field(0, description="Количество заявок этого типа")
-    
+
     model_config = ConfigDict(from_attributes=True)
 
 # Краткая схема для списка
@@ -36,8 +38,9 @@ class SpecOrderListResponse(BaseModel):
     id: int
     name: str
     short_name: Optional[str] = None
+    description: Optional[str] = None
     orders_count: int = 0
-    
+
     model_config = ConfigDict(from_attributes=True)
 
 # Схема для выпадающего списка

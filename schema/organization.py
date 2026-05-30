@@ -49,12 +49,13 @@ class OrganizationBase(BaseModel):
 # Схема для создания организации
 class OrganizationCreate(OrganizationBase):
     """Схема для создания организации (наследует все поля)"""
-    pass
+    description: Optional[str] = Field(None, max_length=1000, description="Описание/комментарий")
 
 # Схема для обновления организации (все поля опциональны)
 class OrganizationUpdate(BaseModel):
     """Схема для обновления организации"""
     name: Optional[str] = Field(None, min_length=2, max_length=200)
+    description: Optional[str] = Field(None, max_length=1000)
     short_name: Optional[str] = Field(None, min_length=2, max_length=100)
     inn: Optional[str] = Field(None, min_length=10, max_length=12)
     kpp: Optional[str] = Field(None, min_length=9, max_length=9)
@@ -100,13 +101,15 @@ class OrganizationListResponse(BaseModel):
     executor: bool
     bank_name: Optional[str] = None
     region_name: Optional[str] = None
-    
+    description: Optional[str] = None
+
     model_config = ConfigDict(from_attributes=True)
 
 # Полная схема для ответа
 class OrganizationResponse(OrganizationBase):
     """Полная информация об организации"""
     id: int
+    description: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     

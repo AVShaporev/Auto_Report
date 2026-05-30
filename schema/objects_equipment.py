@@ -28,6 +28,7 @@ class ObjectsEquipmentCreate(BaseModel):
     serial_number: Optional[str] = Field(None, max_length=50)
     installation_date: Optional[date] = None
     spec_system_id: Optional[int] = Field(None, ge=1)
+    description: Optional[str] = Field(None, max_length=1000, description="Описание/комментарий")
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -42,6 +43,7 @@ class ObjectsEquipmentUpdate(BaseModel):
     serial_number: Optional[str] = Field(None, max_length=50)
     installation_date: Optional[date] = None
     spec_system_id: Optional[int] = Field(None, ge=1)
+    description: Optional[str] = Field(None, max_length=1000)
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -60,6 +62,7 @@ class UpdateEquipmentCount(BaseModel):
 class ObjectsEquipmentResponse(ObjectsEquipmentBase):
     """Полная информация о связи объекта с оборудованием"""
     id: int
+    description: Optional[str] = None
 
     # Связанные данные
     object_name: Optional[str] = Field(None, description="Название объекта")
@@ -81,6 +84,7 @@ class ObjectsEquipmentListResponse(BaseModel):
     installation_date: Optional[date] = None
     object_name: Optional[str] = None
     equipment_name: Optional[str] = None
+    description: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 

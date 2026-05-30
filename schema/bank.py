@@ -13,7 +13,7 @@ class BankBase(BaseModel):
 # Схема для создания банка
 class BankCreate(BankBase):
     """Схема для создания банка"""
-    pass
+    description: Optional[str] = Field(None, max_length=1000, description="Описание/комментарий")
 
 # Схема для обновления банка (все поля опциональны)
 class BankUpdate(BaseModel):
@@ -21,15 +21,17 @@ class BankUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=2, max_length=200)
     bik: Optional[str] = Field(None, min_length=9, max_length=9)
     inn: Optional[str] = Field(None, min_length=10, max_length=12)
-    
+    description: Optional[str] = Field(None, max_length=1000)
+
     model_config = ConfigDict(from_attributes=True)
 
 # Схема для ответа (с ID)
 class BankResponse(BankBase):
     """Полная информация о банке"""
     id: int
+    description: Optional[str] = None
     organizations_count: Optional[int] = Field(0, description="Количество организаций, использующих этот банк")
-    
+
     model_config = ConfigDict(from_attributes=True)
 
 # Краткая схема для списка
@@ -39,6 +41,7 @@ class BankListResponse(BaseModel):
     name: str
     bik: str
     inn: str
+    description: Optional[str] = None
     organizations_count: int = 0
-    
+
     model_config = ConfigDict(from_attributes=True)

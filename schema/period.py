@@ -12,23 +12,25 @@ class PeriodBase(BaseModel):
 # Схема для создания периода
 class PeriodCreate(PeriodBase):
     """Схема для создания периода"""
-    pass
+    description: Optional[str] = Field(None, max_length=1000, description="Описание/комментарий")
 
 # Схема для обновления периода (все поля опциональны)
 class PeriodUpdate(BaseModel):
     """Схема для обновления периода"""
     name: Optional[str] = Field(None, min_length=2, max_length=100)
     period: Optional[str] = Field(None, min_length=2, max_length=50)
-    
+    description: Optional[str] = Field(None, max_length=1000)
+
     model_config = ConfigDict(from_attributes=True)
 
 # Схема для ответа (с ID)
 class PeriodResponse(PeriodBase):
     """Полная информация о периоде"""
     id: int
+    description: Optional[str] = None
     objects_count: Optional[int] = Field(0, description="Количество объектов с этим периодом")
     reports_count: Optional[int] = Field(0, description="Количество отчетов с этим периодом")
-    
+
     model_config = ConfigDict(from_attributes=True)
 
 # Краткая схема для списка
@@ -37,9 +39,10 @@ class PeriodListResponse(BaseModel):
     id: int
     name: str
     period: str
+    description: Optional[str] = None
     objects_count: int = 0
     reports_count: int = 0
-    
+
     model_config = ConfigDict(from_attributes=True)
 
 # Схема для выпадающего списка

@@ -20,7 +20,7 @@ class SpecSystemBase(BaseModel):
 
 class SpecSystemCreate(SpecSystemBase):
     """Схема для создания типа системы"""
-    pass
+    description: Optional[str] = Field(None, max_length=1000, description="Описание/комментарий")
 
 
 # ========== СХЕМЫ ДЛЯ ОБНОВЛЕНИЯ ==========
@@ -30,6 +30,7 @@ class SpecSystemUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=2, max_length=100)
     short_name: Optional[str] = Field(None, max_length=50)
     is_fire_protection: Optional[bool] = None
+    description: Optional[str] = Field(None, max_length=1000)
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -39,6 +40,7 @@ class SpecSystemUpdate(BaseModel):
 class SpecSystemResponse(SpecSystemBase):
     """Полная информация о типе системы"""
     id: int
+    description: Optional[str] = None
     objects_equipments_count: int = Field(
         0, description="Количество связанных записей объект-оборудование",
     )
@@ -54,6 +56,7 @@ class SpecSystemListResponse(BaseModel):
     name: str
     short_name: Optional[str] = None
     is_fire_protection: bool
+    description: Optional[str] = None
     objects_equipments_count: int = 0
 
     model_config = ConfigDict(from_attributes=True)

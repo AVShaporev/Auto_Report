@@ -19,7 +19,8 @@ class SubContractCreate(BaseModel):
     date_of_consclusion: date = Field(..., description="Дата заключения")
     subject: str = Field(..., min_length=3, max_length=500, description="Предмет дополнительного соглашения")
     contract_id: int = Field(..., ge=1, description="ID основного контракта")
-    
+    description: Optional[str] = Field(None, max_length=1000, description="Описание/комментарий")
+
     model_config = ConfigDict(from_attributes=True)
 
 # Схема для обновления дополнительного соглашения (все поля опциональны)
@@ -29,15 +30,17 @@ class SubContractUpdate(BaseModel):
     date_of_consclusion: Optional[date] = None
     subject: Optional[str] = Field(None, min_length=3, max_length=500)
     contract_id: Optional[int] = Field(None, ge=1)
-    
+    description: Optional[str] = Field(None, max_length=1000)
+
     model_config = ConfigDict(from_attributes=True)
 
 # Схема для ответа (с ID и связанными данными)
 class SubContractResponse(SubContractBase):
     """Полная информация о дополнительном соглашении"""
     id: int
+    description: Optional[str] = None
     contract_number: Optional[str] = Field(None, description="Номер основного контракта")
-    
+
     model_config = ConfigDict(from_attributes=True)
 
 # Краткая схема для списка
@@ -47,8 +50,9 @@ class SubContractListResponse(BaseModel):
     number: str
     date_of_consclusion: date
     subject: str
+    description: Optional[str] = None
     contract_number: Optional[str] = None
-    
+
     model_config = ConfigDict(from_attributes=True)
 
 # Схема для выпадающего списка

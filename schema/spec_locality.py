@@ -12,22 +12,24 @@ class SpecLocalityBase(BaseModel):
 # Схема для создания типа населенного пункта
 class SpecLocalityCreate(SpecLocalityBase):
     """Схема для создания типа населенного пункта"""
-    pass
+    description: Optional[str] = Field(None, max_length=1000, description="Описание/комментарий")
 
 # Схема для обновления типа населенного пункта (все поля опциональны)
 class SpecLocalityUpdate(BaseModel):
     """Схема для обновления типа населенного пункта"""
     name: Optional[str] = Field(None, min_length=2, max_length=100)
     short_name: Optional[str] = Field(None, max_length=20)
-    
+    description: Optional[str] = Field(None, max_length=1000)
+
     model_config = ConfigDict(from_attributes=True)
 
 # Схема для ответа (с ID)
 class SpecLocalityResponse(SpecLocalityBase):
     """Полная информация о типе населенного пункта"""
     id: int
+    description: Optional[str] = None
     localities_count: Optional[int] = Field(0, description="Количество населенных пунктов этого типа")
-    
+
     model_config = ConfigDict(from_attributes=True)
 
 # Краткая схема для списка
@@ -36,8 +38,9 @@ class SpecLocalityListResponse(BaseModel):
     id: int
     name: str
     short_name: Optional[str] = None
+    description: Optional[str] = None
     localities_count: int = 0
-    
+
     model_config = ConfigDict(from_attributes=True)
 
 # Схема для выпадающего списка

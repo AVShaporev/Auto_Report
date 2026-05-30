@@ -21,7 +21,7 @@ class ContractBase(BaseModel):
 # Схема для создания контракта
 class ContractCreate(ContractBase):
     """Схема для создания контракта"""
-    pass
+    description: Optional[str] = Field(None, max_length=1000, description="Описание/комментарий")
 
 # Схема для обновления контракта (все поля опциональны)
 class ContractUpdate(BaseModel):
@@ -36,14 +36,16 @@ class ContractUpdate(BaseModel):
     spec_contract_id: Optional[int] = Field(None, ge=1)
     customer_id: Optional[int] = Field(None, ge=1)
     executor_id: Optional[int] = Field(None, ge=1)
-    
+    description: Optional[str] = Field(None, max_length=1000)
+
     model_config = ConfigDict(from_attributes=True)
 
 # Схема для ответа (с ID и связанными данными)
 class ContractResponse(ContractBase):
     """Полная информация о контракте"""
     id: int
-    
+    description: Optional[str] = None
+
     # Связанные данные
     spec_contract_name: Optional[str] = Field(None, description="Название типа контракта")
     customer_name: Optional[str] = Field(None, description="Название организации-заказчика")
@@ -54,6 +56,7 @@ class ContractResponse(ContractBase):
     objects_count: Optional[int] = Field(0, description="Количество объектов")
     reports_count: Optional[int] = Field(0, description="Количество отчетов")
     orders_count: Optional[int] = Field(0, description="Количество заявок")
+    issues_count: Optional[int] = Field(0, description="Количество неисправностей")
 
     # Метаданные (из Base)
     created_at: Optional[datetime] = Field(None, description="Дата создания записи")
@@ -72,10 +75,13 @@ class ContractListResponse(BaseModel):
     short_subject: str
     type_contract: str
     spec_contract_name: Optional[str] = None
+    customer_id: Optional[int] = None
     customer_name: Optional[str] = None
+    executor_id: Optional[int] = None
     executor_name: Optional[str] = None
+    description: Optional[str] = None
     objects_count: int = 0
-    
+
     model_config = ConfigDict(from_attributes=True)
 
 # Схема для выпадающего списка

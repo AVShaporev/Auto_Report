@@ -57,12 +57,12 @@ class ReportUpdate(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-# ========== СХЕМЫ ДЛЯ УТВЕРЖДЕНИЯ ==========
+# ========== СХЕМЫ ДЛЯ СМЕНЫ СТАТУСА ==========
 
-class ReportApprove(BaseModel):
-    """Схема для утверждения отчета"""
-    check_pass: bool = Field(True, description="Утвердить отчет")
-    
+class ReportStatusUpdate(BaseModel):
+    """Схема для смены статуса отчёта (FK на spec_statuss)."""
+    status_id: int = Field(..., ge=1, description="ID статуса из справочника spec_statuss")
+
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -72,19 +72,21 @@ class ReportResponse(BaseModel):
     """Полная информация об отчете (с user_id для ответа)"""
     id: int
     number: str
-    check_pass: bool
+    status_id: int
     period_id: int
     contract_id: int
     object_id: int
     user_id: int  # 👈 user_id только в ответе
     created_at: date
     description: Optional[str] = None
-    
+
     # Связанные данные
     period_name: Optional[str] = Field(None, description="Название периода")
     contract_number: Optional[str] = Field(None, description="Номер контракта")
     object_name: Optional[str] = Field(None, description="Название объекта")
     user_name: Optional[str] = Field(None, description="Имя пользователя")
+    status_name: Optional[str] = Field(None, description="Название статуса")
+    status_code: Optional[str] = Field(None, description="Код статуса")
     order_id: Optional[int] = Field(None, description="ID связанной заявки")
     order_number: Optional[str] = Field(None, description="Номер связанной заявки")
 
@@ -97,7 +99,9 @@ class ReportListResponse(BaseModel):
     """Краткая информация об отчете для списков"""
     id: int
     number: str
-    check_pass: bool
+    status_id: int
+    status_name: Optional[str] = None
+    status_code: Optional[str] = None
     created_at: date
     period_name: Optional[str] = None
     contract_number: Optional[str] = None
@@ -115,6 +119,7 @@ class ReportOptionResponse(BaseModel):
     """Минимальная информация об отчете для выпадающих списков"""
     id: int
     number: str
-    check_pass: bool
-    
+    status_id: int
+    status_code: Optional[str] = None
+
     model_config = ConfigDict(from_attributes=True)

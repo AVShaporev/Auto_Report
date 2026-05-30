@@ -42,6 +42,7 @@ class UserBase(BaseModel):
 # Схема для создания пользователя
 class UserCreate(UserBase):
     password: str = Field(..., min_length=6)
+    description: Optional[str] = Field(None, max_length=1000, description="Описание/комментарий")
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -55,6 +56,7 @@ class UserUpdate(BaseModel):
     role_id: Optional[int] = Field(None, ge=1)
     is_active: Optional[bool] = None
     password: Optional[str] = Field(None, min_length=6)
+    description: Optional[str] = Field(None, max_length=1000)
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -66,8 +68,9 @@ class UserResponse(UserBase):
     email: Optional[str] = None
     role_id: int
     is_active: bool
+    description: Optional[str] = None
     role: Optional[RoleSimpleResponse] = None
-    
+
     model_config = ConfigDict(from_attributes=True)
 
 class UserRequest(UserBase):
@@ -89,7 +92,8 @@ class UserListResponse(BaseModel):
     email: Optional[str] = Field(None, validate_default=True)
     role_name: Optional[str] = None
     is_active: bool
-    
+    description: Optional[str] = None
+
     class Config:
         from_attributes = True
 
