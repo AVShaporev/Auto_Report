@@ -15,3 +15,8 @@ db/
 
 /media/
 
+# runtime log artifacts (rotated by loguru, weekly json dumps, archived zips)
+logs/*.log
+logs/*.json
+logs/*.zip
+
