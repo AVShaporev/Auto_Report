@@ -159,14 +159,17 @@ Postgres (5432) и uvicorn-порты (8000/8001) наружу не открыв
 ```
 # Минимальные права github-runner для деплоя.
 # Перезапуск API обоих окружений и reload nginx — без пароля.
-github-runner ALL=(root) NOPASSWD: /bin/systemctl restart autoreport-api@prod
-github-runner ALL=(root) NOPASSWD: /bin/systemctl restart autoreport-api@stage
-github-runner ALL=(root) NOPASSWD: /bin/systemctl status  autoreport-api@prod
-github-runner ALL=(root) NOPASSWD: /bin/systemctl status  autoreport-api@stage
-github-runner ALL=(root) NOPASSWD: /bin/systemctl reload  nginx
+github-runner ALL=(root) NOPASSWD: /usr/bin/systemctl restart autoreport-api@prod
+github-runner ALL=(root) NOPASSWD: /usr/bin/systemctl restart autoreport-api@stage
+github-runner ALL=(root) NOPASSWD: /usr/bin/systemctl status autoreport-api@prod --no-pager
+github-runner ALL=(root) NOPASSWD: /usr/bin/systemctl status autoreport-api@stage --no-pager
+github-runner ALL=(root) NOPASSWD: /usr/bin/systemctl reload nginx
 
-# Запуск poetry/alembic от имени autoreport (без пароля)
-github-runner ALL=(autoreport) NOPASSWD: /home/autoreport/.local/bin/poetry
+# Запуск poetry/alembic от имени autoreport (без пароля).
+# bash тут разрешён намеренно: github-runner и так может запустить любой код
+# через `poetry run`, поэтому запрет на bash не даёт реальной защиты, а наши
+# deploy-скрипты используют `bash -lc '...'` для загрузки env через `. /etc/...`.
+github-runner ALL=(autoreport) NOPASSWD: /home/autoreport/.local/bin/poetry, /usr/bin/bash, /bin/bash
 ```
 
 Права файла должны быть 440 — `visudo` проверит автоматически.
@@ -674,9 +677,9 @@ sudo -u autoreport -H bash -lc "
 "
 
 # рестарт
-sudo /bin/systemctl restart "autoreport-api@${ENV}"
+sudo /usr/bin/systemctl restart "autoreport-api@${ENV}"
 sleep 2
-sudo /bin/systemctl status "autoreport-api@${ENV}" --no-pager
+sudo /usr/bin/systemctl status "autoreport-api@${ENV}" --no-pager
 
 log "Backend deploy: OK"
 ```
@@ -907,7 +910,7 @@ sudo systemctl restart autoreport-api@prod
 | `Permission denied` в логах uvicorn | `chown -R autoreport:autoreport /opt/autoreport/<env>/backend/{logs,media}` |
 | Workflow не запускается | в GitHub Actions → должен быть видим runner; `journalctl -u gh-runner@<name>` |
 | Runner offline после ребута | `systemctl is-enabled gh-runner@<name>` — должно быть enabled |
-| `sudo: systemctl: command not found` в скрипте | путь — `/bin/systemctl`, проверь sudoers (§2.5) |
+| `sudo: systemctl: command not found` в скрипте | путь — `/usr/bin/systemctl`, проверь sudoers (§2.5) |
 | Миграция падает | `poetry run alembic current` / `history`; правь ручную downgrade-логику |
 | `git pull` конфликтует | кто-то правил код прямо на сервере — нельзя. `git reset --hard origin/<env>` чинит |
 

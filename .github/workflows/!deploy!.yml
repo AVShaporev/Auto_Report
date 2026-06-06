@@ -1,6 +1,5 @@
 name: Deploy backend
-
-  on:
+on:
     push:
       branches: [prod, stage]
     workflow_dispatch:
@@ -10,12 +9,10 @@ name: Deploy backend
           required: true
           type: choice
           options: [prod, stage]
-
-  concurrency:
+concurrency:
     group: deploy-backend-${{ github.ref_name }}
     cancel-in-progress: false
-
-  jobs:
+jobs:
     deploy:
       runs-on: [self-hosted, autoreport, linux]
       steps:
@@ -29,13 +26,11 @@ name: Deploy backend
             fi
 
         - name: Deploy
-          run: /opt/autoreport/scripts/deploy-backend.sh ${{ steps.env.outputs.name
-  }}
+          run: /opt/autoreport/scripts/deploy-backend.sh ${{ steps.env.outputs.name}}
 
         - name: Smoke test
           run: |
-            if [ "${{ steps.env.outputs.name }}" = "prod" ]; then PORT=8000; else
-  PORT=8001; fi
+            if [ "${{ steps.env.outputs.name }}" = "prod" ]; then PORT=8000; else PORT=8001; fi
             for i in 1 2 3 4 5; do
                 curl -fsS "http://127.0.0.1:${PORT}/docs" > /dev/null && exit 0
                 sleep 2
