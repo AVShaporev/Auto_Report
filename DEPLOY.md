@@ -1,609 +1,932 @@
-# План деплоя Auto_Report (FastAPI + Vue) на VPS
+# Auto_Report — деплой на Ubuntu 192.168.1.8
 
-> Цель: развернуть на одном VPS три Docker-контейнера — PostgreSQL, FastAPI-бэкенд, Vue-фронтенд — и автоматически пересобирать стек при коммитах в `main` бэка и/или фронта.
+Развёртывание стека (PostgreSQL + FastAPI backend + Vue SPA + nginx) на одной локальной Ubuntu-машине, два окружения **stage** и **prod** на том же сервере, автодеплой через **self-hosted GitHub Actions runner** при пуше в одноимённые ветки.
 
-Парный фронт: `..\..\Auto_report_front\auto_report_front` (отдельный git-репозиторий).
+Парный фронт-репозиторий: `Auto_report_front`. Этот файл покрывает обе части.
 
-Этот документ — **план**, а не реализация. Сами Dockerfile'ы, `docker-compose.yml`, конфиги nginx и GitHub Actions создаются по шагам ниже; пока их нет в репо.
-
----
-
-## 1. Архитектура
-
-```
-                       ┌──────────────────────────────────────────┐
-   Internet :443       │                  VPS                     │
-   ──────────►  Caddy (host) ──┬─► :80 frontend-nginx  (SPA + /api proxy)
-                       │       │
-                       │       └─► /api/* ──► backend :8000 (uvicorn/FastAPI)
-                       │                              │
-                       │                              ▼
-                       │                        postgres :5432
-                       │
-                       └──────────────────────────────────────────┘
-                                       docker network: ar_net
-```
-
-**Три контейнера в docker-compose:**
-
-| Сервис      | Образ                       | Назначение                                                   |
-|-------------|-----------------------------|--------------------------------------------------------------|
-| `postgres`  | `postgres:16-alpine`        | БД, данные в named volume `pg_data`                          |
-| `backend`   | свой build (Dockerfile)     | FastAPI + uvicorn, alembic migrations на старте              |
-| `frontend`  | свой build (multi-stage)    | nginx, отдаёт SPA-сборку и проксирует `/api/*` на `backend`  |
-
-**TLS / HTTPS:** Caddy на ХОСТЕ (вне docker) терминирует TLS, проксирует `:443 → frontend-nginx :80`. Caddy сам получает и обновляет Let's Encrypt. Это сохраняет ровно три docker-контейнера и не плодит сложности с certbot-sidecar.
-
-> Альтернатива: четвёртый контейнер с Caddy/Traefik как edge. Не выбираем — увеличивает количество контейнеров.
+Альтернативный план для публичного VPS с Docker+Caddy+SOPS см. `DEPLOY_VPS.md`.
 
 ---
 
-## 2. Подготовка VPS (одноразово)
+## 1. Целевая архитектура
+
+```
+                              192.168.1.8 (Ubuntu 22.04+)
+┌──────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│   nginx                                                              │
+│     :80  →  prod   →  /opt/autoreport/prod/frontend/dist             │
+│                  →  /api/  →  127.0.0.1:8000  (autoreport-api@prod)  │
+│     :8080→  stage  →  /opt/autoreport/stage/frontend/dist            │
+│                  →  /api/  →  127.0.0.1:8001  (autoreport-api@stage) │
+│                                                                      │
+│   systemd templated unit  autoreport-api@.service                    │
+│     instance=prod   → ветка prod,  порт 8000, БД autoreport_prod    │
+│     instance=stage  → ветка stage, порт 8001, БД autoreport_stage   │
+│                                                                      │
+│   PostgreSQL 16 :5432 (loopback)                                     │
+│     БД: autoreport_prod, autoreport_stage                            │
+│     роли: autoreport_prod, autoreport_stage (раздельные)             │
+│                                                                      │
+│   GitHub Actions self-hosted runner (systemd)                        │
+│     юзер: github-runner, регистрируется в обоих репо                 │
+│                                                                      │
+│   Пользователи системы:                                              │
+│     autoreport     — owner кода и venv, под ним работает uvicorn     │
+│     github-runner  — owner runner-агента, выполняет workflow         │
+│     www-data       — nginx                                           │
+└──────────────────────────────────────────────────────────────────────┘
+                                  ▲
+                                  │ GitHub Actions runner self-poll
+                                  │
+                              GitHub.com
+```
+
+Файловая структура на сервере:
+
+```
+/opt/autoreport/
+  prod/
+    backend/             ← Auto_Report, ветка prod
+    frontend/dist/       ← залит из CI (npm run build)
+  stage/
+    backend/             ← Auto_Report, ветка stage
+    frontend/dist/       ← залит из CI
+  scripts/
+    deploy-backend.sh    ← общий, принимает аргумент: prod | stage
+    deploy-frontend.sh
+    common.sh
+  backups/
+
+/etc/autoreport/
+  prod.env               ← секреты prod  (chmod 640, root:autoreport)
+  stage.env              ← секреты stage
+
+/etc/systemd/system/
+  autoreport-api@.service
+
+/etc/nginx/sites-available/
+  autoreport
+```
+
+Изоляция окружений:
+- Разные ветки git, разные рабочие копии.
+- Разные БД, разные роли PG (компрометация одной не открывает другую).
+- Разные порты uvicorn.
+- Разные nginx server-блоки (`listen 80` vs `listen 8080`).
+- Один OS-юзер `autoreport` для обоих окружений (упрощает права; если нужна более жёсткая изоляция — заводим `autoreport_prod` и `autoreport_stage`).
+
+---
+
+## 2. Подготовка сервера
+
+Все команды выполняются от пользователя с `sudo`.
+
+### 2.1. Системные пакеты
 
 ```bash
-# Ubuntu 22.04 / 24.04 LTS как baseline.
 sudo apt update && sudo apt upgrade -y
-sudo apt install -y ca-certificates curl gnupg ufw fail2ban
-
-# Docker (официальный репозиторий)
-curl -fsSL https://get.docker.com | sudo sh
-sudo usermod -aG docker $USER
-# Перелогиниться, чтобы группа docker подцепилась.
-
-# Caddy для TLS на хосте
-sudo apt install -y debian-keyring debian-archive-keyring apt-transport-https
-curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' \
-  | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
-curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' \
-  | sudo tee /etc/apt/sources.list.d/caddy-stable.list
-sudo apt update && sudo apt install -y caddy
-
-# Файрвол
-sudo ufw allow 22/tcp
-sudo ufw allow 80/tcp
-sudo ufw allow 443/tcp
-sudo ufw enable
-
-# Swap (важно для t2/t3 small VPS, иначе uvicorn под нагрузкой OOM-ится)
-sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile
-sudo mkswap /swapfile && sudo swapon /swapfile
-echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
-
-# Деплой-юзер с минимальными правами
-sudo adduser --disabled-password --gecos "" deploy
-sudo usermod -aG docker deploy
-sudo mkdir -p /opt/auto-report && sudo chown deploy:deploy /opt/auto-report
+sudo apt install -y \
+    build-essential curl git ufw \
+    postgresql postgresql-contrib \
+    python3.11 python3.11-venv python3-pip \
+    nginx \
+    rsync jq
 ```
 
-**SSH-ключ для GitHub Actions:**
-1. На сервере: `sudo -u deploy ssh-keygen -t ed25519 -f ~deploy/.ssh/github_deploy -N ""`.
-2. Публичную часть в `~deploy/.ssh/authorized_keys`.
-3. Приватную часть положить в GitHub Secrets обоих репозиториев как `SSH_PRIVATE_KEY`.
+Node.js 22 (для сборки фронта в CI, и на сервере опционально для smoke-проверок):
+
+```bash
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo bash -
+sudo apt install -y nodejs
+node -v
+```
+
+### 2.2. Пользователи системы
+
+```bash
+# системный юзер под бэк
+sudo useradd --system --create-home --home-dir /home/autoreport \
+    --shell /bin/bash autoreport
+
+# юзер под self-hosted runner (его создаёт сам инсталлятор, но можем заранее)
+sudo useradd --create-home --shell /bin/bash github-runner
+
+# у runner-юзера должен быть доступ на запись в /opt/autoreport
+sudo usermod -aG autoreport github-runner
+```
+
+Запретить логин по паролю:
+
+```bash
+sudo passwd -l autoreport
+sudo passwd -l github-runner
+```
+
+### 2.3. Каталоги
+
+```bash
+sudo mkdir -p /opt/autoreport/{prod,stage,scripts,backups}
+sudo mkdir -p /opt/autoreport/prod/{backend,frontend}
+sudo mkdir -p /opt/autoreport/stage/{backend,frontend}
+sudo mkdir -p /etc/autoreport
+
+sudo chown -R github-runner:autoreport /opt/autoreport
+sudo chmod -R 2775 /opt/autoreport    # setgid: новые файлы → группа autoreport
+
+sudo chown root:autoreport /etc/autoreport
+sudo chmod 750 /etc/autoreport
+```
+
+### 2.4. Firewall (ufw)
+
+```bash
+sudo ufw default deny incoming
+sudo ufw default allow outgoing
+sudo ufw allow 22/tcp     # SSH из локальной сети
+sudo ufw allow 80/tcp     # nginx prod
+sudo ufw allow 8080/tcp   # nginx stage
+sudo ufw enable
+sudo ufw status
+```
+
+Postgres (5432) и uvicorn-порты (8000/8001) наружу не открываем — слушают только loopback.
+
+### 2.5. sudoers для runner
+
+`/etc/sudoers.d/github-runner-autoreport` (создать через `sudo visudo -f`):
+
+```
+# Минимальные права github-runner для деплоя.
+# Перезапуск API обоих окружений и reload nginx — без пароля.
+github-runner ALL=(root) NOPASSWD: /bin/systemctl restart autoreport-api@prod
+github-runner ALL=(root) NOPASSWD: /bin/systemctl restart autoreport-api@stage
+github-runner ALL=(root) NOPASSWD: /bin/systemctl status  autoreport-api@prod
+github-runner ALL=(root) NOPASSWD: /bin/systemctl status  autoreport-api@stage
+github-runner ALL=(root) NOPASSWD: /bin/systemctl reload  nginx
+
+# Запуск poetry/alembic от имени autoreport (без пароля)
+github-runner ALL=(autoreport) NOPASSWD: /home/autoreport/.local/bin/poetry
+```
+
+Права файла должны быть 440 — `visudo` проверит автоматически.
 
 ---
 
-## 3. Файлы, которые добавим в репозитории
+## 3. PostgreSQL
 
-### 3.1 В корень `Auto_Report/` (этот репо)
+### 3.1. Создание ролей и БД
 
-- **`Dockerfile`** — multi-stage:
-  - `builder`: `python:3.11-slim` + Poetry, `poetry export` → `requirements.txt`, чтобы не таскать Poetry в runtime образ.
-  - `runtime`: `python:3.11-slim`, `pip install -r requirements.txt`, копируем код, `WORKDIR /app`, `USER nobody`, `EXPOSE 8000`.
-  - `CMD ["sh", "/app/docker/entrypoint.sh"]`.
-- **`docker/entrypoint.sh`**:
-  ```sh
-  #!/bin/sh
-  set -e
+Пароли сгенерировать заранее:
 
-  # Docker secrets смонтированы как файлы в /run/secrets/.
-  # Экспортируем их в env прямо перед запуском приложения — Pydantic Settings
-  # и SQLAlchemy не нужно учить читать файлы. Env-переменные при этом
-  # никогда не были видны в `docker inspect` / `docker compose config`.
-  for f in /run/secrets/*; do
-    [ -f "$f" ] || continue
-    name=$(basename "$f" | tr '[:lower:]' '[:upper:]')
-    export "$name"="$(cat "$f")"
-  done
-
-  alembic upgrade head
-  exec uvicorn main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips=*
-  ```
-- **`.dockerignore`**: `.venv`, `__pycache__`, `.git`, `logs`, `media`, `.env`, `tests`, `.pytest_cache`.
-- **`docker-compose.yml`** — см. §4.
-- **`docker-compose.prod.override.yml`** *(опционально)* — переопределения для прода (`restart: unless-stopped`, ресурсные лимиты).
-- **`.github/workflows/deploy.yml`** — см. §6.
-
-### 3.2 В корень `Auto_report_front/auto_report_front/`
-
-- **`Dockerfile`** — multi-stage:
-  - `builder`: `node:22-alpine`, `npm ci`, `npm run build` → `dist/`.
-  - `runtime`: `nginx:1.27-alpine`, копируем `dist/` в `/usr/share/nginx/html`, копируем `docker/nginx.conf` в `/etc/nginx/conf.d/default.conf`.
-- **`docker/nginx.conf`**:
-  ```nginx
-  server {
-    listen 80;
-    server_name _;
-    root /usr/share/nginx/html;
-    index index.html;
-
-    # SPA fallback
-    location / {
-      try_files $uri $uri/ /index.html;
-    }
-
-    # Прокси к бэку (имя сервиса из docker-compose)
-    location /api/ {
-      proxy_pass http://backend:8000;
-      proxy_http_version 1.1;
-      proxy_set_header Host $host;
-      proxy_set_header X-Real-IP $remote_addr;
-      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-      proxy_set_header X-Forwarded-Proto $scheme;
-      proxy_read_timeout 120s;
-      client_max_body_size 50m;  # под загрузку фото вложений
-    }
-
-    # gzip и кеш для assets
-    gzip on;
-    gzip_types text/plain text/css application/javascript application/json image/svg+xml;
-    location /assets/ {
-      expires 30d;
-      add_header Cache-Control "public, immutable";
-    }
-  }
-  ```
-- **`.dockerignore`**: `node_modules`, `dist`, `.git`.
-- **`.github/workflows/deploy.yml`** — отдельный workflow для фронта.
-
-### 3.3 Не-секретная конфигурация на VPS
-
-Только то, что НЕ секрет:
-
-- **`/opt/auto-report/.env`** — переменные для самого docker-compose (имя БД, версии образов, путь до секретов). Это **не пароли**:
-  ```
-  POSTGRES_DB=autoreport
-  POSTGRES_USER=autoreport
-  SECRETS_DIR=/dev/shm/auto-report-secrets
-  ```
-- **`/etc/caddy/Caddyfile`**:
-  ```
-  auto-report.example.com {
-    reverse_proxy 127.0.0.1:8080
-    encode gzip
-  }
-  ```
-  (8080 — порт frontend-контейнера, см. §4).
-
-Эти файлы НЕ в git, права `chmod 644`. Секреты — отдельно, см. §3.4.
-
-### 3.4 Секреты — SOPS + age + Docker secrets
-
-**Принцип, на котором всё держится:**
-
-1. **At-rest:** все секреты хранятся в репозитории в файле `secrets/secrets.enc.yaml`, зашифрованном через **SOPS+age**. Закоммитить безопасно — без приватного age-ключа расшифровать нельзя.
-2. **Доставка:** на VPS при деплое sops расшифровывает файл в **tmpfs** (`/dev/shm`), не на диск. Декрипт-ключ лежит только на VPS и на ноутбуках админов в `~/.config/sops/age/keys.txt` (`chmod 600`), вне git.
-3. **Runtime:** docker-compose монтирует tmpfs-файлы как **Docker secrets** в `/run/secrets/`. Контейнер видит их как файлы, не как env-переменные → они не светятся в `docker inspect`, `docker compose config`, `ps auxe`, логах процесса, ошибках pydantic.
-4. **App-side:** entrypoint бэка (см. §3.1) перед запуском uvicorn копирует `/run/secrets/*` в env — никаких правок в `config.py` и Pydantic Settings не нужно.
-
-**Почему именно так:**
-
-- ❌ `*.env` файлы — секреты в открытую на диске, попадают в env-переменные процесса (видны в `/proc/<pid>/environ`, `docker inspect`, в трейсах SQLAlchemy/asyncpg при ошибках подключения), легко закоммитить случайно. **Не делаем.**
-- ❌ Облачный secrets-менеджер (AWS/GCP/Doppler/Infisical) — лишний сервис, vendor lock-in, ежемесячная стоимость. Для одного VPS это overkill.
-- ❌ HashiCorp Vault — серьёзная инфра ради 5 секретов. Overkill.
-- ✅ **SOPS+age** — один бинарь, один приватный ключ, шифрованный файл в git, расшифровка точечно при деплое. Industry-standard для GitOps на маленьких/средних инсталляциях (k3s/Flux/ArgoCD ровно так делают).
-- ✅ **Docker secrets** — родной механизм docker compose, монтирует tmpfs, не env. Без Swarm работает (compose v2+).
-
-**Структура файлов:**
-
-```
-Auto_Report/
-  secrets/
-    secrets.enc.yaml         ← В git. Зашифрован age.
-    .sops.yaml               ← В git. Конфиг, какие ключи-получатели использовать.
-
-# На VPS, вне git:
-~deploy/.config/sops/age/keys.txt    ← Приватный age-ключ, chmod 600
-/opt/auto-report/scripts/deploy.sh   ← Обёртка, см. ниже
-/dev/shm/auto-report-secrets/        ← tmpfs, рантайм-расшифровка
+```bash
+openssl rand -base64 32 | tr -d '=+/' | cut -c1-32   # для prod
+openssl rand -base64 32 | tr -d '=+/' | cut -c1-32   # для stage
 ```
 
-**Содержимое `secrets/.sops.yaml`** (определяет, кого добавлять как получателей):
+```bash
+sudo -u postgres psql <<'SQL'
+CREATE ROLE autoreport_prod  WITH LOGIN PASSWORD 'PROD_PASSWORD_HERE';
+CREATE ROLE autoreport_stage WITH LOGIN PASSWORD 'STAGE_PASSWORD_HERE';
 
-```yaml
-creation_rules:
-  - path_regex: secrets/secrets\.enc\.yaml$
-    age: >-
-      age1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx,
-      age1yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
+CREATE DATABASE autoreport_prod  OWNER autoreport_prod;
+CREATE DATABASE autoreport_stage OWNER autoreport_stage;
+
+GRANT ALL PRIVILEGES ON DATABASE autoreport_prod  TO autoreport_prod;
+GRANT ALL PRIVILEGES ON DATABASE autoreport_stage TO autoreport_stage;
+SQL
 ```
 
-Первый ключ — VPS, второй — ноутбук админа. Каждый может расшифровать своим приватным ключом независимо. Добавляется новый админ — публичный ключ дописывается, файл `sops updatekeys secrets/secrets.enc.yaml` перешифровывается под новый набор получателей.
+Эти же пароли пойдут в `/etc/autoreport/prod.env` и `stage.env` (§4).
 
-**Что лежит в `secrets/secrets.enc.yaml` (после расшифровки):**
+### 3.2. Ограничить доступ к БД loopback'ом
 
-```yaml
-POSTGRES_PASSWORD: "сильный-пароль-pg"
-DB_PASSWORD: "тот-же-сильный-пароль-pg"
-SECRET_KEY: "ротированный-2026-04-18-jwt-secret"
-DB_HOST: "postgres"
-DB_PORT: "5432"
-DB_NAME: "autoreport"
-DB_USER: "autoreport"
-ALGORITHM: "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES: "30"
-REFRESH_TOKEN_EXPIRE_DAYS: "30"
+`/etc/postgresql/16/main/postgresql.conf`:
+
+```
+listen_addresses = 'localhost'
 ```
 
-> Технически `DB_HOST/PORT/NAME/USER/ALGORITHM/EXPIRE_*` — не секреты. Можно вынести их в `/opt/auto-report/.env` и `env:` блок compose, чтобы не плодить файлы в `/run/secrets/`. Решено держать всё конфиг-бэкенда в одном sops-файле — проще оперировать, и пересборка БД-параметров не требует прав на расшифровку секрета. Если хочется чище — можно разделить позже.
+`/etc/postgresql/16/main/pg_hba.conf` — оставить только:
 
-**Скрипт деплоя `scripts/deploy.sh` на VPS** (он же дёргается из GitHub Actions, см. §6):
+```
+local   all             postgres                                peer
+local   all             all                                     scram-sha-256
+host    autoreport_prod  autoreport_prod   127.0.0.1/32         scram-sha-256
+host    autoreport_stage autoreport_stage  127.0.0.1/32         scram-sha-256
+```
 
-```sh
-#!/bin/sh
-set -eu
+Применить:
 
-REPO=/opt/auto-report/Auto_Report
-SECRETS_DIR=/dev/shm/auto-report-secrets
-SVC="${1:-}"   # backend / frontend / postgres / пусто = все
+```bash
+sudo systemctl restart postgresql
+```
 
-cd "$REPO"
-git fetch --all
-git reset --hard origin/main
+Проверка:
 
-# Расшифровываем в tmpfs (не на SSD!), права 700 — читает только deploy.
-rm -rf "$SECRETS_DIR"
-mkdir -p "$SECRETS_DIR" && chmod 700 "$SECRETS_DIR"
+```bash
+PGPASSWORD='PROD_PASSWORD_HERE' psql -h 127.0.0.1 -U autoreport_prod  -d autoreport_prod  -c '\dt'
+PGPASSWORD='STAGE_PASSWORD_HERE' psql -h 127.0.0.1 -U autoreport_stage -d autoreport_stage -c '\dt'
+```
 
-# По одному файлу на каждый ключ из YAML → удобно мапить в Docker secrets.
-for k in $(sops -d secrets/secrets.enc.yaml | yq -r 'keys[]'); do
-  sops -d --extract "[\"$k\"]" secrets/secrets.enc.yaml > "$SECRETS_DIR/$(echo "$k" | tr '[:upper:]' '[:lower:]')"
-  chmod 400 "$SECRETS_DIR/$(echo "$k" | tr '[:upper:]' '[:lower:]')"
+### 3.3. Ежедневный бэкап обеих БД
+
+`/etc/cron.daily/autoreport-backup` (chmod 750, owner root):
+
+```bash
+#!/bin/bash
+set -euo pipefail
+TS=$(date +%Y-%m-%d_%H%M)
+BACKUP_DIR=/opt/autoreport/backups
+
+for ENV in prod stage; do
+    ENV_FILE="/etc/autoreport/${ENV}.env"
+    DB_NAME=$(grep ^DB_NAME "$ENV_FILE" | cut -d= -f2-)
+    DB_USER=$(grep ^DB_USER "$ENV_FILE" | cut -d= -f2-)
+    DB_PASSWORD=$(grep ^DB_PASSWORD "$ENV_FILE" | cut -d= -f2-)
+    OUT="${BACKUP_DIR}/${DB_NAME}_${TS}.sql.gz"
+
+    PGPASSWORD="$DB_PASSWORD" pg_dump -h 127.0.0.1 -U "$DB_USER" "$DB_NAME" | gzip > "$OUT"
 done
 
-# Подтянули новые образы (если есть) и пересобрали нужное.
-docker compose pull postgres
-if [ -n "$SVC" ]; then
-  docker compose up -d --build "$SVC"
-else
-  docker compose up -d --build
-fi
-
-docker image prune -f
+find "$BACKUP_DIR" -name 'autoreport_*.sql.gz' -mtime +14 -delete
 ```
-
-`tmpfs` (`/dev/shm`) — критично: при перезагрузке VPS секреты исчезают и доступны снова только после следующего деплоя (recreating). На SSD ничего не остаётся.
-
-**Установка инструментов на VPS** (одноразово):
 
 ```bash
-# sops + age — официальные релизы
-sudo curl -fsSL -o /usr/local/bin/sops \
-  https://github.com/getsops/sops/releases/latest/download/sops-v3.9.4.linux.amd64
-sudo curl -fsSL -o /usr/local/bin/age \
-  https://github.com/FiloSottile/age/releases/latest/download/age-v1.2.1-linux-amd64.tar.gz   # распаковать
-sudo chmod +x /usr/local/bin/sops /usr/local/bin/age
-
-# yq для парсинга YAML
-sudo curl -fsSL -o /usr/local/bin/yq \
-  https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
-sudo chmod +x /usr/local/bin/yq
-
-# Сгенерировать age-ключ для VPS
-sudo -u deploy mkdir -p ~deploy/.config/sops/age
-sudo -u deploy age-keygen -o ~deploy/.config/sops/age/keys.txt
-sudo chmod 600 ~deploy/.config/sops/age/keys.txt
-# Публичную часть (строка `# public key: age1...`) — в .sops.yaml репо
+sudo chmod 750 /etc/cron.daily/autoreport-backup
+sudo chown root:root /etc/cron.daily/autoreport-backup
 ```
-
-**Ротация секрета** (например, JWT `SECRET_KEY` или БД-пароль):
-
-1. С ноутбука админа: `sops secrets/secrets.enc.yaml` → редактируем значение → сохраняем (sops перешифрует автоматически).
-2. `git commit -m "rotate: jwt secret"; git push`.
-3. GitHub Actions триггерится, на VPS `scripts/deploy.sh` подхватывает свежий зашифрованный файл, расшифровывает, контейнер перезапускается с новым секретом.
-4. Для БД-пароля дополнительно — `docker compose exec postgres psql -U postgres -c "ALTER USER autoreport WITH PASSWORD '<новый>'"` ДО редактирования sops-файла, иначе бэк потеряет доступ. Лучше делать в одной сессии вручную и сразу проверять.
-
-**Резервная копия age-ключа.** Утрата приватного ключа = невозможность расшифровать `secrets.enc.yaml`. Хранить:
-- Аппаратный ключ (YubiKey) — лучший вариант, age-plugin-yubikey.
-- Менеджер паролей (Bitwarden/1Password) с пометкой "восстановление".
-- Бумажная распечатка в сейфе для совсем большого продакшена.
-
-> Для совсем стартового деплоя допустимый минимум: пропустить SOPS, хранить расшифрованные секреты вручную в `/opt/auto-report/secrets/` (`chmod 600`, owner `deploy`) и держать там же. Docker secrets через `secrets: { file: ... }` всё равно используем — это покрывает 90% угроз (нет env-переменных, нет вытекания в `docker inspect`). Минусы: одна копия (на VPS), не git'able, ротация только руками на сервере. **Рекомендую с SOPS, не пропускать.**
 
 ---
 
-## 4. `docker-compose.yml` (концепт)
+## 4. Секреты — основной путь (systemd EnvironmentFile)
 
-Лежит в корне `Auto_Report/`. Образ фронта собирается из соседней папки через `context: ../Auto_report_front/auto_report_front` — это требует, чтобы на сервере оба репо лежали рядом:
+### 4.1. Файлы секретов
+
+`/etc/autoreport/prod.env`:
 
 ```
-/opt/auto-report/
-  Auto_Report/                ← бэк-репо, здесь docker-compose.yml, secrets/secrets.enc.yaml
-  Auto_report_front/auto_report_front/   ← фронт-репо
-  .env                        ← только несекретное (POSTGRES_DB, POSTGRES_USER, SECRETS_DIR)
-  scripts/deploy.sh           ← обёртка: git pull + sops -d → /dev/shm + compose up
+DB_HOST=127.0.0.1
+DB_PORT=5432
+DB_NAME=autoreport_prod
+DB_USER=autoreport_prod
+DB_PASSWORD=<пароль из §3.1>
+SECRET_KEY=<openssl rand -base64 64 | tr -d '\n='>
+ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=30
+REFRESH_TOKEN_EXPIRE_DAYS=30
+MEDIA_ROOT=/opt/autoreport/prod/backend/media
+UVICORN_PORT=8000
 ```
 
-И отдельно (вне `/opt/auto-report/`):
+`/etc/autoreport/stage.env`:
+
 ```
-~deploy/.config/sops/age/keys.txt   ← приватный age-ключ, chmod 600
-/dev/shm/auto-report-secrets/       ← tmpfs, эфемерная расшифровка
+DB_HOST=127.0.0.1
+DB_PORT=5432
+DB_NAME=autoreport_stage
+DB_USER=autoreport_stage
+DB_PASSWORD=<пароль из §3.1>
+SECRET_KEY=<отдельный, не совпадает с prod>
+ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=30
+REFRESH_TOKEN_EXPIRE_DAYS=30
+MEDIA_ROOT=/opt/autoreport/stage/backend/media
+UVICORN_PORT=8001
 ```
 
-Скелет (без полных deploy-полей):
+Права:
+
+```bash
+sudo chown root:autoreport /etc/autoreport/prod.env /etc/autoreport/stage.env
+sudo chmod 640 /etc/autoreport/prod.env /etc/autoreport/stage.env
+```
+
+Только `root` — запись, группа `autoreport` (и runner через групповое членство) — чтение. Никогда не в git.
+
+### 4.2. Бэкап секретов
+
+Копия — **вне сервера**:
+- менеджер паролей (Bitwarden / 1Password) — рекомендую,
+- зашифрованный архив на твоём ПК (`age -p` / `gpg -c`).
+
+### 4.3. Альтернатива — SOPS + age в репо
+
+Если хочешь версионировать секреты в репозитории — рабочий план в `DEPLOY_VPS.md` §3.4. Для одного локального сервера `EnvironmentFile` достаточно и проще.
+
+---
+
+## 5. Backend — установка и systemd unit
+
+### 5.1. Poetry для пользователя autoreport
+
+```bash
+sudo -u autoreport -H bash -lc '
+    curl -sSL https://install.python-poetry.org | python3 -
+    echo "export PATH=\$HOME/.local/bin:\$PATH" >> ~/.profile
+'
+```
+
+### 5.2. Первый клон (вручную, для каждого окружения)
+
+Под `github-runner`:
+
+```bash
+sudo -u github-runner bash -lc '
+    cd /opt/autoreport/prod
+    git clone https://github.com/<owner>/Auto_Report.git backend
+    cd backend && git checkout prod
+
+    cd /opt/autoreport/stage
+    git clone https://github.com/<owner>/Auto_Report.git backend
+    cd backend && git checkout stage
+'
+```
+
+Установить зависимости и накатить миграции под `autoreport` (для каждого окружения):
+
+```bash
+# PROD
+sudo -u autoreport -H bash -lc '
+    cd /opt/autoreport/prod/backend
+    ~/.local/bin/poetry install --only main --no-root
+    set -a; . /etc/autoreport/prod.env; set +a
+    ~/.local/bin/poetry run alembic upgrade head
+'
+
+# STAGE — то же самое, заменяя prod на stage
+```
+
+Каталоги для логов и медиа:
+
+```bash
+sudo -u autoreport mkdir -p /opt/autoreport/prod/backend/{logs,media}
+sudo -u autoreport mkdir -p /opt/autoreport/stage/backend/{logs,media}
+```
+
+### 5.3. systemd templated unit
+
+`/etc/systemd/system/autoreport-api@.service`:
+
+```ini
+[Unit]
+Description=Auto_Report FastAPI backend (%i)
+After=network.target postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=simple
+User=autoreport
+Group=autoreport
+WorkingDirectory=/opt/autoreport/%i/backend
+EnvironmentFile=/etc/autoreport/%i.env
+ExecStart=/home/autoreport/.local/bin/poetry run uvicorn main:app \
+    --host 127.0.0.1 --port ${UVICORN_PORT} --workers 2
+Restart=on-failure
+RestartSec=5
+
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/opt/autoreport/%i/backend/logs /opt/autoreport/%i/backend/media
+
+[Install]
+WantedBy=multi-user.target
+```
+
+`%i` подставит instance: `autoreport-api@prod` → `prod`. Один файл — оба окружения.
+
+Запуск:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now autoreport-api@prod
+sudo systemctl enable --now autoreport-api@stage
+sudo systemctl status autoreport-api@prod
+sudo systemctl status autoreport-api@stage
+curl -s http://127.0.0.1:8000/docs | head -n 3
+curl -s http://127.0.0.1:8001/docs | head -n 3
+```
+
+Логи:
+
+```bash
+sudo journalctl -u autoreport-api@prod  -f
+sudo journalctl -u autoreport-api@stage -f
+tail -f /opt/autoreport/prod/backend/logs/app.log
+tail -f /opt/autoreport/stage/backend/logs/app.log
+```
+
+---
+
+## 6. Frontend
+
+Сборку фронта делает CI (см. §8.5), на сервер заливается готовый `dist/`. Первый раз можно собрать на сервере — чтобы было что отдавать через nginx до первого workflow-run:
+
+```bash
+sudo -u github-runner bash -lc '
+    for ENV in prod stage; do
+        cd /opt/autoreport/$ENV
+        git clone https://github.com/<owner>/Auto_report_front.git frontend
+        cd frontend && git checkout $ENV
+        npm ci
+        cat > .env <<EOF
+VITE_API_BASE_URL=/api
+EOF
+        npm run build
+    done
+'
+```
+
+`dist/` остаётся в `/opt/autoreport/<env>/frontend/dist/` — оттуда nginx и отдаёт статику.
+
+---
+
+## 7. Nginx
+
+`/etc/nginx/sites-available/autoreport`:
+
+```nginx
+# ============= PROD =============
+server {
+    listen 80 default_server;
+    server_name 192.168.1.8 _;
+
+    access_log /var/log/nginx/autoreport-prod.access.log;
+    error_log  /var/log/nginx/autoreport-prod.error.log warn;
+
+    client_max_body_size 50M;
+    root /opt/autoreport/prod/frontend/dist;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+    location ~* \.(?:js|css|woff2?|svg|ico|png|jpg|jpeg)$ {
+        expires 7d;
+        add_header Cache-Control "public, immutable";
+        try_files $uri =404;
+    }
+    location /api/ {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 120s;
+    }
+    location /media/ {
+        alias /opt/autoreport/prod/backend/media/;
+        expires 1d;
+    }
+}
+
+# ============= STAGE =============
+server {
+    listen 8080;
+    server_name 192.168.1.8 _;
+
+    access_log /var/log/nginx/autoreport-stage.access.log;
+    error_log  /var/log/nginx/autoreport-stage.error.log warn;
+
+    client_max_body_size 50M;
+    root /opt/autoreport/stage/frontend/dist;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+    location ~* \.(?:js|css|woff2?|svg|ico|png|jpg|jpeg)$ {
+        expires 7d;
+        add_header Cache-Control "public, immutable";
+        try_files $uri =404;
+    }
+    location /api/ {
+        proxy_pass http://127.0.0.1:8001;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 120s;
+    }
+    location /media/ {
+        alias /opt/autoreport/stage/backend/media/;
+        expires 1d;
+    }
+}
+```
+
+Активация:
+
+```bash
+sudo rm -f /etc/nginx/sites-enabled/default
+sudo ln -s /etc/nginx/sites-available/autoreport /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+Доступ:
+- prod  — `http://192.168.1.8/`
+- stage — `http://192.168.1.8:8080/`
+
+---
+
+## 8. Autodeploy — Self-hosted GitHub Actions runner
+
+Push в ветку `prod` или `stage` → GitHub отдаёт job runner'у на 192.168.1.8 → runner запускает `scripts/deploy-*.sh <env>`.
+
+Runner-агент сам инициирует исходящие соединения к GitHub (HTTPS) — белый IP сервера не нужен. Это критическое отличие от схемы appleboy/ssh-action в `DEPLOY_VPS.md`.
+
+### 8.1. Установка runner-агента
+
+Один агент будет обслуживать оба репо (бэк и фронт). Это самый простой вариант; если хочется изоляции — поставить два с разными `--name`.
+
+```bash
+sudo mkdir -p /opt/actions-runner
+sudo chown github-runner:github-runner /opt/actions-runner
+sudo -u github-runner -H bash <<'BASH'
+cd /opt/actions-runner
+curl -o actions-runner-linux-x64.tar.gz -L \
+    https://github.com/actions/runner/releases/download/v2.319.1/actions-runner-linux-x64-2.319.1.tar.gz
+tar xzf actions-runner-linux-x64.tar.gz
+BASH
+```
+
+### 8.2. Регистрация в обоих репозиториях
+
+В GitHub: **Settings → Actions → Runners → New self-hosted runner** в каждом из двух репо (`Auto_Report` и `Auto_report_front`). GitHub выдаст одноразовый token. Команды для каждого репо:
+
+```bash
+sudo -u github-runner -H bash -lc '
+    cd /opt/actions-runner
+    ./config.sh \
+        --url https://github.com/<owner>/Auto_Report \
+        --token <TOKEN_FROM_GITHUB> \
+        --name "autoreport-srv" \
+        --labels "self-hosted,autoreport,linux" \
+        --work _work \
+        --unattended
+'
+```
+
+После настройки одного репо повторить для второго репо в том же runner-агенте — но **runner-агент привязывается к одному репо за раз** (если не используется organization-level runner). Варианты:
+
+1. **Два runner-агента в одном каталоге** — поставить второй в `/opt/actions-runner-frontend`, повторить установку и регистрацию, использовать labels для маршрутизации.
+2. **Organization-level runner** — если репо переехать в organization, один runner может обслуживать все репо организации. Сейчас, вероятно, оба репо в личном аккаунте — этот вариант недоступен.
+
+Рекомендую **два каталога**:
+
+```bash
+sudo mkdir -p /opt/actions-runner-backend /opt/actions-runner-frontend
+sudo chown github-runner:github-runner /opt/actions-runner-{backend,frontend}
+# Повторить установку и config.sh в каждом, указывая нужный --url репозитория.
+```
+
+### 8.3. systemd unit для runner
+
+GitHub предлагает свой инсталлятор (`svc.sh install`), но он создаёт root-овый юнит. Свой юнит чище.
+
+`/etc/systemd/system/gh-runner@.service`:
+
+```ini
+[Unit]
+Description=GitHub Actions self-hosted runner (%i)
+After=network.target
+
+[Service]
+Type=simple
+User=github-runner
+Group=github-runner
+WorkingDirectory=/opt/actions-runner-%i
+ExecStart=/opt/actions-runner-%i/run.sh
+Restart=on-failure
+RestartSec=10
+KillMode=process
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Запуск:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now gh-runner@backend
+sudo systemctl enable --now gh-runner@frontend
+sudo systemctl status gh-runner@backend
+sudo systemctl status gh-runner@frontend
+```
+
+В GitHub UI оба runner'а должны появиться в статусе **Idle**.
+
+### 8.4. Скрипты деплоя на сервере
+
+`/opt/autoreport/scripts/common.sh`:
+
+```bash
+#!/bin/bash
+# Общие функции для deploy-*.sh
+set -euo pipefail
+
+require_env() {
+    case "$1" in
+        prod|stage) ;;
+        *) echo "ENV must be 'prod' or 'stage', got: $1" >&2; exit 2;;
+    esac
+}
+
+log() { printf '[%s] %s\n' "$(date +%H:%M:%S)" "$*"; }
+```
+
+`/opt/autoreport/scripts/deploy-backend.sh`:
+
+```bash
+#!/bin/bash
+set -euo pipefail
+source /opt/autoreport/scripts/common.sh
+
+ENV=${1:?usage: deploy-backend.sh <prod|stage>}
+require_env "$ENV"
+
+REPO=/opt/autoreport/$ENV/backend
+BRANCH=$ENV
+
+log "Backend deploy: env=$ENV branch=$BRANCH"
+cd "$REPO"
+
+git fetch --quiet origin "$BRANCH"
+OLD=$(git rev-parse HEAD)
+git reset --hard "origin/$BRANCH"
+NEW=$(git rev-parse HEAD)
+log "  $OLD → $NEW"
+
+# зависимости
+sudo -u autoreport -H /home/autoreport/.local/bin/poetry \
+    --directory "$REPO" install --only main --no-root --sync
+
+# миграции
+sudo -u autoreport -H bash -lc "
+    cd '$REPO'
+    set -a; . /etc/autoreport/${ENV}.env; set +a
+    /home/autoreport/.local/bin/poetry run alembic upgrade head
+"
+
+# рестарт
+sudo /bin/systemctl restart "autoreport-api@${ENV}"
+sleep 2
+sudo /bin/systemctl status "autoreport-api@${ENV}" --no-pager
+
+log "Backend deploy: OK"
+```
+
+`/opt/autoreport/scripts/deploy-frontend.sh`:
+
+```bash
+#!/bin/bash
+set -euo pipefail
+source /opt/autoreport/scripts/common.sh
+
+ENV=${1:?usage: deploy-frontend.sh <prod|stage>}
+require_env "$ENV"
+
+REPO=/opt/autoreport/$ENV/frontend
+BRANCH=$ENV
+
+log "Frontend deploy: env=$ENV branch=$BRANCH"
+
+# обновим репо с кодом (CLAUDE.md и т.п.); сам dist обновляется
+# rsync'ом из workflow ДО запуска этого скрипта (см. §8.5)
+cd "$REPO"
+git fetch --quiet origin "$BRANCH"
+git reset --hard "origin/$BRANCH"
+
+# smoke: dist должен существовать и быть не пустым
+test -s "$REPO/dist/index.html" || { log "dist/index.html missing"; exit 1; }
+
+# nginx сам подцепит обновлённую статику; reload не нужен
+log "Frontend deploy: OK at $(git rev-parse --short HEAD)"
+```
+
+Установка:
+
+```bash
+sudo chown github-runner:autoreport /opt/autoreport/scripts/*.sh
+sudo chmod 750 /opt/autoreport/scripts/*.sh
+```
+
+### 8.5. Workflow для бэка
+
+В репо **Auto_Report**, файл `.github/workflows/deploy.yml`:
 
 ```yaml
-services:
-  postgres:
-    image: postgres:16-alpine
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      # ! Postgres-образ нативно поддерживает *_FILE — читает пароль из файла.
-      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
-    secrets:
-      - postgres_password
-    volumes:
-      - pg_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER}"]
-      interval: 10s
-      timeout: 3s
-      retries: 5
-    networks: [ar_net]
+name: Deploy backend
 
-  backend:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    restart: unless-stopped
-    # ВНИМАНИЕ: никакого env_file: ./backend.env — секреты через secrets, не env.
-    # Несекретное (если останется) можно держать в environment: или /opt/auto-report/.env.
-    secrets:
-      - db_password
-      - secret_key
-      - db_host
-      - db_port
-      - db_name
-      - db_user
-      - algorithm
-      - access_token_expire_minutes
-      - refresh_token_expire_days
-    depends_on:
-      postgres:
-        condition: service_healthy
-    volumes:
-      - backend_media:/app/media
-      - backend_logs:/app/logs
-    networks: [ar_net]
-    # внутрь сети, наружу не публикуем — доступ только через frontend-nginx
-
-  frontend:
-    build:
-      context: ../Auto_report_front/auto_report_front
-      dockerfile: Dockerfile
-    restart: unless-stopped
-    depends_on:
-      - backend
-    ports:
-      - "127.0.0.1:8080:80"   # слушает только loopback, Caddy с хоста проксирует
-    networks: [ar_net]
-
-# Файлы секретов лежат в tmpfs на VPS (см. §3.4), путь — переменная SECRETS_DIR
-# из /opt/auto-report/.env. Compose ругнётся, если файла нет — это намеренно:
-# деплоить нельзя, не положив секреты.
-secrets:
-  postgres_password:
-    file: ${SECRETS_DIR}/postgres_password
-  db_password:
-    file: ${SECRETS_DIR}/db_password
-  secret_key:
-    file: ${SECRETS_DIR}/secret_key
-  db_host:
-    file: ${SECRETS_DIR}/db_host
-  db_port:
-    file: ${SECRETS_DIR}/db_port
-  db_name:
-    file: ${SECRETS_DIR}/db_name
-  db_user:
-    file: ${SECRETS_DIR}/db_user
-  algorithm:
-    file: ${SECRETS_DIR}/algorithm
-  access_token_expire_minutes:
-    file: ${SECRETS_DIR}/access_token_expire_minutes
-  refresh_token_expire_days:
-    file: ${SECRETS_DIR}/refresh_token_expire_days
-
-volumes:
-  pg_data:
-  backend_media:
-  backend_logs:
-
-networks:
-  ar_net:
-    driver: bridge
-```
-
-Решения, заложенные в этот скелет:
-- `postgres` НЕ публикует 5432 наружу — он доступен только бэку по docker-сети.
-- `backend` НЕ публикует 8000 — доступен только через frontend-nginx (тот же origin → нет проблем с CORS).
-- `frontend` слушает только `127.0.0.1:8080`, наружу 80/443 отдаёт Caddy с TLS.
-- `media` и `logs` — named volumes, переживают пересборку контейнера.
-- `depends_on: postgres { condition: service_healthy }` — бэкенд ждёт готовности БД (и не падает в alembic).
-
----
-
-## 5. Миграции и первичная инициализация
-
-- `entrypoint.sh` бэка вызывает `alembic upgrade head` ДО запуска uvicorn. На каждом деплое миграции применяются автоматически.
-- Первый запуск: контейнер бэка увидит чистую БД и накатит все миграции с нуля.
-- Создание первого админа: добавить отдельную скрипт-команду (`poetry run python -m scripts.seed_admin`) или ручной `docker compose exec backend python -c "..."`. В план: создать `scripts/seed_admin.py` ОДНИМ из следующих PR.
-
----
-
-## 6. Автодеплой через GitHub Actions
-
-**Стратегия: SSH-деплой.** Workflow в каждом из двух репо при push в `main` ходит на сервер по SSH, делает `git pull` и `docker compose up -d --build` нужного сервиса. Никакого registry — образы собираются на VPS.
-
-`.github/workflows/deploy.yml` в обоих репозиториях — короткий, вся логика в `scripts/deploy.sh` на VPS (см. §3.4):
-
-```yaml
-name: Deploy
 on:
   push:
-    branches: [main]
+    branches: [prod, stage]
   workflow_dispatch:
+    inputs:
+      env:
+        description: 'Environment'
+        required: true
+        type: choice
+        options: [prod, stage]
 
 concurrency:
-  group: deploy-${{ github.repository }}
-  cancel-in-progress: false   # не отменять текущий деплой — дать ему закончиться
+  group: deploy-backend-${{ github.ref_name }}
+  cancel-in-progress: false
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, autoreport, linux]
     steps:
-      - name: SSH and deploy
-        uses: appleboy/ssh-action@v1.0.3
+      - name: Resolve environment
+        id: env
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+              echo "name=${{ inputs.env }}" >> $GITHUB_OUTPUT
+          else
+              echo "name=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Deploy
+        run: /opt/autoreport/scripts/deploy-backend.sh ${{ steps.env.outputs.name }}
+
+      - name: Smoke test
+        run: |
+          if [ "${{ steps.env.outputs.name }}" = "prod" ]; then PORT=8000; else PORT=8001; fi
+          for i in 1 2 3 4 5; do
+              curl -fsS "http://127.0.0.1:${PORT}/docs" > /dev/null && exit 0
+              sleep 2
+          done
+          echo "Smoke failed"; exit 1
+```
+
+`runs-on` лейблы должны совпадать с теми, что были заданы при `config.sh --labels ...` (§8.2).
+
+### 8.6. Workflow для фронта
+
+В репо **Auto_report_front**, файл `.github/workflows/deploy.yml`:
+
+```yaml
+name: Deploy frontend
+
+on:
+  push:
+    branches: [prod, stage]
+  workflow_dispatch:
+    inputs:
+      env:
+        description: 'Environment'
+        required: true
+        type: choice
+        options: [prod, stage]
+
+concurrency:
+  group: deploy-frontend-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, autoreport, linux]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve environment
+        id: env
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+              echo "name=${{ inputs.env }}" >> $GITHUB_OUTPUT
+          else
+              echo "name=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          fi
+
+      - uses: actions/setup-node@v4
         with:
-          host: ${{ secrets.SSH_HOST }}
-          username: deploy
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
-            /opt/auto-report/scripts/deploy.sh backend
-            # для фронт-workflow: deploy.sh frontend
+          node-version: '22'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Build
+        env:
+          VITE_API_BASE_URL: /api
+        run: npm run build
+
+      - name: Sync dist
+        run: |
+          ENV=${{ steps.env.outputs.name }}
+          rsync -a --delete dist/ /opt/autoreport/$ENV/frontend/dist/
+
+      - name: Post-deploy
+        run: /opt/autoreport/scripts/deploy-frontend.sh ${{ steps.env.outputs.name }}
 ```
 
-GitHub Secrets в обоих репозиториях — **только** доступы для SSH:
-- `SSH_HOST` — IP/DNS VPS.
-- `SSH_PRIVATE_KEY` — приватная часть ключа `deploy@vps`.
+Поскольку runner крутится прямо на 192.168.1.8 — никакого SSH/rsync-over-network не нужно, `rsync` локальный.
 
-**Важно: никаких production-секретов в GitHub Secrets.** `POSTGRES_PASSWORD`, `SECRET_KEY` и прочее лежат в SOPS-файле на VPS и в репо как зашифрованный артефакт. GitHub видит только SSH-ключ, который сам по себе даёт доступ только на запуск `deploy.sh` (если ещё ограничить через `command="..."` в `authorized_keys` — вообще ничего, кроме одной команды).
-
-Дополнительно стоит **ограничить SSH-ключ одной командой** в `~deploy/.ssh/authorized_keys`:
-```
-command="/opt/auto-report/scripts/deploy.sh ${SSH_ORIGINAL_COMMAND}",no-pty,no-agent-forwarding,no-port-forwarding ssh-ed25519 AAAA...
-```
-Тогда даже если GitHub-секрет SSH утечёт, атакующий не сможет получить shell — только запустить deploy.sh с конкретным аргументом.
-
-> Почему SSH, а не Container Registry + Watchtower:
-> - Не требует GHCR-аккаунта и публикации образов.
-> - Минимум инфры; деплой = пуш в main.
-> - Минус: сборка съедает CPU на VPS. Если VPS совсем маленький — переключиться на «билд в Actions → push в GHCR → docker compose pull на VPS».
-
-**Concurrency-замок** не даёт параллельным workflow'ам одновременно дёргать `docker compose up -d --build`. `cancel-in-progress: false` важен — нельзя обрывать сборку посреди.
-
-**Healthcheck после деплоя** (опционально, в конце скрипта):
-```bash
-timeout 60 bash -c 'until curl -fsS http://127.0.0.1:8080/api/docs > /dev/null; do sleep 2; done'
-```
-Если упадёт — Actions workflow fail → видно в GitHub.
-
----
-
-## 7. Обновления и откат
-
-- Каждый коммит в `main` → новый Docker-образ собирается на VPS, старый контейнер заменяется.
-- Откат: SSH на сервер, `cd /opt/auto-report/Auto_Report && git reset --hard <предыдущий-sha> && docker compose up -d --build backend`. Подкладывать ярлык типа `release-stable` (тегом) можно, но не обязательно.
-- БД-откат миграций НЕ автоматический — это намеренно. Если миграция плохая, нужно вручную `alembic downgrade -1` внутри контейнера.
-
----
-
-## 8. Бэкапы
-
-**PostgreSQL** — обязательно. Минимальный вариант: cron на хосте, ежедневно в 03:00:
+### 8.7. Откат
 
 ```bash
-0 3 * * * docker exec ar-postgres pg_dump -U autoreport autoreport \
-  | gzip > /opt/auto-report/backups/autoreport-$(date +\%F).sql.gz \
-  && find /opt/auto-report/backups -mtime +14 -delete
+sudo -u github-runner bash -lc '
+    cd /opt/autoreport/prod/backend
+    git reset --hard <prev-sha>
+'
+sudo systemctl restart autoreport-api@prod
 ```
 
-Дополнительно — синк backups на S3/Backblaze/любое внешнее хранилище (`rclone sync`). Без off-site бэкапа полный отказ VPS = потеря всего.
-
-**Volume `backend_media`** (загруженные PDF-вложения отчётов и заявок) — тоже бэкапить, тем же cron:
-```bash
-0 3 * * * tar -czf /opt/auto-report/backups/media-$(date +\%F).tar.gz \
-  -C /var/lib/docker/volumes/auto-report_backend_media/_data .
-```
+Или через `git revert` коммита и push в `prod` — workflow прокатит откат как обычный деплой. **Миграции должны быть совместимы с downgrade** — иначе пиши новую миграцию вперёд.
 
 ---
 
-## 9. Наблюдаемость и логи
+## 9. Логи и наблюдаемость
 
-- `backend_logs` volume содержит loguru-логи (см. `logs/`). Ротация — встроенная (loguru может настроить retention).
-- `docker compose logs -f backend` для оперативного просмотра.
-- Docker по умолчанию пишет JSON-логи в `/var/lib/docker/containers/...` — настроить `logging.options.max-size: "50m"` в `/etc/docker/daemon.json`, иначе диск переполнится.
-- Минимальный uptime-monitoring: UptimeRobot на `https://auto-report.example.com/api/docs` (бесплатно).
+| Что | Где |
+| --- | --- |
+| API stdout/stderr | `journalctl -u autoreport-api@{prod,stage} -f` |
+| API файловые логи | `/opt/autoreport/{prod,stage}/backend/logs/app.log` |
+| Nginx | `/var/log/nginx/autoreport-{prod,stage}.{access,error}.log` |
+| Postgres | `/var/log/postgresql/postgresql-16-main.log` |
+| Деплои | вкладка Actions в каждом репо |
+| Runner-агент | `journalctl -u gh-runner@{backend,frontend} -f` |
 
----
-
-## 10. Безопасность
-
-**Секреты:**
-- `POSTGRES_PASSWORD`, `SECRET_KEY` и прочие — в `secrets/secrets.enc.yaml` (зашифровано SOPS+age, лежит в git). Расшифровка только на VPS, в **tmpfs** (`/dev/shm`), не на SSD.
-- Подача в контейнеры — через **Docker secrets** (файлы в `/run/secrets/`), не через env. Это значит:
-  - Нет в выводе `docker inspect`, `docker compose config`.
-  - Нет в `/proc/<pid>/environ` других процессов.
-  - Нет в логах при ошибке подключения SQLAlchemy/asyncpg (raw DSN не дампится).
-  - Не утекают в stacktrace pydantic при невалидной конфигурации.
-- Приватный age-ключ хранится только на VPS (`~deploy/.config/sops/age/keys.txt`, `chmod 600`) и у админов локально. Не в git, не в GitHub Secrets, не в docker-образах.
-- GitHub Secrets содержит **только** `SSH_PRIVATE_KEY` и `SSH_HOST` — этого достаточно для запуска `deploy.sh`, но недостаточно для расшифровки секретов.
-
-**Транспорт:**
-- Caddy сам обновляет TLS-сертификаты (Let's Encrypt ACME).
-- SSH-ключ деплоя ограничен одной командой через `authorized_keys` (`command="..."`).
-
-**Сетевая поверхность:**
-- Postgres без `ports:` — доступен только из docker-сети.
-- Backend без `ports:` — только через frontend-nginx (proxy).
-- Frontend на `127.0.0.1:8080` — снаружи виден только через Caddy на 443.
-- UFW открывает 22/80/443, остальное закрыто.
-
-**Хост:**
-- fail2ban защищает SSH от перебора.
-- Регулярные `apt upgrade` (или `unattended-upgrades` для security-only).
-- Отдельный непривилегированный пользователь `deploy` владеет `/opt/auto-report/` и docker-группой.
+Бэк уже использует `loguru` с `enqueue=True`/`delay=True`/`catch=True` (`main.py:82`) — безопасно для ротации логов.
 
 ---
 
-## 11. Чек-лист первого деплоя
+## 10. Гигиена и ротация
 
-1. ☐ Прогнать §2 на свежем VPS (docker, Caddy, ufw, swap, deploy-юзер).
-2. ☐ Купить/настроить DNS-запись `auto-report.example.com` → IP VPS.
-3. ☐ Установить sops/age/yq на VPS (см. §3.4, блок «Установка инструментов»). Сгенерировать age-ключ для `deploy`. Сохранить публичную часть.
-4. ☐ На локальной машине админа: установить sops+age, сгенерировать свой age-ключ. Сохранить публичную часть.
-5. ☐ В репо `Auto_Report/secrets/.sops.yaml` положить оба публичных ключа. Создать `secrets/secrets.enc.yaml` командой `sops secrets/secrets.enc.yaml` (sops откроет редактор, заполнить значениями из §3.4). Закоммитить оба файла.
-6. ☐ Положить `Dockerfile`, `docker/entrypoint.sh`, `docker-compose.yml`, `.dockerignore`, `scripts/deploy.sh` в `Auto_Report/`. Закоммитить.
-7. ☐ Положить `Dockerfile`, `docker/nginx.conf`, `.dockerignore` в фронт-репо. Закоммитить.
-8. ☐ От имени `deploy` на VPS: `cd /opt/auto-report && git clone <backend-repo> Auto_Report && git clone <frontend-repo> Auto_report_front`.
-9. ☐ Создать `/opt/auto-report/.env` (только несекретное: `POSTGRES_DB`, `POSTGRES_USER`, `SECRETS_DIR=/dev/shm/auto-report-secrets`).
-10. ☐ Сделать `scripts/deploy.sh` исполняемым; запустить вручную `bash /opt/auto-report/scripts/deploy.sh`. Проверить, что secrets расшифровались в `/dev/shm/auto-report-secrets/` (`ls -la`, должны быть `chmod 400` файлы), и `docker compose ps` показывает три healthy-контейнера.
-11. ☐ Создать первого админа (`docker compose exec backend python -m scripts.seed_admin`).
-12. ☐ Настроить `/etc/caddy/Caddyfile`, `sudo systemctl reload caddy`. Открыть `https://auto-report.example.com` — должен отдаться SPA, JWT-логин работать.
-13. ☐ Ограничить SSH-ключ деплоя одной командой через `authorized_keys` (см. §6).
-14. ☐ Положить `SSH_HOST`, `SSH_PRIVATE_KEY` в GitHub Secrets обоих репо, добавить `.github/workflows/deploy.yml`, сделать тестовый коммит в main — убедиться что Actions работает end-to-end.
-15. ☐ Завести cron-бэкапы (§8). Бэкапить ОТДЕЛЬНО: `pg_data`, `backend_media`, `secrets/secrets.enc.yaml` (последний — ради истории, расшифровка всё равно нужна с age-ключом).
-16. ☐ Зарезервировать копию age-ключа `~deploy/.config/sops/age/keys.txt` офф-сайт (Bitwarden/YubiKey/бумага в сейф).
-17. ☐ Подключить UptimeRobot (§9).
+- **SECRET_KEY** — раз в 6 месяцев, отдельно для prod и stage.
+- **DB_PASSWORD** — раз в 3-6 месяцев:
+  ```sql
+  ALTER USER autoreport_prod  WITH PASSWORD '<новый>';
+  ALTER USER autoreport_stage WITH PASSWORD '<новый>';
+  ```
+  потом обновить `/etc/autoreport/{prod,stage}.env` и `sudo systemctl restart autoreport-api@{prod,stage}`.
+- **Runner registration token** GitHub ротирует автоматически (сам токен — короткоживущий, агент использует постоянный credential, выданный при `config.sh`). При компрометации сервера — пересоздать агенты (`./config.sh remove --token <new>`).
+- **Бэкапы БД** — раз в неделю проверять восстановление:
+  ```bash
+  gunzip -c /opt/autoreport/backups/autoreport_prod_<TS>.sql.gz | head -50
+  ```
 
 ---
 
-## 12. Открытые вопросы для согласования
+## 11. Чек-лист первого ручного деплоя
 
-Перед началом реализации нужно от тебя решение по:
+1. `[ ]` Сервер обновлён, пакеты установлены (§2.1).
+2. `[ ]` Созданы пользователи `autoreport`, `github-runner` (§2.2).
+3. `[ ]` Каталоги `/opt/autoreport/{prod,stage,scripts,backups}` и `/etc/autoreport/` созданы с нужными правами (§2.3).
+4. `[ ]` Настроен `ufw`: 22/80/8080 (§2.4).
+5. `[ ]` `sudoers.d/github-runner-autoreport` создан (§2.5).
+6. `[ ]` PostgreSQL установлен, две роли + две БД созданы, `pg_hba` ограничен (§3.1-3.2).
+7. `[ ]` `/etc/autoreport/{prod,stage}.env` созданы с правами 640, root:autoreport (§4.1).
+8. `[ ]` Poetry установлен для autoreport (§5.1).
+9. `[ ]` Бэк склонирован в `prod/` и `stage/`, зависимости поставлены, миграции прогнаны (§5.2).
+10. `[ ]` `autoreport-api@.service` создан, оба instance стартуют (§5.3).
+11. `[ ]` Фронт собран, dist/ есть в обоих окружениях (§6).
+12. `[ ]` Nginx-конфиг работает: `http://192.168.1.8/` и `http://192.168.1.8:8080/` отвечают (§7).
+13. `[ ]` Deploy-скрипты лежат, права 750 (§8.4).
+14. `[ ]` Runner-агенты `backend` и `frontend` зарегистрированы в обоих репо, видны в GitHub UI как Idle (§8.1-8.2).
+15. `[ ]` `gh-runner@.service` стартует оба instance (§8.3).
+16. `[ ]` Workflow-файлы закоммичены в обоих репо (§8.5-8.6).
+17. `[ ]` Тестовый push в `stage` бэка → autoreport-api@stage перезапустился, smoke прошёл.
+18. `[ ]` Тестовый push в `stage` фронта → dist обновился, открыть `http://192.168.1.8:8080/` — изменения видны.
+19. `[ ]` То же для `prod`.
+20. `[ ]` Cron-бэкап БД работает (§3.3).
 
-1. **Хостинг и домен.** Какой провайдер (Hetzner / Selectel / Timeweb / другое)? Есть ли уже домен? Без них дальше не двигаемся.
-2. **Размер VPS.** Минимум: 2 vCPU, 2 GB RAM, 40 GB SSD — этого хватит на малую нагрузку с запасом на сборку образов. Если VPS меньше (1 GB) — придётся вынести сборку в GitHub Actions + GHCR (см. §6).
-3. **SSL-домен.** Если домена не будет (только IP) — Caddy не сможет получить Let's Encrypt; придётся либо self-signed (браузер будет ругаться), либо http-only (плохо — JWT в открытую). Сильно рекомендую купить домен.
-4. **Два репо или один?** Сейчас бэк и фронт — отдельные репозитории. Это работает (две workflow'и), но добавляет копий конфигов. Альтернатива — monorepo + один docker-compose. Если не планируется монорепо — оставляем как есть.
-5. **Пункт #14 (пароль БД на проде 192.168.1.8).** Текущий прод-сервер `192.168.1.8` останется, или новый VPS его заменит? Если заменит — пункт #14 неактуален в момент переезда (на VPS пароль сразу сильный); если параллельно — пункт #14 остаётся как был.
-6. **Объём `media/`.** Сколько вложений ожидается в год? От этого зависит размер диска и стратегия бэкапа (мелкие — тарбол; крупные — synced объектное хранилище).
-7. **Создание первого админа.** Сделать ли в плане скрипт `scripts/seed_admin.py` (читает имя/пароль из env при первом запуске) или достаточно ручного `docker compose exec`? Первое удобнее для CI, но требует одного дополнительного PR.
+---
+
+## 12. Troubleshooting
+
+| Симптом | Куда смотреть |
+| --- | --- |
+| 502 Bad Gateway от nginx | `journalctl -u autoreport-api@<env> -n 50` — uvicorn упал? |
+| `password authentication failed for user "autoreport_*"` | `grep DB_PASSWORD /etc/autoreport/<env>.env` — пароль совпадает с PG-ролью? |
+| `peer authentication failed` | проверь `pg_hba.conf` — для `127.0.0.1` должен быть `scram-sha-256`, не `peer` |
+| `Permission denied` в логах uvicorn | `chown -R autoreport:autoreport /opt/autoreport/<env>/backend/{logs,media}` |
+| Workflow не запускается | в GitHub Actions → должен быть видим runner; `journalctl -u gh-runner@<name>` |
+| Runner offline после ребута | `systemctl is-enabled gh-runner@<name>` — должно быть enabled |
+| `sudo: systemctl: command not found` в скрипте | путь — `/bin/systemctl`, проверь sudoers (§2.5) |
+| Миграция падает | `poetry run alembic current` / `history`; правь ручную downgrade-логику |
+| `git pull` конфликтует | кто-то правил код прямо на сервере — нельзя. `git reset --hard origin/<env>` чинит |
+
+---
+
+## 13. Будущие улучшения
+
+- **HTTPS**: настроить `caddy` рядом с nginx (отдельные порты 443) или поставить `certbot --nginx`, если будет DNS-имя.
+- **Мониторинг**: Uptime Kuma на том же сервере (smoke prod/stage каждые 60s).
+- **Алёрты**: Telegram-action после успешного/неудачного деплоя.
+- **Изоляция миграций**: отдельный systemd one-shot `autoreport-migrate@.service` через `ExecStartPre=`.
+- **Изоляция OS-юзеров**: разделить `autoreport` на `autoreport_prod` и `autoreport_stage` (если stage будет использоваться для PR-превью с непроверенным кодом).
+- **Organization-level runner**: если репо переедут в organization, один runner-агент сможет обслуживать оба репо (упростит §8.2).
 
 ---
 
 ## Связанные документы
 
 - `CLAUDE.md` — структура проекта, конвенции.
-- `..\Auto_report_front\auto_report_front\CLAUDE.md` — структура фронта.
-- Открытое: #14 — смена пароля БД на текущем проде `192.168.1.8` (`ALTER USER autoreport WITH PASSWORD '…'` + обновить `.env` на старом проде). На новом VPS этот пункт неактуален с момента переезда — сильный пароль ставится сразу через SOPS-файл, ротация делается процедурой из §3.4.
+- `..\Auto_report_front\CLAUDE.md` — структура фронта.
+- `DEPLOY_VPS.md` — альтернативный план для публичного VPS (Docker + Caddy + SOPS).
+- Открытый пункт #14 — смена пароля БД на текущем проде `192.168.1.8` (`ALTER USER autoreport WITH PASSWORD '…'` + обновить `.env`). По этой схеме закроется автоматически при первой настройке prod-окружения: пароль для роли `autoreport_prod` ставится новый, ни старая роль `autoreport`, ни её слабый пароль `autoreport` больше нигде не используются. Старую роль после переезда удалить (`DROP ROLE autoreport;`).
