@@ -43,6 +43,8 @@ from model.report_attachment import Report_Attachment
 from model.issue import Issue
 from model.issue_attachment import Issue_Attachment
 from model.spec_status import Spec_Status
+from model.spec_system import Spec_System
+
 
 print(Base.metadata.tables['users']._columns)
 

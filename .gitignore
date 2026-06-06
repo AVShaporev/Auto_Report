@@ -5,7 +5,9 @@ __pycache__/
 
 .vscode/
 
-migration/
+#migration/
+
+old/
 
 .pytest_cache/
 
