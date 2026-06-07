@@ -25,6 +25,11 @@ MEDIA_PATH: Path = Path(settings.MEDIA_ROOT)
 if not MEDIA_PATH.is_absolute():
     MEDIA_PATH = (Path(__file__).resolve().parent / MEDIA_PATH).resolve()
 
+# Подпапка для .docx/.dotx-шаблонов, привязанных к типам заявок (spec_order).
+# Заполняется деплой-скриптом (cp -n из templates/seeds/) + загрузками админа через UI.
+MEDIA_TEMPLATES_PATH: Path = MEDIA_PATH / "templates"
+MEDIA_TEMPLATES_PATH.mkdir(parents=True, exist_ok=True)
+
 
 
 def get_db_url():

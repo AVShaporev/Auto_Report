@@ -32,6 +32,7 @@ class SpecOrderResponse(SpecOrderBase):
     is_system: bool = False
     description: Optional[str] = None
     orders_count: Optional[int] = Field(0, description="Количество заявок этого типа")
+    template_filename: Optional[str] = Field(None, description="Оригинальное имя файла шаблона документа (если привязан)")
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -45,6 +46,7 @@ class SpecOrderListResponse(BaseModel):
     code: Optional[str] = None
     description: Optional[str] = None
     orders_count: int = 0
+    template_filename: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 

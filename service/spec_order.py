@@ -1,11 +1,19 @@
 from typing import Optional, List, Tuple
-from fastapi import HTTPException
+from pathlib import Path
+from fastapi import HTTPException, UploadFile
 from model.user import User
 from model.spec_order import Spec_Order
 from data import spec_order as spec_order_data
 from schema.spec_order import SpecOrderCreate, SpecOrderUpdate
 from schema.pagination import PaginationParams
 from database.database import new_session
+from config import MEDIA_PATH, MEDIA_TEMPLATES_PATH
+
+
+# Допустимые расширения загружаемых шаблонов.
+ALLOWED_TEMPLATE_EXTENSIONS = {".docx", ".dotx"}
+# Лимит размера файла шаблона: 10 МБ — заведомо хватит для Word'овских заготовок.
+MAX_TEMPLATE_SIZE_BYTES = 10 * 1024 * 1024
 
 # ========== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ==========
 
@@ -150,6 +158,7 @@ async def get_spec_order_with_stats(
             "name": spec_order.name,
             "short_name": spec_order.short_name,
             "code": spec_order.code,
+            "template_filename": spec_order.template_filename,
             "orders_count": orders_count
         }
 
@@ -188,6 +197,7 @@ async def update_spec_order_with_stats(
             "name": spec_order.name,
             "short_name": spec_order.short_name,
             "code": spec_order.code,
+            "template_filename": spec_order.template_filename,
             "orders_count": orders_count
         }
 
@@ -228,6 +238,7 @@ async def get_spec_orders_paginated_with_stats(
                 "name": item.name,
                 "short_name": item.short_name,
                 "code": item.code,
+                "template_filename": item.template_filename,
                 "orders_count": orders_count
             })
         
@@ -346,5 +357,138 @@ async def delete_spec_order(
         
         # Удаление
         success = await spec_order_data.delete_spec_order(session, spec_order_id)
-        
+
         return success
+
+
+# ========== ШАБЛОН ДОКУМЕНТА ==========
+
+async def upload_spec_order_template(
+    spec_order_id: int,
+    upload: UploadFile,
+    current_user: User,
+) -> dict:
+    """
+    Загрузить .docx/.dotx-шаблон для типа заявки.
+
+    Если у типа уже был привязан шаблон, старый файл удаляется с диска
+    (и заменяется новым). Запись в БД обновляется одной транзакцией.
+    """
+    await check_permission(current_user, "spec_order_modify", "загрузки шаблона документа")
+
+    if not upload.filename:
+        raise HTTPException(status_code=400, detail="Не указано имя файла")
+
+    ext = Path(upload.filename).suffix.lower()
+    if ext not in ALLOWED_TEMPLATE_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Допустимые форматы шаблона: {', '.join(sorted(ALLOWED_TEMPLATE_EXTENSIONS))}. Загружено: {ext or '<без расширения>'}",
+        )
+
+    contents = await upload.read()
+    if len(contents) > MAX_TEMPLATE_SIZE_BYTES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Файл слишком большой ({len(contents)} байт). Лимит: {MAX_TEMPLATE_SIZE_BYTES} байт.",
+        )
+
+    async with new_session() as session:
+        existing = await spec_order_data.get_spec_order_by_id(session, spec_order_id)
+        if not existing:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Тип заявки с id {spec_order_id} не найден",
+            )
+
+        # Имя файла в storage: {id}{ext}. Стабильно при ренейме типа.
+        storage_filename = f"{spec_order_id}{ext}"
+        storage_path_rel = f"templates/{storage_filename}"
+        storage_path_abs = MEDIA_TEMPLATES_PATH / storage_filename
+
+        # Удаляем старый файл, если был другой расширением (например, .dotx → .docx).
+        if existing.template_storage_path and existing.template_storage_path != storage_path_rel:
+            old_abs = MEDIA_PATH / existing.template_storage_path
+            if old_abs.exists():
+                old_abs.unlink()
+
+        # Пишем новый файл на диск.
+        storage_path_abs.write_bytes(contents)
+
+        # Прописываем в БД.
+        spec_order = await spec_order_data.set_spec_order_template(
+            session,
+            spec_order_id,
+            template_filename=upload.filename,
+            template_storage_path=storage_path_rel,
+        )
+
+        return {
+            "id": spec_order.id,
+            "template_filename": spec_order.template_filename,
+            "size_bytes": len(contents),
+        }
+
+
+async def delete_spec_order_template(
+    spec_order_id: int,
+    current_user: User,
+) -> dict:
+    """Удалить привязку шаблона и сам файл с диска."""
+    await check_permission(current_user, "spec_order_modify", "удаления шаблона документа")
+
+    async with new_session() as session:
+        existing = await spec_order_data.get_spec_order_by_id(session, spec_order_id)
+        if not existing:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Тип заявки с id {spec_order_id} не найден",
+            )
+
+        if not existing.template_storage_path:
+            raise HTTPException(
+                status_code=404,
+                detail=f"У типа заявки '{existing.name}' нет привязанного шаблона",
+            )
+
+        # Снимаем привязку в БД.
+        abs_path = MEDIA_PATH / existing.template_storage_path
+        await spec_order_data.clear_spec_order_template(session, spec_order_id)
+
+        # Удаляем сам файл (если есть).
+        if abs_path.exists():
+            abs_path.unlink()
+
+        return {"status": "ok", "id": spec_order_id}
+
+
+async def get_spec_order_template_info(
+    spec_order_id: int,
+    current_user: User,
+) -> dict:
+    """Метаданные привязанного шаблона + признак наличия файла на диске."""
+    await check_permission(current_user, "spec_order_read", "просмотра шаблона документа")
+
+    async with new_session() as session:
+        spec_order = await spec_order_data.get_spec_order_by_id(session, spec_order_id)
+        if not spec_order:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Тип заявки с id {spec_order_id} не найден",
+            )
+
+        if not spec_order.template_storage_path:
+            return {
+                "id": spec_order.id,
+                "has_template": False,
+                "template_filename": None,
+                "file_exists": False,
+            }
+
+        abs_path = MEDIA_PATH / spec_order.template_storage_path
+        return {
+            "id": spec_order.id,
+            "has_template": True,
+            "template_filename": spec_order.template_filename,
+            "file_exists": abs_path.exists(),
+        }

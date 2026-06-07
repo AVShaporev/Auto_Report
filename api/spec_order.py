@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query, HTTPException
+from fastapi import APIRouter, Depends, Query, HTTPException, UploadFile, File
 from typing import Optional, List
 
 from model.user import User
@@ -127,7 +127,11 @@ async def create_spec_order(
         "id": spec_order.id,
         "name": spec_order.name,
         "short_name": spec_order.short_name,
-        "orders_count": 0
+        "code": spec_order.code,
+        "is_system": spec_order.is_system,
+        "description": spec_order.description,
+        "orders_count": 0,
+        "template_filename": spec_order.template_filename,
     }
 
 @router.put("/{spec_order_id}", response_model=SpecOrderResponse)
@@ -161,8 +165,62 @@ async def delete_spec_order(
         spec_order_id,
         current_user
     )
-    
+
     return {
         "status": "success",
         "message": f"Тип заявки с id {spec_order_id} успешно удален"
     }
+
+
+# ========== ШАБЛОН ДОКУМЕНТА ==========
+
+@router.get("/{spec_order_id}/template/info")
+async def get_spec_order_template_info(
+    spec_order_id: int,
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    Получить метаданные привязанного шаблона документа.
+
+    Требуется право: spec_order_read.
+    Поля ответа:
+      - has_template: bool — привязан ли шаблон в БД
+      - template_filename: str | null — оригинальное имя
+      - file_exists: bool — лежит ли реально файл на диске сервера
+                            (бывает рассинхрон, если файл не успели задеплоить)
+    """
+    return await spec_order_service.get_spec_order_template_info(
+        spec_order_id, current_user
+    )
+
+
+@router.post("/{spec_order_id}/template")
+async def upload_spec_order_template(
+    spec_order_id: int,
+    file: UploadFile = File(..., description="Файл шаблона .docx или .dotx"),
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    Загрузить новый шаблон документа для типа заявки (заменяет старый, если был).
+
+    Требуется право: spec_order_modify.
+    Лимит размера: 10 МБ. Допустимые расширения: .docx, .dotx.
+    """
+    return await spec_order_service.upload_spec_order_template(
+        spec_order_id, file, current_user
+    )
+
+
+@router.delete("/{spec_order_id}/template")
+async def delete_spec_order_template(
+    spec_order_id: int,
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    Снять привязку шаблона и удалить файл с диска.
+
+    Требуется право: spec_order_modify.
+    """
+    return await spec_order_service.delete_spec_order_template(
+        spec_order_id, current_user
+    )

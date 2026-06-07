@@ -221,6 +221,42 @@ async def update_spec_order(
     await session.refresh(spec_order)
     return spec_order
 
+# ========== ШАБЛОН ДОКУМЕНТА ==========
+
+@timer
+async def set_spec_order_template(
+    session: AsyncSession,
+    spec_order_id: int,
+    template_filename: str,
+    template_storage_path: str,
+) -> Optional[Spec_Order]:
+    """Прописать в spec_order имя+путь только что загруженного шаблона"""
+    spec_order = await get_spec_order_by_id(session, spec_order_id)
+    if not spec_order:
+        return None
+    spec_order.template_filename = template_filename
+    spec_order.template_storage_path = template_storage_path
+    await session.commit()
+    await session.refresh(spec_order)
+    return spec_order
+
+
+@timer
+async def clear_spec_order_template(
+    session: AsyncSession,
+    spec_order_id: int,
+) -> Optional[Spec_Order]:
+    """Снять привязку шаблона (NULL в обе колонки). Файл удаляется вызывающим сервисом."""
+    spec_order = await get_spec_order_by_id(session, spec_order_id)
+    if not spec_order:
+        return None
+    spec_order.template_filename = None
+    spec_order.template_storage_path = None
+    await session.commit()
+    await session.refresh(spec_order)
+    return spec_order
+
+
 # ========== УДАЛЕНИЕ ==========
 
 @timer

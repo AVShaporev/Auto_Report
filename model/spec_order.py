@@ -27,6 +27,8 @@ class Spec_Order(Base):
     short_name: Mapped[str_null_true]
     code: Mapped[Optional[str]] = mapped_column(unique=True, nullable=True)
     is_system: Mapped[bool] = mapped_column(default=False, server_default='false')
+    template_filename: Mapped[Optional[str]] = mapped_column(nullable=True)
+    template_storage_path: Mapped[Optional[str]] = mapped_column(nullable=True)
 
     orders: Mapped[List["Order"]] = relationship(
                                                 "Order",
