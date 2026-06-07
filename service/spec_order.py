@@ -149,6 +149,7 @@ async def get_spec_order_with_stats(
             "is_system": spec_order.is_system,
             "name": spec_order.name,
             "short_name": spec_order.short_name,
+            "code": spec_order.code,
             "orders_count": orders_count
         }
 
@@ -186,6 +187,7 @@ async def update_spec_order_with_stats(
             "is_system": spec_order.is_system,
             "name": spec_order.name,
             "short_name": spec_order.short_name,
+            "code": spec_order.code,
             "orders_count": orders_count
         }
 
@@ -225,6 +227,7 @@ async def get_spec_orders_paginated_with_stats(
                 "is_system": item.is_system,
                 "name": item.name,
                 "short_name": item.short_name,
+                "code": item.code,
                 "orders_count": orders_count
             })
         
@@ -248,10 +251,17 @@ async def create_spec_order(
                 status_code=400,
                 detail=f"Тип заявки с названием '{spec_order_create.name}' уже существует"
             )
-        
+
+        # Проверка уникальности машинного кода (если задан)
+        if spec_order_create.code and await spec_order_data.check_spec_order_code_exists(session, spec_order_create.code):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Тип заявки с кодом '{spec_order_create.code}' уже существует"
+            )
+
         # Создание
         spec_order = await spec_order_data.create_spec_order(session, spec_order_create)
-        
+
         return spec_order
 
 # ========== ОБНОВЛЕНИЕ ==========
@@ -282,10 +292,18 @@ async def update_spec_order(
                     status_code=400,
                     detail=f"Тип заявки с названием '{spec_order_update.name}' уже существует"
                 )
-        
+
+        # Проверка уникальности кода, если он меняется
+        if spec_order_update.code and spec_order_update.code != existing.code:
+            if await spec_order_data.check_spec_order_code_exists(session, spec_order_update.code, spec_order_id):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Тип заявки с кодом '{spec_order_update.code}' уже существует"
+                )
+
         # Обновление
         spec_order = await spec_order_data.update_spec_order(session, spec_order_id, spec_order_update)
-        
+
         return spec_order
 
 # ========== УДАЛЕНИЕ ==========

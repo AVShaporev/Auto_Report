@@ -45,6 +45,16 @@ async def get_spec_order_by_name(
     return result.scalar_one_or_none()
 
 @timer
+async def get_spec_order_by_code(
+    session: AsyncSession,
+    code: str
+) -> Optional[Spec_Order]:
+    """Получить тип заявки по машинному коду"""
+    query = select(Spec_Order).where(Spec_Order.code == code)
+    result = await session.execute(query)
+    return result.scalar_one_or_none()
+
+@timer
 async def get_spec_order_all(
     session: AsyncSession,
     *,
@@ -135,6 +145,20 @@ async def check_spec_order_name_exists(
 ) -> bool:
     """Проверить, существует ли тип заявки с таким названием"""
     query = select(Spec_Order).where(Spec_Order.name == name)
+    if exclude_id:
+        query = query.where(Spec_Order.id != exclude_id)
+
+    result = await session.execute(query)
+    return result.scalar_one_or_none() is not None
+
+@timer
+async def check_spec_order_code_exists(
+    session: AsyncSession,
+    code: str,
+    exclude_id: Optional[int] = None
+) -> bool:
+    """Проверить, существует ли тип заявки с таким машинным кодом"""
+    query = select(Spec_Order).where(Spec_Order.code == code)
     if exclude_id:
         query = query.where(Spec_Order.id != exclude_id)
 

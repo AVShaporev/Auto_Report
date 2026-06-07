@@ -6,7 +6,8 @@ class SpecOrderBase(BaseModel):
     """Базовая схема типа заявки"""
     name: str = Field(..., min_length=2, max_length=100, description="Наименование типа заявки")
     short_name: Optional[str] = Field(None, max_length=50, description="Краткое наименование")
-    
+    code: Optional[str] = Field(None, min_length=2, max_length=50, description="Машинный код (emergency, primary, planned, test, ...)")
+
     model_config = ConfigDict(from_attributes=True)
 
 # Схема для создания типа заявки
@@ -19,6 +20,7 @@ class SpecOrderUpdate(BaseModel):
     """Схема для обновления типа заявки"""
     name: Optional[str] = Field(None, min_length=2, max_length=100)
     short_name: Optional[str] = Field(None, max_length=50)
+    code: Optional[str] = Field(None, min_length=2, max_length=50)
     description: Optional[str] = Field(None, max_length=1000)
 
     model_config = ConfigDict(from_attributes=True)
@@ -40,6 +42,7 @@ class SpecOrderListResponse(BaseModel):
     is_system: bool = False
     name: str
     short_name: Optional[str] = None
+    code: Optional[str] = None
     description: Optional[str] = None
     orders_count: int = 0
 
@@ -51,5 +54,6 @@ class SpecOrderOptionResponse(BaseModel):
     id: int
     name: str
     short_name: Optional[str] = None
-    
+    code: Optional[str] = None
+
     model_config = ConfigDict(from_attributes=True)
