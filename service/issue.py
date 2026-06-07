@@ -9,6 +9,7 @@ from model.objects_equipment import Objects_Equipment
 from model.object import Object
 from model.contract import Contract
 from model.organization import Organization
+from model.spec_status import Spec_Status
 from data import issue as issue_data
 from schema.issue import IssueCreate, IssueUpdate, IssueStatusUpdate
 from schema.pagination import PaginationParams
@@ -438,14 +439,15 @@ async def create_issue(
                 )
             )
 
-        # Статус по умолчанию для новой неисправности — код 'new'
+        # Статус по умолчанию для новой неисправности — код 'new'.
+        # Если код в справочнике отсутствует (свежий инстанс / юзер не завёл) —
+        # лениво создаём, чтобы создание неисправности не было заблокировано.
         from data import spec_status as spec_status_data
         default_status = await spec_status_data.get_spec_status_by_code(session, 'new')
         if not default_status:
-            raise HTTPException(
-                status_code=500,
-                detail="Не найден статус по умолчанию (code='new') в справочнике статусов"
-            )
+            default_status = Spec_Status(name='Новая', code='new')
+            session.add(default_status)
+            await session.flush()
 
         issue = await issue_data.create_issue(
             session,
