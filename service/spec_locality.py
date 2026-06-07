@@ -273,7 +273,13 @@ async def delete_spec_locality(
                 status_code=404,
                 detail=f"Тип населенного пункта с id {spec_locality_id} не найден"
             )
-        
+
+        if spec_locality.is_system:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Невозможно удалить системную запись '{spec_locality.name}' — она необходима для работы системы."
+            )
+
         # Проверка на наличие связанных населенных пунктов
         if spec_locality.localitys and len(spec_locality.localitys) > 0:
             raise HTTPException(

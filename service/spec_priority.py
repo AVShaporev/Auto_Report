@@ -260,6 +260,12 @@ async def delete_spec_priority(
                 detail=f"Приоритет с id {spec_priority_id} не найден"
             )
 
+        if spec_priority.is_system:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Невозможно удалить системную запись '{spec_priority.name}' — она необходима для работы системы."
+            )
+
         if spec_priority.issues and len(spec_priority.issues) > 0:
             raise HTTPException(
                 status_code=400,

@@ -276,7 +276,13 @@ async def delete_spec_contract(
                 status_code=404,
                 detail=f"Тип договора с id {spec_contract_id} не найден"
             )
-        
+
+        if spec_contract.is_system:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Невозможно удалить системную запись '{spec_contract.name}' — она необходима для работы системы."
+            )
+
         # Проверка на наличие связанных договоров
         if spec_contract.contracts and len(spec_contract.contracts) > 0:
             raise HTTPException(

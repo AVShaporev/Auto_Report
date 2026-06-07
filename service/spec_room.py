@@ -293,7 +293,13 @@ async def delete_spec_room(
                 status_code=404,
                 detail=f"Тип помещения с id {spec_room_id} не найден"
             )
-        
+
+        if spec_room.is_system:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Невозможно удалить системную запись '{spec_room.name}' — она необходима для работы системы."
+            )
+
         # Проверка на наличие связанных организаций
         if spec_room.organizations and len(spec_room.organizations) > 0:
             raise HTTPException(

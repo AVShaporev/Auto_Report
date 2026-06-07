@@ -298,7 +298,13 @@ async def delete_spec_build(
                                 status_code=404,
                                 detail=f"Тип строения с id {spec_build_id} не найден"
                                 )
-        
+
+        if spec_build.is_system:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Невозможно удалить системную запись '{spec_build.name}' — она необходима для работы системы."
+            )
+
         # Проверка на наличие связанных организаций
         if spec_build.organizations and len(spec_build.organizations) > 0:
             raise HTTPException(

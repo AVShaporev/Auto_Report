@@ -188,6 +188,12 @@ async def delete_spec_system(spec_system_id: int, current_user: User) -> bool:
                 detail=f"Тип обслуживаемой системы с id {spec_system_id} не найден",
             )
 
+        if existing.is_system:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Невозможно удалить системную запись '{existing.name}' — она необходима для работы системы."
+            )
+
         count = await spec_system_data.count_objects_equipments_by_spec_system(session, spec_system_id)
         if count > 0:
             raise HTTPException(

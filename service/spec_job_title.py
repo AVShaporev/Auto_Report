@@ -201,7 +201,13 @@ async def delete_spec_job_title(
                 status_code=404,
                 detail=f"Должность с id {spec_job_title_id} не найдена"
             )
-        
+
+        if spec_job_title.is_system:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Невозможно удалить системную запись '{spec_job_title.name}' — она необходима для работы системы."
+            )
+
         # Проверка на наличие связанных организаций
         if spec_job_title.organizations and len(spec_job_title.organizations) > 0:
             raise HTTPException(

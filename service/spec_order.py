@@ -309,7 +309,13 @@ async def delete_spec_order(
                 status_code=404,
                 detail=f"Тип заявки с id {spec_order_id} не найден"
             )
-        
+
+        if spec_order.is_system:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Невозможно удалить системную запись '{spec_order.name}' — она необходима для работы системы."
+            )
+
         # Проверка на наличие связанных заявок
         if spec_order.orders and len(spec_order.orders) > 0:
             raise HTTPException(

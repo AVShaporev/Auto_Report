@@ -344,7 +344,13 @@ async def delete_spec_equipment(
                                     detail=f"Тип оборудования с id \
                                     {spec_equipment_id} не найден"
                                 )
-        
+
+        if spec_equipment.is_system:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Невозможно удалить системную запись '{spec_equipment.name}' — она необходима для работы системы."
+            )
+
         # Проверка на наличие связанного оборудования
         if spec_equipment.equipments and len(spec_equipment.equipments) > 0:
             raise HTTPException(

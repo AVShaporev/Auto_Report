@@ -280,7 +280,13 @@ async def delete_spec_region(
                                 status_code=404,
                                 detail=f"Тип региона с id {spec_region_id} не найден"
                                 )
-        
+
+        if spec_region.is_system:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Невозможно удалить системную запись '{spec_region.name}' — она необходима для работы системы."
+            )
+
         # Проверка на наличие связанных регионов
         if spec_region.regions and len(spec_region.regions) > 0:
             raise HTTPException(

@@ -281,7 +281,13 @@ async def delete_spec_arial(
                 status_code=404,
                 detail=f"Тип района с id {spec_arial_id} не найден"
             )
-        
+
+        if spec_arial.is_system:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Невозможно удалить системную запись '{spec_arial.name}' — она необходима для работы системы."
+            )
+
         # Проверка на наличие связанных районов
         if spec_arial.arials and len(spec_arial.arials) > 0:
             raise HTTPException(

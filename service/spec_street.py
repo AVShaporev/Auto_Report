@@ -279,7 +279,13 @@ async def delete_spec_street(
                                     status_code=404,
                                     detail=f"Тип улицы с id {spec_street_id} не найден"
                                 )
-        
+
+        if spec_street.is_system:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Невозможно удалить системную запись '{spec_street.name}' — она необходима для работы системы."
+            )
+
         # Проверка на наличие связанных улиц
         if spec_street.streets and len(spec_street.streets) > 0:
             raise HTTPException(

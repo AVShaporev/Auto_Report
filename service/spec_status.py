@@ -290,6 +290,12 @@ async def delete_spec_status(
                 detail=f"Статус с id {spec_status_id} не найден"
             )
 
+        if spec_status.is_system:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Невозможно удалить системную запись '{spec_status.name}' — она необходима для работы системы."
+            )
+
         if spec_status.issues and len(spec_status.issues) > 0:
             raise HTTPException(
                 status_code=400,
