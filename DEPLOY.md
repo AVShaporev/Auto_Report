@@ -422,6 +422,42 @@ tail -f /opt/autoreport/prod/backend/logs/app.log
 tail -f /opt/autoreport/stage/backend/logs/app.log
 ```
 
+### 5.4. Bootstrap первого суперадмина (один раз на окружение)
+
+После накатывания миграций БД пуста: нет ни ролей, ни юзеров — в систему не войти. В корне репо есть `bootstrap_admin.py`, который создаёт роль `superadmin` со всеми правами и одного юзера-суперадмина.
+
+Запускается под `autoreport` из директории окружения, с подтянутым `*.env` (нужны `DB_*` и `SECRET_KEY`):
+
+```bash
+# stage
+sudo -u autoreport -H bash -lc '
+    cd /opt/autoreport/stage/backend
+    set -a; . /etc/autoreport/stage.env; set +a
+    ADMIN_NAME=admin \
+    ADMIN_PASSWORD="<strong-stage-pass>" \
+    ADMIN_FULL_NAME="Администратор stage" \
+    /home/autoreport/.local/bin/poetry run python bootstrap_admin.py
+'
+
+# prod
+sudo -u autoreport -H bash -lc '
+    cd /opt/autoreport/prod/backend
+    set -a; . /etc/autoreport/prod.env; set +a
+    ADMIN_NAME=admin \
+    ADMIN_PASSWORD="<strong-prod-pass>" \
+    ADMIN_FULL_NAME="Администратор prod" \
+    /home/autoreport/.local/bin/poetry run python bootstrap_admin.py
+'
+```
+
+Скрипт идемпотентен по роли (если `superadmin` уже есть — переиспользует) и не позволяет создать второго юзера с тем же `name`. Для добавления других админов — запускать повторно с другим `ADMIN_NAME`.
+
+Проверка:
+```bash
+PGPASSWORD='<пароль>' psql -h 127.0.0.1 -U autoreport_stage -d autoreport_stage \
+    -c "SELECT u.id, u.name, r.name, r.is_superadmin FROM users u JOIN roles r ON r.id=u.role_id;"
+```
+
 ---
 
 ## 6. Frontend
@@ -689,7 +725,10 @@ log "Backend deploy: OK"
 ```bash
 #!/bin/bash
 set -euo pipefail
+
 source /opt/autoreport/scripts/common.sh
+
+cd /
 
 ENV=${1:?usage: deploy-frontend.sh <prod|stage>}
 require_env "$ENV"
@@ -699,18 +738,20 @@ BRANCH=$ENV
 
 log "Frontend deploy: env=$ENV branch=$BRANCH"
 
-# обновим репо с кодом (CLAUDE.md и т.п.); сам dist обновляется
-# rsync'ом из workflow ДО запуска этого скрипта (см. §8.5)
 cd "$REPO"
 git fetch --quiet origin "$BRANCH"
 git reset --hard "origin/$BRANCH"
 
-# smoke: dist должен существовать и быть не пустым
 test -s "$REPO/dist/index.html" || { log "dist/index.html missing"; exit 1; }
 
-# nginx сам подцепит обновлённую статику; reload не нужен
 log "Frontend deploy: OK at $(git rev-parse --short HEAD)"
 ```
+
+Замечания:
+- `cd /` в начале — защита от PWD-утечки через sudo (если запускают из директории, недоступной целевому юзеру).
+- Сам `dist/` обновляется `rsync`'ом в workflow ДО запуска этого скрипта (см. §8.5).
+- `git fetch + reset --hard` — на случай если в репо лежат конфиги или другие файлы, которые тоже надо обновить.
+- nginx сам подхватит обновлённую статику — reload не нужен.
 
 Установка:
 
@@ -760,7 +801,8 @@ jobs:
       - name: Smoke test
         run: |
           if [ "${{ steps.env.outputs.name }}" = "prod" ]; then PORT=8000; else PORT=8001; fi
-          for i in 1 2 3 4 5; do
+          sleep 5
+          for i in $(seq 1 20); do
               curl -fsS "http://127.0.0.1:${PORT}/docs" > /dev/null && exit 0
               sleep 2
           done
