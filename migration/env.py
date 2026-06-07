@@ -46,10 +46,7 @@ from model.spec_status import Spec_Status
 from model.spec_system import Spec_System
 
 
-print(Base.metadata.tables['users']._columns)
 
-
-# print("Tables in metadata:", list(Base.metadata.tables.keys()))
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

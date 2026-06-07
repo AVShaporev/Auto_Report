@@ -274,7 +274,6 @@ async def create_user(
         telegram_id=user_create.telegram_id
     )
     if error:
-        print(error)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=error

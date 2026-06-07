@@ -128,7 +128,6 @@ async def add_equipment_to_object(
     add_data: AddEquipmentToObject,
     current_user: User = Depends(get_current_active_user)
 ):
-    print(object_id, add_data)
     """
     Добавить оборудование на объект
     
