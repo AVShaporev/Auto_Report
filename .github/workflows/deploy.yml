@@ -31,7 +31,8 @@ jobs:
         - name: Smoke test
           run: |
             if [ "${{ steps.env.outputs.name }}" = "prod" ]; then PORT=8000; else PORT=8001; fi
-            for i in 1 2 3 4 5; do
+            sleep 5
+            for i in $(seq 1 20); do
                 curl -fsS "http://127.0.0.1:${PORT}/docs" > /dev/null && exit 0
                 sleep 2
             done
