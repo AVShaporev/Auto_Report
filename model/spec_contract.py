@@ -21,6 +21,7 @@ class Spec_Contract(Base):
 
     id: Mapped[int_pk]
     name: Mapped[str_uniq]
+    is_system: Mapped[bool] = mapped_column(default=False, server_default='false')
 
     # у одного типа контракта может быть много контрактов
     contracts: Mapped[List["Contract"]] = relationship("Contract",

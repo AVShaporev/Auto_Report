@@ -22,6 +22,7 @@ class Spec_Room(Base):
 
     id: Mapped[int_pk]
     name: Mapped[str_uniq]
+    is_system: Mapped[bool] = mapped_column(default=False, server_default='false')
 
     # к одному типу комнаты может относится много организаций
     organizations: Mapped[List["Organization"]] = relationship(

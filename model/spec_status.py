@@ -2,6 +2,7 @@ from typing import List
 
 from sqlalchemy.orm import (
                             Mapped,
+                            mapped_column,
                             relationship
 )
 from database.database import (
@@ -16,6 +17,7 @@ class Spec_Status(Base):
     id: Mapped[int_pk]
     name: Mapped[str_uniq]   # отображаемое наименование: "Новая", "В работе", ...
     code: Mapped[str_uniq]   # машинный код: new, in_progress, resolved, closed
+    is_system: Mapped[bool] = mapped_column(default=False, server_default='false')
 
     issues: Mapped[List["Issue"]] = relationship(
         "Issue",

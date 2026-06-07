@@ -22,6 +22,7 @@ class Spec_System(Base):
         default=False,
         comment="Принадлежность к средствам и системам противопожарной защиты",
     )
+    is_system: Mapped[bool] = mapped_column(default=False, server_default='false')
 
     objects_equipments: Mapped[List["Objects_Equipment"]] = relationship(
         "Objects_Equipment",

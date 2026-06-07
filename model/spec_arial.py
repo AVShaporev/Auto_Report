@@ -20,6 +20,7 @@ class Spec_Arial(Base):
 
     id: Mapped[int_pk]
     name: Mapped[str_uniq]
+    is_system: Mapped[bool] = mapped_column(default=False, server_default='false')
 
     # Отношение: один тип района может включать несколько наименований районов
     arials: Mapped[List["Arial"]] = relationship("Arial",

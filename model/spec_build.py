@@ -24,6 +24,7 @@ class Spec_Build(Base):
 
     id: Mapped[int_pk]
     name:Mapped[str_uniq]
+    is_system: Mapped[bool] = mapped_column(default=False, server_default='false')
 
     # в одном типе строения может находится несколько организаций
     organizations: Mapped[List["Organization"]] = relationship(

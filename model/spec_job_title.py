@@ -21,6 +21,7 @@ class Spec_Job_Title(Base):
 
     id: Mapped[int_pk]
     name: Mapped[str_uniq]
+    is_system: Mapped[bool] = mapped_column(default=False, server_default='false')
 
     # к однойдолджности может относится много руководителей организаций
     organizations: Mapped[List["Organization"]] = relationship("Organization",

@@ -11,6 +11,7 @@ class Spec_Priority(Base):
     name: Mapped[str_uniq]   # "Низкий", "Средний", "Высокий", "Критический"
     code: Mapped[str_uniq]   # машинный код: low, medium, high, critical
     description: Mapped[Optional[str]] = mapped_column(nullable=True)
+    is_system: Mapped[bool] = mapped_column(default=False, server_default='false')
 
     issues: Mapped[List["Issue"]] = relationship(
         "Issue",

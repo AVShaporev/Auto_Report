@@ -20,6 +20,7 @@ class Spec_Equipment(Base):
 
     id: Mapped[int_pk]
     name: Mapped[str_uniq]
+    is_system: Mapped[bool] = mapped_column(default=False, server_default='false')
 
     equipments: Mapped[List["Equipment"]] = relationship("Equipment",
                                                             back_populates="spec_equipment",

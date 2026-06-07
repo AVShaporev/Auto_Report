@@ -25,7 +25,8 @@ class Spec_Locality(Base):
     id: Mapped[int_pk]
     name: Mapped[str_uniq]
     short_name: Mapped[str_null_true]
-    
+    is_system: Mapped[bool] = mapped_column(default=False, server_default='false')
+
     localitys: Mapped[List["Locality"]] = relationship("Locality",
                                                         back_populates="spec_locality")
 
