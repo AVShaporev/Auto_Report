@@ -35,7 +35,7 @@ class SpecRegionListResponse(BaseModel):
     """Краткая информация о типе региона для списков"""
     id: int
     name: str
-    description: str
+    description: Optional[str] = None
     regions_count: int = 0
     
     model_config = ConfigDict(from_attributes=True)
