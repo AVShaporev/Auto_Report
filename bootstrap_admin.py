@@ -40,9 +40,9 @@ async def main() -> int:
         return 2
 
     full_name = os.environ.get("ADMIN_FULL_NAME") or name
-    email = os.environ.get("ADMIN_EMAIL") or f"{name}@example.local"
-    phone = os.environ.get("ADMIN_PHONE") or "+0000000000"
-    telegram_id = os.environ.get("ADMIN_TELEGRAM_ID") or "0"
+    email = os.environ.get("ADMIN_EMAIL")
+    phone = os.environ.get("ADMIN_PHONE")
+    telegram_id = os.environ.get("ADMIN_TELEGRAM_ID")
 
     async with new_session() as session:
         role = (await session.execute(

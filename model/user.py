@@ -1,4 +1,4 @@
-from typing import List, TYPE_CHECKING
+from typing import List, Optional, TYPE_CHECKING
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -9,11 +9,11 @@ class User(Base):
 
     id: Mapped[int_pk]
     name: Mapped[str_uniq]
-    full_name: Mapped[str] = None
+    full_name: Mapped[Optional[str]] = mapped_column(nullable=True, default=None)
     hash: Mapped[str]
-    email: Mapped[str] = None
-    phone: Mapped[str] = None
-    telegram_id: Mapped[str] = None
+    email: Mapped[Optional[str]] = mapped_column(nullable=True, default=None)
+    phone: Mapped[Optional[str]] = mapped_column(nullable=True, default=None)
+    telegram_id: Mapped[Optional[str]] = mapped_column(nullable=True, default=None)
     role_id: Mapped[int] = mapped_column(ForeignKey("roles.id"))
     is_active: Mapped[bool] = mapped_column(default=True)
 
