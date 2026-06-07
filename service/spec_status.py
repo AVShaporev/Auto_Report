@@ -124,6 +124,7 @@ async def get_spec_status_with_stats(
 
         return {
             "id": spec_status.id,
+            "is_system": spec_status.is_system,
             "name": spec_status.name,
             "code": spec_status.code,
             "issues_count": issues_count
@@ -165,6 +166,7 @@ async def update_spec_status_with_stats(
 
         return {
             "id": spec_status.id,
+            "is_system": spec_status.is_system,
             "name": spec_status.name,
             "code": spec_status.code,
             "issues_count": issues_count
@@ -199,6 +201,7 @@ async def get_spec_statuses_paginated_with_stats(
             )
             result_items.append({
                 "id": item.id,
+                "is_system": item.is_system,
                 "name": item.name,
                 "code": item.code,
                 "issues_count": issues_count

@@ -25,6 +25,7 @@ class SpecJobTitleUpdate(BaseModel):
 class SpecJobTitleResponse(SpecJobTitleBase):
     """Полная информация о должности руководителя"""
     id: int
+    is_system: bool = False
     description: Optional[str] = None
     organizations_count: Optional[int] = Field(0, description="Количество организаций с этой должностью")
 
@@ -34,6 +35,7 @@ class SpecJobTitleResponse(SpecJobTitleBase):
 class SpecJobTitleListResponse(BaseModel):
     """Краткая информация о должности руководителя для списков"""
     id: int
+    is_system: bool = False
     name: str
     description: Optional[str] = None
     organizations_count: int = 0

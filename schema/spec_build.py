@@ -25,6 +25,7 @@ class SpecBuildUpdate(BaseModel):
 class SpecBuildResponse(SpecBuildBase):
     """Полная информация о типе строения"""
     id: int
+    is_system: bool = False
     description: Optional[str] = None
     organizations_count: Optional[int] = Field(0, description="Количество организаций с этим типом строения")
     objects_count: Optional[int] = Field(0, description="Количество объектов с этим типом строения")
@@ -35,6 +36,7 @@ class SpecBuildResponse(SpecBuildBase):
 class SpecBuildListResponse(BaseModel):
     """Краткая информация о типе строения для списков"""
     id: int
+    is_system: bool = False
     name: str
     description: Optional[str] = None
     organizations_count: int = 0

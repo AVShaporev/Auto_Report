@@ -27,6 +27,7 @@ class SpecStreetUpdate(BaseModel):
 class SpecStreetResponse(SpecStreetBase):
     """Полная информация о типе улицы"""
     id: int
+    is_system: bool = False
     short_name: Optional[str] = Field(None, min_length=2, max_length=10)
     description: Optional[str] = Field(None, min_length=2, max_length=1000)
     streets_count: Optional[int] = Field(0, description="Количество улиц этого типа")
@@ -37,6 +38,7 @@ class SpecStreetResponse(SpecStreetBase):
 class SpecStreetListResponse(BaseModel):
     """Краткая информация о типе улицы для списков"""
     id: int
+    is_system: bool = False
     name: str
     short_name: Optional[str] = Field(None, min_length=2, max_length=10)
     description: Optional[str] = Field(None, min_length=2, max_length=1000)

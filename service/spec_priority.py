@@ -121,6 +121,7 @@ async def get_spec_priority_with_stats(
 
         return {
             "id": spec_priority.id,
+            "is_system": spec_priority.is_system,
             "name": spec_priority.name,
             "code": spec_priority.code,
             "description": spec_priority.description,
@@ -156,6 +157,7 @@ async def get_spec_priorities_paginated_with_stats(
             )
             result_items.append({
                 "id": item.id,
+                "is_system": item.is_system,
                 "name": item.name,
                 "code": item.code,
                 "description": item.description,
@@ -232,6 +234,7 @@ async def update_spec_priority_with_stats(
 
         return {
             "id": spec_priority.id,
+            "is_system": spec_priority.is_system,
             "name": spec_priority.name,
             "code": spec_priority.code,
             "description": spec_priority.description,

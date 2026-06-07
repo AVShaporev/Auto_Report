@@ -146,6 +146,7 @@ async def get_spec_order_with_stats(
         # Возвращаем готовый словарь для ответа
         return {
             "id": spec_order.id,
+            "is_system": spec_order.is_system,
             "name": spec_order.name,
             "short_name": spec_order.short_name,
             "orders_count": orders_count
@@ -182,6 +183,7 @@ async def update_spec_order_with_stats(
 
         return {
             "id": spec_order.id,
+            "is_system": spec_order.is_system,
             "name": spec_order.name,
             "short_name": spec_order.short_name,
             "orders_count": orders_count
@@ -220,6 +222,7 @@ async def get_spec_orders_paginated_with_stats(
             )
             result_items.append({
                 "id": item.id,
+                "is_system": item.is_system,
                 "name": item.name,
                 "short_name": item.short_name,
                 "orders_count": orders_count

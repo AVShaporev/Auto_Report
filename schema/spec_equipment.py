@@ -25,6 +25,7 @@ class SpecEquipmentUpdate(BaseModel):
 class SpecEquipmentResponse(SpecEquipmentBase):
     """Полная информация о типе оборудования"""
     id: int
+    is_system: bool = False
     description: Optional[str] = None
     equipments_count: Optional[int] = Field(0, description="Количество оборудования этого типа")
 
@@ -34,6 +35,7 @@ class SpecEquipmentResponse(SpecEquipmentBase):
 class SpecEquipmentListResponse(BaseModel):
     """Краткая информация о типе оборудования для списков"""
     id: int
+    is_system: bool = False
     name: str
     description: Optional[str] = None
     equipments_count: int = 0

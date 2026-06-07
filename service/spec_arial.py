@@ -146,6 +146,7 @@ async def get_spec_arial_with_stats(
         # Возвращаем готовый словарь для ответа
         return {
             "id": spec_arial.id,
+            "is_system": spec_arial.is_system,
             "name": spec_arial.name,
             "description": spec_arial.description,
             "arials_count": arials_count
@@ -184,6 +185,7 @@ async def get_spec_arials_paginated_with_stats(
             )
             result_items.append({
                 "id": item.id,
+                "is_system": item.is_system,
                 "name": item.name,
                 "description": item.description,
                 "arials_count": arials_count

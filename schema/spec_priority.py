@@ -27,6 +27,7 @@ class SpecPriorityUpdate(BaseModel):
 class SpecPriorityResponse(SpecPriorityBase):
     """Полная информация о приоритете"""
     id: int
+    is_system: bool = False
     description: Optional[str] = None
     issues_count: Optional[int] = Field(0, description="Количество неисправностей с этим приоритетом")
 
@@ -36,6 +37,7 @@ class SpecPriorityResponse(SpecPriorityBase):
 class SpecPriorityListResponse(BaseModel):
     """Краткая информация о приоритете для списков"""
     id: int
+    is_system: bool = False
     name: str
     code: str
     description: Optional[str] = None

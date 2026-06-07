@@ -40,6 +40,7 @@ class SpecSystemUpdate(BaseModel):
 class SpecSystemResponse(SpecSystemBase):
     """Полная информация о типе системы"""
     id: int
+    is_system: bool = False
     description: Optional[str] = None
     objects_equipments_count: int = Field(
         0, description="Количество связанных записей объект-оборудование",
@@ -53,6 +54,7 @@ class SpecSystemResponse(SpecSystemBase):
 class SpecSystemListResponse(BaseModel):
     """Краткая информация о типе системы для списков"""
     id: int
+    is_system: bool = False
     name: str
     short_name: Optional[str] = None
     is_fire_protection: bool

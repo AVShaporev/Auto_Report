@@ -25,6 +25,7 @@ class SpecContractUpdate(BaseModel):
 class SpecContractResponse(SpecContractBase):
     """Полная информация о типе договора"""
     id: int
+    is_system: bool = False
     description: Optional[str] = None
     contracts_count: Optional[int] = Field(0, description="Количество договоров этого типа")
 
@@ -34,6 +35,7 @@ class SpecContractResponse(SpecContractBase):
 class SpecContractListResponse(BaseModel):
     """Краткая информация о типе договора для списков"""
     id: int
+    is_system: bool = False
     name: str
     description: Optional[str] = None
     contracts_count: int = 0

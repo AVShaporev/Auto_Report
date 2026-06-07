@@ -146,6 +146,7 @@ async def get_spec_street_with_stats(
         # Возвращаем готовый словарь для ответа
         return {
                 "id": spec_street.id,
+                "is_system": spec_street.is_system,
                 "name": spec_street.name,
                 "short_name": spec_street.short_name,
                 "description": spec_street.description,
@@ -185,6 +186,7 @@ async def get_spec_streets_paginated_with_stats(
                                                                             )
             result_items.append({
                                 "id": item.id,
+                                "is_system": item.is_system,
                                 "name": item.name,
                                 "short_name": item.short_name,
                                 "description": item.description,

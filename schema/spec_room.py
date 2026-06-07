@@ -25,6 +25,7 @@ class SpecRoomUpdate(BaseModel):
 class SpecRoomResponse(SpecRoomBase):
     """Полная информация о типе помещения"""
     id: int
+    is_system: bool = False
     description: Optional[str] = None
     organizations_count: Optional[int] = Field(0, description="Количество организаций с этим типом помещения")
     objects_count: Optional[int] = Field(0, description="Количество объектов с этим типом помещения")
@@ -35,6 +36,7 @@ class SpecRoomResponse(SpecRoomBase):
 class SpecRoomListResponse(BaseModel):
     """Краткая информация о типе помещения для списков"""
     id: int
+    is_system: bool = False
     name: str
     description: Optional[str] = None
     organizations_count: int = 0

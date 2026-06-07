@@ -146,6 +146,7 @@ async def get_spec_region_with_stats(
         # Возвращаем готовый словарь для ответа
         return {
                 "id": spec_region.id,
+                "is_system": spec_region.is_system,
                 "name": spec_region.name,
                 "description": spec_region.description,
                 "regions_count": regions_count
@@ -184,6 +185,7 @@ async def get_spec_regions_paginated_with_stats(
                                                                             )
             result_items.append({
                                 "id": item.id,
+                                "is_system": item.is_system,
                                 "name": item.name,
                                 "description": item.description if item.description else "",
                                 "regions_count": regions_count

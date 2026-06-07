@@ -144,6 +144,7 @@ async def get_spec_build_with_stats(
         # Возвращаем готовый словарь для ответа
         return {
                 "id": spec_build.id,
+                "is_system": spec_build.is_system,
                 "name": spec_build.name,
                 "organizations_count": organizations_count,
                 "objects_count": objects_count
@@ -181,6 +182,7 @@ async def get_spec_builds_paginated_with_stats(
             
             result_items.append({
                                 "id": item.id,
+                                "is_system": item.is_system,
                                 "name": item.name,
                                 "organizations_count": organizations_count,
                                 "objects_count": objects_count
@@ -269,6 +271,7 @@ async def update_spec_build_with_stats(
 
     return {
             "id": spec_build.id,
+            "is_system": spec_build.is_system,
             "name": spec_build.name,
             "organizations_count": organizations_count,
             "objects_count": objects_count

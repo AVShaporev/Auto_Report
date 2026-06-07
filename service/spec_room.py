@@ -144,6 +144,7 @@ async def get_spec_room_with_stats(
         # Возвращаем готовый словарь для ответа
         return {
             "id": spec_room.id,
+            "is_system": spec_room.is_system,
             "name": spec_room.name,
             "organizations_count": organizations_count,
             "objects_count": objects_count
@@ -181,6 +182,7 @@ async def get_spec_rooms_paginated_with_stats(
             
             result_items.append({
                 "id": item.id,
+                "is_system": item.is_system,
                 "name": item.name,
                 "organizations_count": organizations_count,
                 "objects_count": objects_count
@@ -264,6 +266,7 @@ async def update_spec_room_with_stats(
 
     return {
         "id": spec_room.id,
+        "is_system": spec_room.is_system,
         "name": spec_room.name,
         "organizations_count": organizations_count,
         "objects_count": objects_count

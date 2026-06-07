@@ -122,6 +122,7 @@ async def get_spec_contract_with_stats(
 
         return {
             "id": spec_contract.id,
+            "is_system": spec_contract.is_system,
             "name": spec_contract.name,
             "contracts_count": contracts_count
         }
@@ -154,6 +155,7 @@ async def get_spec_contracts_paginated_with_stats(
             contracts_count = await spec_contract_data.count_contracts_by_spec_contract(session, item.id)
             result_items.append({
                 "id": item.id,
+                "is_system": item.is_system,
                 "name": item.name,
                 "contracts_count": contracts_count
             })
@@ -248,6 +250,7 @@ async def update_spec_contract_with_stats(
 
     return {
         "id": spec_contract.id,
+        "is_system": spec_contract.is_system,
         "name": spec_contract.name,
         "contracts_count": contracts_count
     }

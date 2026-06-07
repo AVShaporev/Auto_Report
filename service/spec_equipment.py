@@ -149,6 +149,7 @@ async def get_spec_equipment_with_stats(
         # Возвращаем готовый словарь для ответа
         return {
                 "id": spec_equipment.id,
+                "is_system": spec_equipment.is_system,
                 "name": spec_equipment.name,
                 "equipments_count": equipments_count
                 }
@@ -199,6 +200,7 @@ async def update_spec_equipment_with_stats(
 
         return {
                 "id": spec_equipment.id,
+                "is_system": spec_equipment.is_system,
                 "name": spec_equipment.name,
                 "equipments_count": equipments_count
                 }
@@ -236,6 +238,7 @@ async def get_spec_equipments_paginated_with_stats(
                                                                                             )
             result_items.append({
                                 "id": item.id,
+                                "is_system": item.is_system,
                                 "name": item.name,
                                 "equipments_count": equipments_count
                                 })

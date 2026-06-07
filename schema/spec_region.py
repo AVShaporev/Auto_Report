@@ -25,6 +25,7 @@ class SpecRegionUpdate(BaseModel):
 class SpecRegionResponse(SpecRegionBase):
     """Полная информация о типе региона"""
     id: int
+    is_system: bool = False
     description: Optional[str] = Field("", description="Описание для типа региона")
     regions_count: Optional[int] = Field(0, description="Количество регионов этого типа")
     
@@ -34,6 +35,7 @@ class SpecRegionResponse(SpecRegionBase):
 class SpecRegionListResponse(BaseModel):
     """Краткая информация о типе региона для списков"""
     id: int
+    is_system: bool = False
     name: str
     description: Optional[str] = None
     regions_count: int = 0

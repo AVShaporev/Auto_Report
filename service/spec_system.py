@@ -56,6 +56,7 @@ async def get_spec_system_with_stats(spec_system_id: int, current_user: User) ->
         count = await spec_system_data.count_objects_equipments_by_spec_system(session, spec_system_id)
         return {
             "id": spec_system.id,
+            "is_system": spec_system.is_system,
             "name": spec_system.name,
             "short_name": spec_system.short_name,
             "is_fire_protection": spec_system.is_fire_protection,
@@ -88,6 +89,7 @@ async def get_spec_systems_paginated_with_stats(
             count = await spec_system_data.count_objects_equipments_by_spec_system(session, item.id)
             result.append({
                 "id": item.id,
+                "is_system": item.is_system,
                 "name": item.name,
                 "short_name": item.short_name,
                 "is_fire_protection": item.is_fire_protection,
@@ -105,6 +107,7 @@ async def get_all_spec_systems(current_user: User) -> List[dict]:
             count = await spec_system_data.count_objects_equipments_by_spec_system(session, item.id)
             result.append({
                 "id": item.id,
+                "is_system": item.is_system,
                 "name": item.name,
                 "short_name": item.short_name,
                 "is_fire_protection": item.is_fire_protection,
@@ -135,6 +138,7 @@ async def create_spec_system(
         spec_system = await spec_system_data.create_spec_system(session, payload)
         return {
             "id": spec_system.id,
+            "is_system": spec_system.is_system,
             "name": spec_system.name,
             "short_name": spec_system.short_name,
             "is_fire_protection": spec_system.is_fire_protection,
@@ -169,6 +173,7 @@ async def update_spec_system_with_stats(
         count = await spec_system_data.count_objects_equipments_by_spec_system(session, spec_system_id)
         return {
             "id": spec_system.id,
+            "is_system": spec_system.is_system,
             "name": spec_system.name,
             "short_name": spec_system.short_name,
             "is_fire_protection": spec_system.is_fire_protection,

@@ -25,6 +25,7 @@ class SpecArialUpdate(BaseModel):
 class SpecArialResponse(SpecArialBase):
     """Полная информация о типе района"""
     id: int
+    is_system: bool = False
     description: Optional[str] = Field(None, max_length=500, description="Описание типа района")
     arials_count: Optional[int] = Field(0, description="Количество районов этого типа")
     
@@ -34,6 +35,7 @@ class SpecArialResponse(SpecArialBase):
 class SpecArialListResponse(BaseModel):
     """Краткая информация о типе района для списков"""
     id: int
+    is_system: bool = False
     name: str
     description: Optional[str] = None
     arials_count: int = 0

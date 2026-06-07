@@ -27,6 +27,7 @@ class SpecStatusUpdate(BaseModel):
 class SpecStatusResponse(SpecStatusBase):
     """Полная информация о статусе неисправности"""
     id: int
+    is_system: bool = False
     description: Optional[str] = None
     issues_count: Optional[int] = Field(0, description="Количество неисправностей с этим статусом")
 
@@ -36,6 +37,7 @@ class SpecStatusResponse(SpecStatusBase):
 class SpecStatusListResponse(BaseModel):
     """Краткая информация о статусе для списков"""
     id: int
+    is_system: bool = False
     name: str
     code: str
     description: Optional[str] = None

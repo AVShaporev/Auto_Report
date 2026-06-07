@@ -146,6 +146,7 @@ async def get_spec_locality_with_stats(
         # Возвращаем готовый словарь для ответа
         return {
             "id": spec_locality.id,
+            "is_system": spec_locality.is_system,
             "name": spec_locality.name,
             "short_name": spec_locality.short_name,
             "localities_count": localities_count
@@ -184,6 +185,7 @@ async def get_spec_localities_paginated_with_stats(
             )
             result_items.append({
                 "id": item.id,
+                "is_system": item.is_system,
                 "name": item.name,
                 "short_name": item.short_name,
                 "localities_count": localities_count

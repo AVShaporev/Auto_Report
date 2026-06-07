@@ -254,6 +254,7 @@ async def get_spec_job_title_with_stats(
         # Возвращаем готовый словарь для ответа
         return {
             "id": spec_job_title.id,
+            "is_system": spec_job_title.is_system,
             "name": spec_job_title.name,
             "organizations_count": organizations_count
         }
@@ -301,6 +302,7 @@ async def update_spec_job_title_with_stats(
 
         return {
             "id": spec_job_title.id,
+            "is_system": spec_job_title.is_system,
             "name": spec_job_title.name,
             "organizations_count": organizations_count
         }
@@ -338,6 +340,7 @@ async def get_spec_job_titles_paginated_with_stats(
             )
             result_items.append({
                 "id": item.id,
+                "is_system": item.is_system,
                 "name": item.name,
                 "organizations_count": organizations_count
             })

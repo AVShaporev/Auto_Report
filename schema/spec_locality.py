@@ -27,6 +27,7 @@ class SpecLocalityUpdate(BaseModel):
 class SpecLocalityResponse(SpecLocalityBase):
     """Полная информация о типе населенного пункта"""
     id: int
+    is_system: bool = False
     description: Optional[str] = None
     localities_count: Optional[int] = Field(0, description="Количество населенных пунктов этого типа")
 
@@ -36,6 +37,7 @@ class SpecLocalityResponse(SpecLocalityBase):
 class SpecLocalityListResponse(BaseModel):
     """Краткая информация о типе населенного пункта для списков"""
     id: int
+    is_system: bool = False
     name: str
     short_name: Optional[str] = None
     description: Optional[str] = None

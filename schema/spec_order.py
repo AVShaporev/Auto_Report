@@ -27,6 +27,7 @@ class SpecOrderUpdate(BaseModel):
 class SpecOrderResponse(SpecOrderBase):
     """Полная информация о типе заявки"""
     id: int
+    is_system: bool = False
     description: Optional[str] = None
     orders_count: Optional[int] = Field(0, description="Количество заявок этого типа")
 
@@ -36,6 +37,7 @@ class SpecOrderResponse(SpecOrderBase):
 class SpecOrderListResponse(BaseModel):
     """Краткая информация о типе заявки для списков"""
     id: int
+    is_system: bool = False
     name: str
     short_name: Optional[str] = None
     description: Optional[str] = None
