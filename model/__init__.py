@@ -1,67 +1,70 @@
 """
-Инициализация всех моделей SQLAlchemy
-Этот файл гарантирует, что все модели зарегистрированы в правильном порядке
+Регистрирует все SQLAlchemy-модели в Base.metadata через side-effect импортов.
+
+Импортируется любым кодом, которому нужно «увидеть» все таблицы:
+- alembic-миграции
+- служебные скрипты (bootstrap_admin.py)
+- любой код, обращающийся к моделям без захода через api/service.
+
+Боевое приложение тянет всё через цепочку импортов api → service → data → model,
+но для standalone-скриптов этой цепочки нет — поэтому держим список здесь.
 """
 
-# Сначала импортируем Base
 from database.database import Base
 
-# Затем импортируем все модели в правильном порядке
-# Сначала независимые модели (без внешних ключей)
-from model.region import Region
-from model.arial import Arial
-from model.locality import Locality
-from model.street import Street
-from model.spec_build import Spec_Build
-from model.spec_room import Spec_Room
-from model.spec_equipment import Spec_Equipment
-from model.spec_contract import Spec_Contract
-from model.spec_job_title import Spec_Job_Title
-from model.spec_order import Spec_Order
-from model.spec_region import Spec_Region
-from model.bank import Bank
-from model.spec_job_title import Spec_Job_Title
+# Справочники (spec_*)
 from model.spec_arial import Spec_Arial
-from model.spec_locality import Spec_Locality
-from model.spec_street import Spec_Street
 from model.spec_build import Spec_Build
-from model.spec_room import Spec_Room
-from model.period import Period
+from model.spec_contract import Spec_Contract
 from model.spec_equipment import Spec_Equipment
+from model.spec_job_title import Spec_Job_Title
+from model.spec_locality import Spec_Locality
+from model.spec_order import Spec_Order
+from model.spec_priority import Spec_Priority
+from model.spec_region import Spec_Region
+from model.spec_room import Spec_Room
+from model.spec_status import Spec_Status
+from model.spec_street import Spec_Street
+from model.spec_system import Spec_System
 
-# Затем модели, зависящие от других
-from model.equipment import Equipment  # Зависит от Spec_Equipment
-from model.contract import Contract
-from model.period import Period
-from model.object import Object
-from model.order import Order
-from model.report import Report
-from model.user import User
-from model.role import Role
-from model.region import Region
-from model.organization import Organization
+# Базовые сущности
+from model.bank import Bank
 from model.region import Region
 from model.arial import Arial
 from model.locality import Locality
 from model.street import Street
+from model.period import Period
+from model.organization import Organization
+
+# Бизнес-сущности (зависят от справочников / базовых)
+from model.role import Role
+from model.user import User
+from model.contract import Contract
+from model.sub_contract import Sub_Contract
 from model.object import Object
 from model.equipment import Equipment
-from model.order import Order
-from model.report import Report
-from model.sub_contract import Sub_Contract
-from model.spec_priority import Spec_Priority
-from model.issue import Issue
 from model.objects_equipment import Objects_Equipment
+from model.operation import Operation  # содержит Table operations_spec_equipments
+from model.order import Order
+from model.issue import Issue
+from model.report import Report
+from model.report_attachment import Report_Attachment
+from model.issue_attachment import Issue_Attachment
 
-# Экспортируем все модели для удобства
+
 __all__ = [
-    'Base',
-    'Region', 'Arial', 'Locality', 'Street',
-    'Spec_Build', 'Spec_Room', 'Spec_Equipment', 
-    'Spec_Contract', 'Spec_Job_Title', 'Spec_Order', 
-    'Spec_Region', 'Spec_Arial',    'Spec_Order', 'Bank', 
-    'Equipment', 'Contract', 'Period', 'Object',
-    'Order', 'Report', 'User', 'Role', 'Organization',
-    'Spec_Job_Title', 'Arial' , 'Order', 'Report', 'Sub_Contract',
-    'Spec_Priority', 'Issue', 'Objects_Equipment'
+    "Base",
+    # spec_*
+    "Spec_Arial", "Spec_Build", "Spec_Contract", "Spec_Equipment",
+    "Spec_Job_Title", "Spec_Locality", "Spec_Order", "Spec_Priority",
+    "Spec_Region", "Spec_Room", "Spec_Status", "Spec_Street", "Spec_System",
+    # базовые
+    "Bank", "Region", "Arial", "Locality", "Street", "Period", "Organization",
+    # бизнес
+    "Role", "User",
+    "Contract", "Sub_Contract",
+    "Object", "Equipment", "Objects_Equipment",
+    "Operation",
+    "Order", "Issue", "Report",
+    "Report_Attachment", "Issue_Attachment",
 ]

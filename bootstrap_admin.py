@@ -18,8 +18,8 @@ from sqlalchemy import Boolean, select
 from sqlalchemy.inspection import inspect
 
 from database.database import new_session
-from model.role import Role
-from model.user import User
+import model  # регистрирует все таблицы в Base.metadata
+from model import Role, User
 from service.auth import get_password_hash
 
 
