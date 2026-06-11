@@ -200,6 +200,12 @@ class RoleBase(BaseModel):
     spec_priority_create: bool = Field(False, description="Право на создание приоритетов неисправностей")
     spec_priority_delete: bool = Field(False, description="Право на удаление приоритетов неисправностей")
 
+    # Права на типы журналов (бланки для объектов)
+    spec_journal_read: bool = Field(False, description="Право на чтение типов журналов")
+    spec_journal_modify: bool = Field(False, description="Право на изменение типов журналов")
+    spec_journal_create: bool = Field(False, description="Право на создание типов журналов")
+    spec_journal_delete: bool = Field(False, description="Право на удаление типов журналов")
+
     model_config = ConfigDict(from_attributes=True)
 
 

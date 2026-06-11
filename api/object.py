@@ -18,6 +18,7 @@ from schema.object import (
 from schema.pagination import PaginationParams, PaginatedResponse
 from service import object as object_service
 from service.object_pdf import render_object_fire_protection_log_pdf
+from service.render_docx import render_object_journal_document
 from core.dependencies import get_current_active_user
 
 
@@ -195,6 +196,36 @@ async def bulk_object_fire_journal(
         content=buf.getvalue(),
         media_type="application/zip",
         headers={"Content-Disposition": f'attachment; filename="{archive_name}"'},
+    )
+
+
+@router.get("/{object_id}/journal/{journal_type_id}/render")
+async def render_object_journal(
+    object_id: int,
+    journal_type_id: int,
+    format: str = Query("docx", regex="^(docx|pdf)$", description="Формат документа: docx (стандарт) или pdf (требует LibreOffice на сервере)"),
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    Сформировать заполненный бланк журнала для объекта по выбранному типу журнала
+    (из справочника «Виды журналов» / spec_journals).
+
+    Параллельно с устаревшим /fire-protection-log/pdf — тот зашит на HTML-шаблон
+    через WeasyPrint. Новый /journal/{type_id}/render работает по Word-шаблонам
+    через docxtpl, что позволяет редактировать шаблоны в MS Word без участия
+    разработчика.
+
+    Требуется право: object_read.
+    """
+    content, filename, media_type = await render_object_journal_document(
+        object_id, journal_type_id, format, current_user
+    )
+    return Response(
+        content=content,
+        media_type=media_type,
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+        },
     )
 
 
