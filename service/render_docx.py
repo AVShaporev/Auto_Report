@@ -17,6 +17,7 @@ import tempfile
 from datetime import date
 from pathlib import Path
 from typing import Optional, Tuple
+from urllib.parse import quote
 
 from fastapi import HTTPException
 from docxtpl import DocxTemplate
@@ -275,6 +276,26 @@ async def render_order_document(
         # fmt == "pdf"
         pdf_path = await _convert_to_pdf(docx_path, tmp_dir)
         return pdf_path.read_bytes(), pdf_path.name, "application/pdf"
+
+
+def build_attachment_headers(filename: str) -> dict:
+    """
+    Заголовки HTTP для скачивания файла с поддержкой не-ASCII имени (RFC 6266).
+
+    `filename="..."` — ASCII-fallback для старых клиентов (символы, которые
+    не помещаются в latin-1, заменяются на '_').
+    `filename*=UTF-8''...` — корректное UTF-8-имя для современных браузеров.
+
+    Решает UnicodeEncodeError 'latin-1' codec can't encode characters,
+    который возникает, если в имя файла попадает кириллица.
+    """
+    ascii_fallback = "".join(ch if ord(ch) < 128 else "_" for ch in filename) or "document"
+    quoted = quote(filename, safe="")
+    return {
+        "Content-Disposition": (
+            f'attachment; filename="{ascii_fallback}"; filename*=UTF-8\'\'{quoted}'
+        ),
+    }
 
 
 async def _convert_to_pdf(docx_path: Path, work_dir: Path) -> Path:

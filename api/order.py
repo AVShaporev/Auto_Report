@@ -19,7 +19,7 @@ from schema.order import (
 from schema.pagination import PaginationParams, PaginatedResponse
 from service import order as order_service
 from service.order_pdf import render_order_pdf, render_order_primary_pdf, render_order_defect_pdf
-from service.render_docx import render_order_document
+from service.render_docx import render_order_document, build_attachment_headers
 from core.dependencies import get_current_active_user
 
 
@@ -314,9 +314,7 @@ async def render_order_act(
     return Response(
         content=content,
         media_type=media_type,
-        headers={
-            "Content-Disposition": f'attachment; filename="{filename}"',
-        },
+        headers=build_attachment_headers(filename),
     )
 
 
