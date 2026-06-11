@@ -28,6 +28,7 @@ from api import operation as api_operation
 from api import spec_order as api_spec_order
 from api import spec_status as api_spec_status
 from api import spec_priority as api_spec_priority
+from api import spec_journal as api_spec_journal
 from api import spec_system as api_spec_system
 from api import order as api_order
 from api import report as api_report
@@ -126,6 +127,7 @@ app.include_router(api_operation.router)
 app.include_router(api_spec_order.router)
 app.include_router(api_spec_status.router)
 app.include_router(api_spec_priority.router)
+app.include_router(api_spec_journal.router)
 app.include_router(api_spec_system.router)
 app.include_router(api_order.router)
 app.include_router(api_report.router)

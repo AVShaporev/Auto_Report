@@ -1,0 +1,477 @@
+"""
+Рендер заполненного документа (.docx / .pdf) для заявки на базе .docx-/.dotx-шаблона,
+привязанного к её типу (`spec_order.template_storage_path`).
+
+Параллельная альтернатива HTML+weasyprint-пайплайну из service/order_pdf.py:
+здесь jinja-разметка живёт прямо внутри Word-документа (docxtpl), что даёт
+не-разработчикам возможность редактировать шаблон в MS Word.
+
+PDF-вариант требует установленного LibreOffice headless на сервере
+(пакет `libreoffice-core` / `libreoffice-writer`). Если LibreOffice не
+найден, запрос format=pdf возвращает 503 с понятным сообщением.
+"""
+from __future__ import annotations
+
+import asyncio
+import tempfile
+from datetime import date
+from pathlib import Path
+from typing import Optional, Tuple
+from urllib.parse import quote
+
+from fastapi import HTTPException
+from docxtpl import DocxTemplate
+from sqlalchemy import select
+from sqlalchemy.orm import selectinload
+
+from database.database import new_session
+from model.user import User
+from model.order import Order
+from model.contract import Contract
+from model.object import Object as ObjectModel
+from model.organization import Organization
+from model.locality import Locality
+from model.street import Street
+from model.spec_journal import Spec_Journal
+from config import MEDIA_PATH
+from service.order import check_permission
+from service.order_pdf import (
+    _RUSSIAN_MONTHS_GEN,
+    _format_director_full_name,
+    _build_address,
+)
+
+
+# ========== ХЕЛПЕРЫ ДЛЯ КОНТЕКСТА ==========
+
+def _today_short() -> str:
+    """07.06.2026"""
+    return date.today().strftime("%d.%m.%Y")
+
+
+def _today_long() -> str:
+    """«07» июня 2026 г."""
+    d = date.today()
+    return f"«{d.day:02d}» {_RUSSIAN_MONTHS_GEN[d.month - 1]} {d.year} г."
+
+
+def _fmt_date(d: Optional[date]) -> str:
+    return d.strftime("%d.%m.%Y") if d else ""
+
+
+def _build_org_address(org: Optional[Organization]) -> str:
+    """
+    Собрать полный адрес организации одной строкой.
+    Аналог _build_address из order_pdf.py, но для Organization
+    (у которой набор полей и связей идентичен Object).
+    """
+    if not org:
+        return ""
+    parts: list[str] = []
+    if org.postal_code:
+        parts.append(org.postal_code)
+    if org.region and org.region.name:
+        sr = getattr(org.region, "spec_region", None)
+        suffix = f" {sr.name}" if sr and sr.name else ""
+        parts.append(f"{org.region.name}{suffix}")
+    if org.arial and org.arial.name:
+        sa = getattr(org.arial, "spec_arial", None)
+        suffix = f" {sa.name}" if sa and sa.name else ""
+        parts.append(f"{org.arial.name}{suffix}")
+    if org.locality and org.locality.name:
+        sl = getattr(org.locality, "spec_locality", None)
+        prefix = f"{sl.short_name} " if sl and getattr(sl, "short_name", None) else ""
+        parts.append(f"{prefix}{org.locality.name}".strip())
+    if org.street and org.street.name:
+        ss = getattr(org.street, "spec_street", None)
+        prefix = f"{ss.short_name} " if ss and getattr(ss, "short_name", None) else ""
+        parts.append(f"{prefix}{org.street.name}".strip())
+    if org.build_number:
+        sb = getattr(org, "spec_build", None)
+        prefix = sb.name if sb and sb.name else "д."
+        parts.append(f"{prefix} {org.build_number}".strip())
+    if org.room_number:
+        parts.append(f"пом. {org.room_number}".strip())
+    return ", ".join(p for p in parts if p)
+
+
+def _org_to_dict(org: Optional[Organization]) -> dict:
+    """Структура для шаблона: {{ customer.name }}, {{ customer.director_full_name }}, …"""
+    if not org:
+        return {
+            "name": "",
+            "short_name": "",
+            "inn": "",
+            "kpp": "",
+            "director_full_name": "",
+            "address": "",
+        }
+    return {
+        "name": org.name or "",
+        "short_name": org.short_name or "",
+        "inn": org.inn or "",
+        "kpp": org.kpp or "",
+        "director_full_name": _format_director_full_name(org),
+        "address": _build_org_address(org),
+    }
+
+
+def _build_context(order: Order) -> dict:
+    """Собрать словарь для docxtpl. Список ключей задокументирован в Phase 3."""
+    contract: Optional[Contract] = order.contract
+    customer = contract.customer if contract else None
+    executor = contract.executor if contract else None
+    obj = order.object
+    user = order.user
+
+    return {
+        "order": {
+            "number": order.number or "",
+            "created_at": _fmt_date(order.created_at),
+            "description": order.description or "",
+        },
+        "contract": {
+            "number": contract.number if contract else "",
+            "date_of_consclusion": _fmt_date(contract.date_of_consclusion if contract else None),
+            "date_of_completion": _fmt_date(contract.date_of_completion if contract else None),
+            "subject": (contract.subject or "") if contract else "",
+            "short_subject": (contract.short_subject or "") if contract else "",
+        },
+        "customer": _org_to_dict(customer),
+        "executor": _org_to_dict(executor),
+        "object": {
+            "name": (obj.name or "") if obj else "",
+            "address": _build_address(obj) if obj else "",
+            "responsible_face": (obj.responsible_face or "") if obj else "",
+            "responsible_faces_contact": (obj.responsible_faces_contact or "") if obj else "",
+        },
+        "user": {
+            "full_name": (user.full_name or "") if user else "",
+            "role_name": (user.role.name or "") if (user and user.role) else "",
+        },
+        "today": _today_short(),
+        "today_long": _today_long(),
+    }
+
+
+# ========== ЗАГРУЗКА ORDER СО ВСЕМИ СВЯЗЯМИ ==========
+# Отдельная от order_pdf._load_order_with_relations, потому что докручиваем
+# географию для customer/executor и role для user (HTML-пайплайн их не грузит).
+
+async def _load_order_for_docx(session, order_id: int) -> Order:
+    customer_load = (
+        selectinload(Order.contract)
+        .selectinload(Contract.customer)
+    )
+    executor_load = (
+        selectinload(Order.contract)
+        .selectinload(Contract.executor)
+    )
+
+    stmt = (
+        select(Order)
+        .where(Order.id == order_id)
+        .options(
+            selectinload(Order.spec_order),
+            selectinload(Order.user).selectinload(User.role),
+            # customer + его география
+            customer_load.selectinload(Organization.region),
+            customer_load.selectinload(Organization.arial),
+            customer_load.selectinload(Organization.locality).selectinload(Locality.spec_locality),
+            customer_load.selectinload(Organization.street).selectinload(Street.spec_street),
+            customer_load.selectinload(Organization.spec_build),
+            # executor + его география
+            executor_load.selectinload(Organization.region),
+            executor_load.selectinload(Organization.arial),
+            executor_load.selectinload(Organization.locality).selectinload(Locality.spec_locality),
+            executor_load.selectinload(Organization.street).selectinload(Street.spec_street),
+            executor_load.selectinload(Organization.spec_build),
+            # object + его география
+            selectinload(Order.object).selectinload(ObjectModel.region),
+            selectinload(Order.object).selectinload(ObjectModel.arial),
+            selectinload(Order.object).selectinload(ObjectModel.locality).selectinload(Locality.spec_locality),
+            selectinload(Order.object).selectinload(ObjectModel.street).selectinload(Street.spec_street),
+            selectinload(Order.object).selectinload(ObjectModel.spec_build),
+            selectinload(Order.object).selectinload(ObjectModel.spec_room),
+        )
+    )
+    result = await session.execute(stmt)
+    order = result.scalar_one_or_none()
+
+    if not order:
+        raise HTTPException(status_code=404, detail=f"Заявка с id {order_id} не найдена")
+    return order
+
+
+# ========== ОСНОВНОЙ РЕНДЕР ==========
+
+ALLOWED_RENDER_FORMATS = {"docx", "pdf"}
+
+
+async def render_order_document(
+    order_id: int,
+    fmt: str,
+    current_user: User,
+) -> Tuple[bytes, str, str]:
+    """
+    Сформировать заполненный документ по заявке.
+
+    Returns: (content_bytes, filename, media_type).
+    """
+    if fmt not in ALLOWED_RENDER_FORMATS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Неподдерживаемый формат: {fmt!r}. Доступны: {sorted(ALLOWED_RENDER_FORMATS)}.",
+        )
+
+    await check_permission(current_user, "order_read", f"скачивания {fmt.upper()}-акта")
+
+    async with new_session() as session:
+        order = await _load_order_for_docx(session, order_id)
+
+        spec_order = order.spec_order
+        if not spec_order:
+            raise HTTPException(status_code=400, detail="У заявки не указан тип")
+        if not spec_order.template_storage_path:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Для типа заявки «{spec_order.name}» не загружен шаблон документа. "
+                    "Загрузите .docx/.dotx через справочник «Типы заявок»."
+                ),
+            )
+
+        template_abs = MEDIA_PATH / spec_order.template_storage_path
+        if not template_abs.exists():
+            raise HTTPException(
+                status_code=500,
+                detail=(
+                    f"Файл шаблона отсутствует на диске сервера "
+                    f"({spec_order.template_storage_path}). Свяжитесь с администратором."
+                ),
+            )
+
+        context = _build_context(order)
+
+    suggested_stem = f"act_order_{order.number or order.id}_{spec_order.code or 'doc'}"
+    # Чистим символы, которые ОС не любит в именах файлов.
+    suggested_stem = "".join(ch if ch.isalnum() or ch in "._-" else "_" for ch in suggested_stem)
+
+    # Рендер в .docx через docxtpl.
+    doc = DocxTemplate(str(template_abs))
+    doc.render(context)
+
+    with tempfile.TemporaryDirectory() as tmp_dir_str:
+        tmp_dir = Path(tmp_dir_str)
+        docx_path = tmp_dir / f"{suggested_stem}.docx"
+        doc.save(str(docx_path))
+
+        if fmt == "docx":
+            return (
+                docx_path.read_bytes(),
+                docx_path.name,
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            )
+
+        # fmt == "pdf"
+        pdf_path = await _convert_to_pdf(docx_path, tmp_dir)
+        return pdf_path.read_bytes(), pdf_path.name, "application/pdf"
+
+
+def build_attachment_headers(filename: str) -> dict:
+    """
+    Заголовки HTTP для скачивания файла с поддержкой не-ASCII имени (RFC 6266).
+
+    `filename="..."` — ASCII-fallback для старых клиентов (символы, которые
+    не помещаются в latin-1, заменяются на '_').
+    `filename*=UTF-8''...` — корректное UTF-8-имя для современных браузеров.
+
+    Решает UnicodeEncodeError 'latin-1' codec can't encode characters,
+    который возникает, если в имя файла попадает кириллица.
+    """
+    ascii_fallback = "".join(ch if ord(ch) < 128 else "_" for ch in filename) or "document"
+    quoted = quote(filename, safe="")
+    return {
+        "Content-Disposition": (
+            f'attachment; filename="{ascii_fallback}"; filename*=UTF-8\'\'{quoted}'
+        ),
+    }
+
+
+async def _convert_to_pdf(docx_path: Path, work_dir: Path) -> Path:
+    """Запускает LibreOffice headless: .docx -> .pdf в той же work_dir."""
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "soffice",
+            "--headless",
+            "--convert-to",
+            "pdf",
+            "--outdir",
+            str(work_dir),
+            str(docx_path),
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+    except FileNotFoundError:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "LibreOffice (soffice) не установлен на сервере. "
+                "Скачайте .docx и сконвертируйте на своей машине, "
+                "либо попросите администратора установить пакет libreoffice."
+            ),
+        )
+
+    stdout, stderr = await proc.communicate()
+    if proc.returncode != 0:
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "LibreOffice не смог сконвертировать .docx -> .pdf. "
+                f"stdout: {stdout.decode(errors='replace')[:200]}; "
+                f"stderr: {stderr.decode(errors='replace')[:200]}"
+            ),
+        )
+
+    pdf_path = work_dir / f"{docx_path.stem}.pdf"
+    if not pdf_path.exists():
+        raise HTTPException(
+            status_code=500,
+            detail=f"LibreOffice не создал PDF-файл по ожидаемому пути {pdf_path.name}",
+        )
+    return pdf_path
+
+
+# ========== РЕНДЕР ЖУРНАЛА ОБЪЕКТА ==========
+# Журнал — бланк, привязанный к ОБЪЕКТУ (а не к заявке). Тип журнала
+# выбирается из справочника spec_journals; шаблон лежит у типа.
+
+async def _load_object_for_journal(session, object_id: int) -> ObjectModel:
+    """Загрузить объект со всеми связями, нужными для шапки журнала."""
+    stmt = (
+        select(ObjectModel)
+        .where(ObjectModel.id == object_id)
+        .options(
+            selectinload(ObjectModel.region),
+            selectinload(ObjectModel.arial),
+            selectinload(ObjectModel.locality).selectinload(Locality.spec_locality),
+            selectinload(ObjectModel.street).selectinload(Street.spec_street),
+            selectinload(ObjectModel.spec_build),
+            selectinload(ObjectModel.spec_room),
+            # contract + customer + executor с их географией
+            selectinload(ObjectModel.contract).selectinload(Contract.customer).selectinload(Organization.region),
+            selectinload(ObjectModel.contract).selectinload(Contract.customer).selectinload(Organization.arial),
+            selectinload(ObjectModel.contract).selectinload(Contract.customer).selectinload(Organization.locality).selectinload(Locality.spec_locality),
+            selectinload(ObjectModel.contract).selectinload(Contract.customer).selectinload(Organization.street).selectinload(Street.spec_street),
+            selectinload(ObjectModel.contract).selectinload(Contract.customer).selectinload(Organization.spec_build),
+            selectinload(ObjectModel.contract).selectinload(Contract.executor).selectinload(Organization.region),
+            selectinload(ObjectModel.contract).selectinload(Contract.executor).selectinload(Organization.arial),
+            selectinload(ObjectModel.contract).selectinload(Contract.executor).selectinload(Organization.locality).selectinload(Locality.spec_locality),
+            selectinload(ObjectModel.contract).selectinload(Contract.executor).selectinload(Organization.street).selectinload(Street.spec_street),
+            selectinload(ObjectModel.contract).selectinload(Contract.executor).selectinload(Organization.spec_build),
+        )
+    )
+    result = await session.execute(stmt)
+    obj = result.scalar_one_or_none()
+
+    if not obj:
+        raise HTTPException(status_code=404, detail=f"Объект с id {object_id} не найден")
+    return obj
+
+
+def _build_journal_context(obj: ObjectModel) -> dict:
+    """Собрать словарь для docxtpl-шаблона журнала. Список ключей идёт в DocsView (Phase 3)."""
+    contract: Optional[Contract] = obj.contract
+    customer = contract.customer if contract else None
+    executor = contract.executor if contract else None
+
+    return {
+        "object": {
+            "name": obj.name or "",
+            "address": _build_address(obj),
+            "responsible_face": obj.responsible_face or "",
+            "responsible_faces_contact": obj.responsible_faces_contact or "",
+        },
+        "contract": {
+            "number": contract.number if contract else "",
+            "date_of_consclusion": _fmt_date(contract.date_of_consclusion if contract else None),
+            "date_of_completion": _fmt_date(contract.date_of_completion if contract else None),
+            "subject": (contract.subject or "") if contract else "",
+            "short_subject": (contract.short_subject or "") if contract else "",
+        },
+        "customer": _org_to_dict(customer),
+        "executor": _org_to_dict(executor),
+        "today": _today_short(),
+        "today_long": _today_long(),
+    }
+
+
+async def render_object_journal_document(
+    object_id: int,
+    journal_type_id: int,
+    fmt: str,
+    current_user: User,
+) -> Tuple[bytes, str, str]:
+    """
+    Сформировать заполненный бланк журнала для объекта по выбранному типу журнала.
+
+    Returns: (content_bytes, filename, media_type).
+    """
+    if fmt not in ALLOWED_RENDER_FORMATS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Неподдерживаемый формат: {fmt!r}. Доступны: {sorted(ALLOWED_RENDER_FORMATS)}.",
+        )
+
+    await check_permission(current_user, "object_read", f"скачивания {fmt.upper()}-журнала")
+
+    async with new_session() as session:
+        obj = await _load_object_for_journal(session, object_id)
+
+        spec_journal = await session.get(Spec_Journal, journal_type_id)
+        if not spec_journal:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Тип журнала с id {journal_type_id} не найден",
+            )
+        if not spec_journal.template_storage_path:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Для типа журнала «{spec_journal.name}» не загружен шаблон документа. "
+                    "Загрузите .docx/.dotx через справочник «Виды журналов»."
+                ),
+            )
+
+        template_abs = MEDIA_PATH / spec_journal.template_storage_path
+        if not template_abs.exists():
+            raise HTTPException(
+                status_code=500,
+                detail=(
+                    f"Файл шаблона отсутствует на диске сервера "
+                    f"({spec_journal.template_storage_path}). Свяжитесь с администратором."
+                ),
+            )
+
+        context = _build_journal_context(obj)
+
+    suggested_stem = f"journal_{spec_journal.code or spec_journal.id}_object_{obj.id}_{obj.name or ''}"
+    suggested_stem = "".join(ch if ch.isalnum() or ch in "._-" else "_" for ch in suggested_stem)
+
+    doc = DocxTemplate(str(template_abs))
+    doc.render(context)
+
+    with tempfile.TemporaryDirectory() as tmp_dir_str:
+        tmp_dir = Path(tmp_dir_str)
+        docx_path = tmp_dir / f"{suggested_stem}.docx"
+        doc.save(str(docx_path))
+
+        if fmt == "docx":
+            return (
+                docx_path.read_bytes(),
+                docx_path.name,
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            )
+
+        pdf_path = await _convert_to_pdf(docx_path, tmp_dir)
+        return pdf_path.read_bytes(), pdf_path.name, "application/pdf"

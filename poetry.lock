@@ -635,6 +635,26 @@ trio = ["trio (>=0.30)"]
 wmi = ["wmi (>=1.5.1)"]
 
 [[package]]
+name = "docxtpl"
+version = "0.20.2"
+description = "Python docx template engine"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "docxtpl-0.20.2-py3-none-any.whl", hash = "sha256:626d5c570a46a62b2ca73b4d08f1c240fa031a5bc45371e1466a4fe184923d10"},
+    {file = "docxtpl-0.20.2.tar.gz", hash = "sha256:eddf3350d70b4d123208e801d585bcb313d21044a377a14f75a66d0965841de1"},
+]
+
+[package.dependencies]
+jinja2 = "*"
+lxml = "*"
+python-docx = "*"
+
+[package.extras]
+docs = ["Sphinx", "sphinxcontrib-napoleon"]
+subdoc = ["docxcompose"]
+
+[[package]]
 name = "ecdsa"
 version = "0.19.1"
 description = "ECDSA cryptographic signature library (pure python)"
@@ -2301,4 +2321,4 @@ test = ["pytest"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "6b40a9bd675d4f6040dae810b5da5d449b002d6199ded38cc0d6ae067cba52bf"
+content-hash = "4c6f83c04ebfb9e93d35dc700fb51d7eea4cb33f9dc0e3b7432eb2d276adca59"

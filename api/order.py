@@ -19,6 +19,7 @@ from schema.order import (
 from schema.pagination import PaginationParams, PaginatedResponse
 from service import order as order_service
 from service.order_pdf import render_order_pdf, render_order_primary_pdf, render_order_defect_pdf
+from service.render_docx import render_order_document, build_attachment_headers
 from core.dependencies import get_current_active_user
 
 
@@ -284,6 +285,36 @@ async def get_order_defect_pdf(
         headers={
             "Content-Disposition": f'attachment; filename="{filename}"',
         },
+    )
+
+
+@router.get("/{order_id}/render")
+async def render_order_act(
+    order_id: int,
+    format: str = Query("docx", regex="^(docx|pdf)$", description="Формат документа: docx (стандарт) или pdf (требует LibreOffice на сервере)"),
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    Сформировать заполненный акт по заявке на основе .docx/.dotx-шаблона,
+    привязанного к её типу (spec_order.template_filename).
+
+    Параллельно с устаревшими /pdf, /primary/pdf, /defect/pdf — те жёстко
+    зашиты на HTML-шаблоны через WeasyPrint; новый /render работает по
+    Word-шаблонам через docxtpl, что позволяет редактировать шаблоны
+    в MS Word без участия разработчика.
+
+    Список доступных placeholder'ов для шаблона смотри в разделе
+    «Документация» приложения (Phase 3).
+
+    Требуется право: order_read.
+    """
+    content, filename, media_type = await render_order_document(
+        order_id, format, current_user
+    )
+    return Response(
+        content=content,
+        media_type=media_type,
+        headers=build_attachment_headers(filename),
     )
 
 

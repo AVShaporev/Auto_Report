@@ -200,6 +200,12 @@ class Role(Base):
     spec_priority_create: Mapped[bool] = mapped_column(default=False)
     spec_priority_modify: Mapped[bool] = mapped_column(default=False)
     spec_priority_delete: Mapped[bool] = mapped_column(default=False)
+
+    # права на типы журналов
+    spec_journal_read: Mapped[bool] = mapped_column(default=False)
+    spec_journal_create: Mapped[bool] = mapped_column(default=False)
+    spec_journal_modify: Mapped[bool] = mapped_column(default=False)
+    spec_journal_delete: Mapped[bool] = mapped_column(default=False)
             
     # Определяем отношения: одна роль может принаддлежать нескольким пользователям
     # lazy="select" (default) — НЕ грузим автоматически. data/role.py явно
