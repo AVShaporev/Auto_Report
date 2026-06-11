@@ -13,6 +13,7 @@ PDF-вариант требует установленного LibreOffice headl
 from __future__ import annotations
 
 import asyncio
+import os
 import tempfile
 from datetime import date
 from pathlib import Path
@@ -299,16 +300,38 @@ def build_attachment_headers(filename: str) -> dict:
 
 
 async def _convert_to_pdf(docx_path: Path, work_dir: Path) -> Path:
-    """Запускает LibreOffice headless: .docx -> .pdf в той же work_dir."""
+    """
+    Запускает LibreOffice headless: .docx -> .pdf в той же work_dir.
+
+    Профиль soffice (UserInstallation) и HOME принудительно перенаправлены
+    в work_dir: на продакшене HOME юзера autoreport read-only (systemd
+    ProtectHome=yes), без override soffice падает с
+    `dconf-CRITICAL: unable to create file '~/.cache/dconf/user': Read-only file system`.
+    """
+    profile_dir = work_dir / "lo_profile"
+    profile_dir.mkdir(exist_ok=True)
+    # UserInstallation должен быть file://-URI на абсолютный путь.
+    user_install = f"file://{profile_dir.resolve().as_posix()}"
+
+    env = {
+        **os.environ,
+        "HOME": str(work_dir),
+        "XDG_CACHE_HOME": str(work_dir / "cache"),
+        "XDG_CONFIG_HOME": str(work_dir / "config"),
+        "XDG_DATA_HOME": str(work_dir / "data"),
+    }
+
     try:
         proc = await asyncio.create_subprocess_exec(
             "soffice",
+            f"-env:UserInstallation={user_install}",
             "--headless",
             "--convert-to",
             "pdf",
             "--outdir",
             str(work_dir),
             str(docx_path),
+            env=env,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
