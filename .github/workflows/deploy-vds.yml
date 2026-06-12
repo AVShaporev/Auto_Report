@@ -1,0 +1,62 @@
+# Auto_Report — деплой бэка на VDS (188.120.227.138, hi-tech.cool-doc.ru).
+#
+# Триггер: push в prod (или вручную workflow_dispatch).
+# Параллельно с этим срабатывает старый .github/workflows/deploy.yml,
+# который обновляет 192.168.1.8 prod (bare-metal) — два prod-окружения
+# обновляются вместе.
+#
+# Runner: GitHub-hosted ubuntu-latest, SSH-ится на VDS через appleboy/ssh-action.
+# Не self-hosted — на VDS лишний runner-процесс ел бы ~150 MB RAM.
+#
+# Secrets, нужные в репо (Settings → Secrets and variables → Actions):
+#   SSH_HOST          — 188.120.227.138
+#   SSH_PRIVATE_KEY   — приватка из /home/deploy/.ssh/github_deploy (см. §2.7 VDS deploy)
+# SSH-порт жёстко прописан здесь (48461 — пользовательский, см. §2.4 VDS deploy).
+
+name: Deploy backend to VDS
+
+on:
+  push:
+    branches: [prod]
+  workflow_dispatch:
+
+# Один деплой за раз. cancel-in-progress=false — нельзя обрывать docker build
+# на полпути, лучше дать закончить и стартовать второй.
+concurrency:
+  group: deploy-vds-backend
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: SSH and run deploy.sh backend
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          port: 48461
+          username: deploy
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          # script_stop: true → если внутри скрипта команда падает, action тоже красный.
+          script_stop: true
+          script: |
+            /opt/auto-report/scripts/deploy.sh backend
+
+      - name: Healthcheck https://hi-tech.cool-doc.ru/api/openapi.json
+        run: |
+          # Бэку после rebuild + alembic upgrade нужно 15-40s, плюс tini → uvicorn.
+          # 45 итераций × 4s = 180s суммарного таймаута.
+          for i in $(seq 1 45); do
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 \
+                https://hi-tech.cool-doc.ru/api/openapi.json) || code=000
+            if [ "$code" = "200" ]; then
+              echo "✅ Backend healthy после ~$((i*4))s"
+              exit 0
+            fi
+            echo "[$i/45] HTTP $code — wait 4s"
+            sleep 4
+          done
+          echo "❌ Healthcheck failed после 180s — последний код $code"
+          exit 1
