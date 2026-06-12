@@ -1,0 +1,8 @@
+# Принудительный LF для shell-скриптов и Docker-файлов,
+# чтобы при сборке Docker-образа на Linux не получить CRLF
+# (bash в контейнере падает: `: command not found`).
+*.sh           text eol=lf
+Dockerfile     text eol=lf
+.dockerignore  text eol=lf
+*.yml          text eol=lf
+*.yaml         text eol=lf
