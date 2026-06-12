@@ -1,0 +1,54 @@
+# Auto_Report — финальный Caddyfile для VDS.
+#
+# Этот файл — ШАБЛОН в git'е (versioned). На VDS лежит копия в
+# /etc/caddy/Caddyfile.
+#
+# Стартовать после первого `docker compose up -d --build` —
+# когда frontend-контейнер уже слушает 127.0.0.1:8080:
+#   sudo cp /opt/auto-report/Auto_Report/docker/Caddyfile.example /etc/caddy/Caddyfile
+#   sudo systemctl enable --now caddy
+#   sudo journalctl -u caddy -f      # смотрим как Caddy подтягивает свежий конфиг
+
+{
+    # Email для Let's Encrypt — на этот адрес приходят уведомления о просроке сертов.
+    email iashaporev@gmail.com
+}
+
+hi-tech.cool-doc.ru {
+    # Реверс-прокси на frontend-контейнер.
+    # Тот сам решает: /api/* → backend:8000 (через docker-network),
+    # всё остальное → отдаёт index.html / static.
+    reverse_proxy 127.0.0.1:8080 {
+        # X-Forwarded-* проставляет Caddy автоматически, но дублируем явно,
+        # чтобы frontend-nginx и uvicorn (--proxy-headers) видели real IP клиента.
+        header_up X-Real-IP        {remote_host}
+        header_up X-Forwarded-For  {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+
+    # Безопасные заголовки уровня хоста.
+    header {
+        # HSTS на 1 год для всех поддоменов.
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        # Запретить браузеру угадывать MIME.
+        X-Content-Type-Options    "nosniff"
+        # Защита от clickjacking.
+        X-Frame-Options           "SAMEORIGIN"
+        # Не утекать полный URL referer.
+        Referrer-Policy           "strict-origin-when-cross-origin"
+        # Скрываем Server: Caddy.
+        -Server
+    }
+
+    encode gzip zstd
+
+    # Логи запросов — для расследования атак и обычной отладки.
+    # Caddy сам ротирует: max 100MB, 10 файлов в архиве.
+    log {
+        output file /var/log/caddy/access.log {
+            roll_size 100MB
+            roll_keep 10
+        }
+        format json
+    }
+}
