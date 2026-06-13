@@ -988,16 +988,6 @@ MarkupSafe = ">=2.0"
 i18n = ["Babel (>=2.7)"]
 
 [[package]]
-name = "logging"
-version = "0.4.9.6"
-description = "A logging module for Python"
-optional = false
-python-versions = "*"
-files = [
-    {file = "logging-0.4.9.6.tar.gz", hash = "sha256:26f6b50773f085042d301085bd1bf5d9f3735704db9f37c1ce6d8b85c38f2417"},
-]
-
-[[package]]
 name = "loguru"
 version = "0.7.3"
 description = "Python logging made (stupidly) simple"
@@ -2321,4 +2311,4 @@ test = ["pytest"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "4c6f83c04ebfb9e93d35dc700fb51d7eea4cb33f9dc0e3b7432eb2d276adca59"
+content-hash = "0fdfd3eb46cb81bb9b651c6f1b998bae95405a6652ad31f767c0d9db36a6bccd"

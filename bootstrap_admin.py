@@ -50,12 +50,18 @@ async def main() -> int:
         )).scalar_one_or_none()
 
         if role is None:
-            role = Role(name=SUPERADMIN_ROLE_NAME, **_all_role_perm_flags())
+            role = Role(name=SUPERADMIN_ROLE_NAME, is_protected=True, **_all_role_perm_flags())
             session.add(role)
             await session.flush()
-            print(f"Created role '{SUPERADMIN_ROLE_NAME}' (id={role.id}) with all permissions")
+            print(f"Created role '{SUPERADMIN_ROLE_NAME}' (id={role.id}) with all permissions, is_protected=True")
         else:
-            print(f"Role '{SUPERADMIN_ROLE_NAME}' (id={role.id}) already exists, reusing")
+            # Гарантируем флаг is_protected у роли — даже если она существовала
+            # без него (создана до миграции d4f8e3c7b2a1).
+            if not role.is_protected:
+                role.is_protected = True
+                print(f"Role '{SUPERADMIN_ROLE_NAME}' (id={role.id}) marked is_protected=True")
+            else:
+                print(f"Role '{SUPERADMIN_ROLE_NAME}' (id={role.id}) already exists, reusing")
 
         existing_user = (await session.execute(
             select(User).where(User.name == name)
@@ -73,6 +79,7 @@ async def main() -> int:
             telegram_id=telegram_id,
             role_id=role.id,
             is_active=True,
+            is_protected=True,
         )
         session.add(user)
         await session.commit()

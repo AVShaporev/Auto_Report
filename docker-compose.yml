@@ -1,0 +1,155 @@
+# Auto_Report — docker compose оркестратор для VDS-деплоя.
+#
+# Где живёт на VDS:
+#   /opt/auto-report/
+#   ├── Auto_Report/                   ← git clone бэка, этот файл тут
+#   │   docker-compose.yml             ← (текущий файл)
+#   ├── Auto_report_front/             ← git clone фронта (рядом, см. build.context)
+#   ├── .env                           ← пароли + DB-конфиг, chmod 600, НЕ В GIT
+#   ├── backups/                       ← cron pg_dump кладёт сюда (§8)
+#   └── scripts/
+#       └── deploy.sh                  ← GHA workflow дёргает (§6)
+#
+# Запуск из /opt/auto-report/Auto_Report/:
+#   docker compose up -d --build
+#
+# Compose автоматически подхватывает ../.env через env_file у каждого сервиса.
+# `version:` тег не нужен — он deprecated с compose v2+.
+
+# =====================================================================
+# Сети
+# =====================================================================
+networks:
+  # Внутренняя сеть для всех трёх сервисов. Driver bridge.
+  # postgres и backend без `ports:` — они доступны только через ar_net.
+  ar_net:
+    driver: bridge
+
+# =====================================================================
+# Тома (named volumes)
+# =====================================================================
+volumes:
+  # БД PostgreSQL. Лежит в /var/lib/docker/volumes/auto-report_pg_data/_data/
+  # Docker сам ставит правильный uid 999 (postgres user внутри образа).
+  # Переживает docker compose down / rebuild контейнера / переустановку backend.
+  pg_data:
+
+  # Вложения к заявкам/отчётам + шаблоны .docx — приходят через UI.
+  # Хранится в /var/lib/docker/volumes/auto-report_backend_media/_data/
+  # Бэкапим cron'ом (§8).
+  backend_media:
+
+  # Логи Loguru. Не критично терять, но удобно иметь на пересборку.
+  backend_logs:
+
+# =====================================================================
+# Сервисы
+# =====================================================================
+services:
+
+  # -------------------------------------------------------------------
+  # PostgreSQL 16 — БД для бэка
+  # -------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: auto-report-postgres
+    restart: unless-stopped
+
+    # Все POSTGRES_* читает init-скрипт образа postgres при первом запуске.
+    # При последующих запусках pg_data уже инициализирована — переменные
+    # игнорятся. ВАЖНО: если меняешь POSTGRES_PASSWORD после первого старта,
+    # это НЕ ротирует пароль в БД, надо вручную ALTER USER через psql.
+    env_file:
+      - ../.env
+
+    # Локальный 5432:5432 — наружу не торчит (только loopback хоста),
+    # достаём из DBeaver через SSH-туннель:
+    #   ssh -p 48461 -L 5432:127.0.0.1:5432 root@188.120.227.138
+    # Дальше в DBeaver → localhost:5432, юзер из .env.
+    ports:
+      - "127.0.0.1:5432:5432"
+
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+
+    # Healthcheck нужен — backend.depends_on.condition=service_healthy
+    # не пустит uvicorn раньше готовности postgres.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-autoreport}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+    # На 1.8GB RAM ограничиваем postgres ~300MB,
+    # чтобы он не съел весь буфер у бэка под нагрузкой.
+    mem_limit: 300m
+
+    networks:
+      - ar_net
+
+  # -------------------------------------------------------------------
+  # Backend — FastAPI + uvicorn
+  # -------------------------------------------------------------------
+  backend:
+    container_name: auto-report-backend
+    restart: unless-stopped
+
+    # build.context = текущая папка (Auto_Report репо).
+    # Dockerfile в корне репо (multi-stage, см. сам файл).
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    # DB_*, SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES,
+    # REFRESH_TOKEN_EXPIRE_DAYS, MEDIA_ROOT — всё в одном .env.
+    env_file:
+      - ../.env
+
+    # Не пробрасываем :8000 наружу — Caddy → frontend-nginx → backend:8000
+    # внутри docker-network.
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    volumes:
+      # Вложения к заявкам/отчётам + шаблоны.
+      # MEDIA_ROOT в .env должен указывать на /app/media (внутри контейнера).
+      - backend_media:/app/media
+      # Логи Loguru.
+      - backend_logs:/app/logs
+
+    # Backend читает заголовки X-Forwarded-Proto от frontend-nginx,
+    # значит uvicorn должен видеть proxy-headers — выставлено в entrypoint.sh.
+
+    mem_limit: 700m
+
+    networks:
+      - ar_net
+
+  # -------------------------------------------------------------------
+  # Frontend — SPA в nginx
+  # -------------------------------------------------------------------
+  frontend:
+    container_name: auto-report-frontend
+    restart: unless-stopped
+
+    # build.context = соседний фронт-репо.
+    # На VDS оба репо должны лежать в /opt/auto-report/{Auto_Report,Auto_report_front}/.
+    build:
+      context: ../Auto_report_front
+      dockerfile: Dockerfile
+
+    # Caddy на хосте проксирует 443 → 127.0.0.1:8080.
+    # 8080 на 127.0.0.1: наружу не торчит, только через Caddy.
+    ports:
+      - "127.0.0.1:8080:80"
+
+    depends_on:
+      - backend
+
+    mem_limit: 100m
+
+    networks:
+      - ar_net

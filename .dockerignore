@@ -1,0 +1,60 @@
+# Что НЕ попадает в Docker-образ.
+# Цель: меньше слой COPY, нет секретов, нет кэшей.
+
+# --- Секреты (CRITICAL — никогда не пускаем .env в image) ---
+.env
+.env.*
+
+# --- Python ---
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+*.egg-info
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.coverage
+htmlcov
+
+# --- Виртуальные окружения ---
+.venv
+venv
+env
+
+# --- Git/CI ---
+.git
+.gitignore
+.github
+
+# --- Docs (CLAUDE.md/DEPLOY*.md нужны разработчику, не runtime) ---
+README.md
+CLAUDE.md
+DEPLOY.md
+DEPLOY_VPS.md
+ROTATE_PROD_DB_PASSWORD.md
+FileTree.txt
+
+# --- Runtime-данные (приходят через docker volume) ---
+logs
+media
+
+# --- Тесты (в проде не запускаем) ---
+tests
+
+# --- IDE/OS ---
+.idea
+.vscode
+.DS_Store
+Thumbs.db
+*.swp
+
+# --- Не нужно копировать сам Dockerfile/compose ---
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# --- Прочие WIP-файлы из ранних попыток деплоя ---
+nginx.conf
+reset_pg_password.*
+generate_vps_config.sh
