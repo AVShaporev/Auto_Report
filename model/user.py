@@ -17,6 +17,9 @@ class User(Base):
     role_id: Mapped[int] = mapped_column(ForeignKey("roles.id"))
     is_active: Mapped[bool] = mapped_column(default=True)
 
+    # Защита от удаления/смены роли через UI (bootstrap-юзер superadmin).
+    is_protected: Mapped[bool] = mapped_column(default=False, server_default='false')
+
     # Отношения с использованием строк вместо прямых импортов
     # role: joined — нужна на КАЖДЫЙ authed request для проверки прав;
     # joined даёт LEFT OUTER JOIN в одном SELECT, без отдельного round-trip.

@@ -1,5 +1,7 @@
 from typing import Optional, List, Tuple
 
+from fastapi import HTTPException
+
 from model.user import User
 
 from schema.user import UserRequest
@@ -10,6 +12,11 @@ from data import user as data
 from database.database import async_session_maker as new_session
 
 from service.auth import get_password_hash
+
+
+# Поля, которые НЕЛЬЗЯ менять у is_protected=True юзера через update.
+# Личные данные (full_name, email, phone, telegram_id, password) — можно.
+_PROTECTED_USER_LOCKED_FIELDS = {'name', 'role_id', 'is_active'}
 
 
 async def get_one(name: str):
@@ -73,6 +80,15 @@ async def get_all():
 
 async def delete_by_id(id: int):
     async with new_session() as session:
+        existing = await data.get_user_by_id(session, id)
+        if existing is None:
+            raise HTTPException(status_code=404, detail=f"Пользователь с id {id} не найден")
+        if existing.is_protected:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Невозможно удалить защищённого пользователя '{existing.name}' — "
+                       f"он необходим для работы системы.",
+            )
         res = await data.delete_user(session, id)
         return res
 
@@ -84,12 +100,30 @@ async def modify(user_id: int, user) -> Optional[User]:
     уходит dict только с теми полями, которые клиент явно прислал
     (`exclude_unset=True`), чтобы PUT по ошибке не затирал остальные.
     Возвращает обновлённого User или None, если не найден.
+
+    Для is_protected=True юзера блокируем смену name / role_id / is_active —
+    остальное (full_name, email, phone, telegram_id, password) разрешено,
+    чтобы суперадмин мог обновить личные данные и ротировать пароль.
     """
     async with new_session() as session:
         updates = (
             user.dict(exclude_unset=True)
             if hasattr(user, 'dict') else dict(user)
         )
+
+        existing = await data.get_user_by_id(session, user_id)
+        if existing is None:
+            return None
+
+        if existing.is_protected:
+            blocked = _PROTECTED_USER_LOCKED_FIELDS & updates.keys()
+            if blocked:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"У защищённого пользователя '{existing.name}' нельзя "
+                           f"менять поля: {', '.join(sorted(blocked))}.",
+                )
+
         return await data.update_user(session, user_id=user_id, updates=updates)
 
 async def get_users_paginated(

@@ -68,6 +68,7 @@ class UserResponse(UserBase):
     email: Optional[str] = None
     role_id: int
     is_active: bool
+    is_protected: bool = False
     description: Optional[str] = None
     role: Optional[RoleSimpleResponse] = None
 
@@ -92,6 +93,7 @@ class UserListResponse(BaseModel):
     email: Optional[str] = Field(None, validate_default=True)
     role_name: Optional[str] = None
     is_active: bool
+    is_protected: bool = False
     description: Optional[str] = None
 
     class Config:

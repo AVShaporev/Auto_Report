@@ -15,6 +15,9 @@ class Role(Base):
     is_admin: Mapped[bool] = mapped_column(default=False)
     is_superadmin: Mapped[bool] = mapped_column(default=False)
 
+    # Защита от удаления/изменения через UI (bootstrap-роль superadmin).
+    is_protected: Mapped[bool] = mapped_column(default=False, server_default='false')
+
     # права на пользователей
     user_read: Mapped[bool] = mapped_column(default=False)
     user_modify: Mapped[bool] = mapped_column(default=False)

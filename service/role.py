@@ -80,29 +80,51 @@ async def update_role(
     role_update: RoleUpdate
 ) -> Role:
     """
-    Обновить роль
+    Обновить роль.
+
+    Защищённую роль (is_protected=True, например superadmin) полностью
+    блокируем от модификаций — иначе можно случайно снять is_superadmin
+    или удалить permission-флаг и потерять доступ.
     """
     async with new_session() as session:
         # Проверяем существование роли
         role = await role_data.get_role_by_id(session, role_id)
         if not role:
             raise HTTPException(status_code=404, detail=f"Роль с id {role_id} не найдена")
-        
+
+        if role.is_protected:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Невозможно изменить защищённую роль '{role.name}' — "
+                       f"она необходима для работы системы.",
+            )
+
         # Проверяем уникальность имени, если оно меняется
         if role_update.name and role_update.name != role.name:
             exists = await role_data.check_role_name_exists(session, role_update.name, role_id)
             if exists:
                 raise HTTPException(status_code=400, detail=f"Роль с именем '{role_update.name}' уже существует")
-        
+
         return await role_data.update_role(session, role_id, role_update)
 
 async def delete_role(
     role_id: int
 ) -> bool:
     """
-    Удалить роль
+    Удалить роль. Защищённые (is_protected=True) — нельзя.
     """
     async with new_session() as session:
+        role = await role_data.get_role_by_id(session, role_id)
+        if not role:
+            raise HTTPException(status_code=404, detail=f"Роль с id {role_id} не найдена")
+
+        if role.is_protected:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Невозможно удалить защищённую роль '{role.name}' — "
+                       f"она необходима для работы системы.",
+            )
+
         try:
             res = await role_data.delete_role(session, role_id)
             return res

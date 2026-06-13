@@ -225,6 +225,7 @@ class RoleUpdate(RoleBase):
 
 class RoleResponse(RoleBase):
     id: int
+    is_protected: bool = False
     description: Optional[str] = None
     users_count: Optional[int] = Field(0, description="Количество пользователей с этой ролью")
 
@@ -236,6 +237,7 @@ class RoleListResponse(BaseModel):
     name: str
     is_admin: bool
     is_superadmin: bool
+    is_protected: bool = False
     description: Optional[str] = None
     users_count: int = 0
 
@@ -247,5 +249,6 @@ class RoleSimpleResponse(BaseModel):
     name: str
     is_admin: bool
     is_superadmin: bool
+    is_protected: bool = False
 
     model_config = ConfigDict(from_attributes=True)
