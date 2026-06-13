@@ -65,14 +65,25 @@ async def create_role(
     role_create: RoleCreate
 ) -> Role:
     """
-    Создать новую роль
+    Создать новую роль.
+
+    Запрещаем создание ещё одной superadmin-роли через UI — иначе любой
+    админ может назначить себе все права в обход is_protected. Единственная
+    легитимная superadmin-роль создаётся bootstrap_admin.py при инициализации.
     """
+    if role_create.is_superadmin:
+        raise HTTPException(
+            status_code=400,
+            detail="Невозможно создать новую superadmin-роль через UI. "
+                   "Единственная superadmin-роль создаётся при инициализации системы.",
+        )
+
     async with new_session() as session:
         # Проверяем уникальность имени
         exists = await role_data.check_role_name_exists(session, role_create.name)
         if exists:
             raise HTTPException(status_code=400, detail=f"Роль с именем '{role_create.name}' уже существует")
-        
+
         return await role_data.create_role(session, role_create)
 
 async def update_role(
@@ -97,6 +108,17 @@ async def update_role(
                 status_code=400,
                 detail=f"Невозможно изменить защищённую роль '{role.name}' — "
                        f"она необходима для работы системы.",
+            )
+
+        # Запрещаем «промоушн» обычной роли до superadmin через update.
+        # Существующая superadmin-роль защищена is_protected (см. выше),
+        # значит role_update.is_superadmin=True может прийти только для
+        # роли, которая раньше им не была — это попытка эскалации прав.
+        if role_update.is_superadmin and not role.is_superadmin:
+            raise HTTPException(
+                status_code=400,
+                detail="Невозможно повысить роль до superadmin через UI. "
+                       "Единственная superadmin-роль создаётся при инициализации системы.",
             )
 
         # Проверяем уникальность имени, если оно меняется
