@@ -92,6 +92,15 @@ COPY --chown=app:app . /app
 COPY --chown=app:app docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
+# Pre-create runtime-каталоги, которые named-volume'ы mount'ят сверху.
+# Поведение Docker: при первом mount'е ПУСТОГО named volume на каталог
+# в образе содержимое каталога копируется в volume, СОХРАНЯЯ ownership.
+# Без этого config.py:31 пытается mkdir в /app/media (root-owned volume),
+# PermissionError для USER app.
+# media/templates — для шаблонов .docx/.dotx, logs — для loguru.
+RUN mkdir -p /app/media/templates /app/logs && \
+    chown -R app:app /app/media /app/logs
+
 USER app
 
 EXPOSE 8000
