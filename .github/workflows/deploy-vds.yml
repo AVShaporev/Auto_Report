@@ -44,13 +44,13 @@ jobs:
           script: |
             /opt/auto-report/scripts/deploy.sh backend
 
-      - name: Healthcheck https://hi-tech.cool-doc.ru/api/openapi.json
+      - name: Healthcheck https://hi-tech.cool-doc.ru/api/health
         run: |
           # Бэку после rebuild + alembic upgrade нужно 15-40s, плюс tini → uvicorn.
           # 45 итераций × 4s = 180s суммарного таймаута.
           for i in $(seq 1 45); do
             code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 \
-                https://hi-tech.cool-doc.ru/api/openapi.json) || code=000
+                https://hi-tech.cool-doc.ru/api/health) || code=000
             if [ "$code" = "200" ]; then
               echo "✅ Backend healthy после ~$((i*4))s"
               exit 0

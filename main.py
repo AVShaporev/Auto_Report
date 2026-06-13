@@ -116,6 +116,15 @@ app = FastAPI(lifespan=lifespan,
 # Добавляем middleware до подключения роутеров
 app.add_middleware(LogRequestsMiddleware)
 
+
+# Healthcheck endpoint без авторизации, без БД-запросов.
+# Используется GitHub Actions deploy-vds.yml workflow'ами и Dockerfile
+# HEALTHCHECK для проверки доступности бэка после rebuild.
+@app.get("/api/health", tags=["Health"])
+async def health_check():
+    return {"status": "ok"}
+
+
 # добавление субмаршрутов из уровня api
 app.include_router(api_spec_contract.router)
 app.include_router(api_contract.router)

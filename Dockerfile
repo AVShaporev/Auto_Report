@@ -105,9 +105,10 @@ USER app
 
 EXPOSE 8000
 
-# /openapi.json — лёгкий JSON-ответ FastAPI без аутентификации.
+# /api/health — лёгкий JSON-ответ FastAPI без аутентификации/БД.
+# Тот же endpoint используется GHA deploy-vds.yml для внешней проверки.
 # start-period 30s — даёт время на `alembic upgrade head` при первом старте.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-    CMD curl -fsS http://127.0.0.1:8000/openapi.json > /dev/null || exit 1
+    CMD curl -fsS http://127.0.0.1:8000/api/health > /dev/null || exit 1
 
 ENTRYPOINT ["/usr/bin/tini", "--", "/entrypoint.sh"]
