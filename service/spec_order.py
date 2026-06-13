@@ -492,3 +492,48 @@ async def get_spec_order_template_info(
             "template_filename": spec_order.template_filename,
             "file_exists": abs_path.exists(),
         }
+
+
+async def download_spec_order_template(
+    spec_order_id: int,
+    current_user: User,
+):
+    """Прочитать содержимое привязанного шаблона + оригинальное имя.
+
+    Returns: (content_bytes, original_filename, media_type).
+    Эндпоинт нужен админу, чтобы скачать текущий шаблон, поправить
+    его в Word и залить обратно.
+    """
+    await check_permission(current_user, "spec_order_read", "скачивания шаблона документа")
+
+    async with new_session() as session:
+        spec_order = await spec_order_data.get_spec_order_by_id(session, spec_order_id)
+        if not spec_order:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Тип заявки с id {spec_order_id} не найден",
+            )
+
+        if not spec_order.template_storage_path:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Для типа заявки «{spec_order.name}» шаблон не загружен.",
+            )
+
+        abs_path = MEDIA_PATH / spec_order.template_storage_path
+        if not abs_path.exists():
+            raise HTTPException(
+                status_code=500,
+                detail=(
+                    f"Файл шаблона отсутствует на диске сервера "
+                    f"({spec_order.template_storage_path}). Загрузите шаблон заново."
+                ),
+            )
+
+        suffix = abs_path.suffix.lower()
+        if suffix == ".dotx":
+            media_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.template"
+        else:
+            media_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+        return abs_path.read_bytes(), spec_order.template_filename, media_type

@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, Query, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, Query, HTTPException, UploadFile, File, Response
+
+from service.render_docx import build_attachment_headers
 from typing import Optional, List
 
 from model.user import User
@@ -191,6 +193,28 @@ async def get_spec_order_template_info(
     """
     return await spec_order_service.get_spec_order_template_info(
         spec_order_id, current_user
+    )
+
+
+@router.get("/{spec_order_id}/template")
+async def download_spec_order_template(
+    spec_order_id: int,
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    Скачать привязанный файл шаблона как есть (для правки в Word и заливки обратно).
+
+    Требуется право: spec_order_read.
+    Возвращает .docx или .dotx с правильным Content-Type и Content-Disposition
+    (включая RFC 6266 для кириллических имён).
+    """
+    content, filename, media_type = await spec_order_service.download_spec_order_template(
+        spec_order_id, current_user
+    )
+    return Response(
+        content=content,
+        media_type=media_type,
+        headers=build_attachment_headers(filename),
     )
 
 
