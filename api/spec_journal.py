@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, Query, UploadFile, File
+from fastapi import APIRouter, Depends, Query, UploadFile, File, Response
+
+from service.render_docx import build_attachment_headers
 from typing import Optional, List
 
 from model.user import User
@@ -122,6 +124,25 @@ async def get_spec_journal_template_info(
     Требуется право: spec_journal_read.
     """
     return await spec_journal_service.get_spec_journal_template_info(spec_journal_id, current_user)
+
+
+@router.get("/{spec_journal_id}/template")
+async def download_spec_journal_template(
+    spec_journal_id: int,
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    Скачать привязанный файл шаблона как есть.
+    Требуется право: spec_journal_read.
+    """
+    content, filename, media_type = await spec_journal_service.download_spec_journal_template(
+        spec_journal_id, current_user
+    )
+    return Response(
+        content=content,
+        media_type=media_type,
+        headers=build_attachment_headers(filename),
+    )
 
 
 @router.post("/{spec_journal_id}/template")

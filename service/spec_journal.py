@@ -308,3 +308,46 @@ async def get_spec_journal_template_info(
             "template_filename": spec_journal.template_filename,
             "file_exists": abs_path.exists(),
         }
+
+
+async def download_spec_journal_template(
+    spec_journal_id: int,
+    current_user: User,
+):
+    """Прочитать содержимое привязанного шаблона + оригинальное имя.
+
+    Returns: (content_bytes, original_filename, media_type).
+    """
+    await check_permission(current_user, "spec_journal_read", "скачивания шаблона документа")
+
+    async with new_session() as session:
+        spec_journal = await spec_journal_data.get_spec_journal_by_id(session, spec_journal_id)
+        if not spec_journal:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Тип журнала с id {spec_journal_id} не найден",
+            )
+
+        if not spec_journal.template_storage_path:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Для вида журнала «{spec_journal.name}» шаблон не загружен.",
+            )
+
+        abs_path = MEDIA_PATH / spec_journal.template_storage_path
+        if not abs_path.exists():
+            raise HTTPException(
+                status_code=500,
+                detail=(
+                    f"Файл шаблона отсутствует на диске сервера "
+                    f"({spec_journal.template_storage_path}). Загрузите шаблон заново."
+                ),
+            )
+
+        suffix = abs_path.suffix.lower()
+        if suffix == ".dotx":
+            media_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.template"
+        else:
+            media_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+        return abs_path.read_bytes(), spec_journal.template_filename, media_type
