@@ -45,9 +45,10 @@ BACKUPS=/opt/auto-report/backups
 ENV_FILE=/opt/auto-report/.env
 
 # Путь к данным named volume backend_media на хосте.
-# Docker compose name = "auto-report", volume name = "backend_media" →
-# на диске лежит как /var/lib/docker/volumes/auto-report_backend_media/_data/
-MEDIA_DATA=/var/lib/docker/volumes/auto-report_backend_media/_data
+# Docker compose v2 берёт project name из basename папки compose
+# (/opt/auto-report/Auto_Report → "Auto_Report" → lowercased "auto_report"
+# С ПОДЧЁРКИВАНИЕМ, не дефисом), поэтому реальный путь:
+MEDIA_DATA=/var/lib/docker/volumes/auto_report_backend_media/_data
 
 mkdir -p "$BACKUPS"
 
