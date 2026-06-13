@@ -13,8 +13,10 @@ PDF-вариант требует установленного LibreOffice headl
 from __future__ import annotations
 
 import asyncio
+import io
 import os
 import tempfile
+import zipfile
 from datetime import date
 from pathlib import Path
 from typing import Optional, Tuple
@@ -41,6 +43,35 @@ from service.order_pdf import (
     _format_director_full_name,
     _build_address,
 )
+
+
+# python-docx (на котором сидит docxtpl) проверяет content_type главного
+# документа в zip-пакете: ждёт `.../wordprocessingml.document.main+xml`.
+# Файлы `.dotx` приходят с `.../wordprocessingml.template.main+xml` и
+# отбиваются ValueError'ом «file ... is not a Word file».
+# Решение: перепаковать .dotx в bytes с заменой content_type на document.
+_TEMPLATE_CT = b"application/vnd.openxmlformats-officedocument.wordprocessingml.template.main+xml"
+_DOCUMENT_CT = b"application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"
+
+
+def _open_docx_template(path: Path) -> DocxTemplate:
+    """Загрузить .docx или .dotx как DocxTemplate. Для .dotx — перепаковать
+    в памяти с content_type документа, чтобы python-docx его принял.
+    Сам XML документа не меняется, jinja-разметка сохраняется как есть."""
+    if path.suffix.lower() != ".dotx":
+        return DocxTemplate(str(path))
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(path, "r") as zin, zipfile.ZipFile(
+        buf, "w", zipfile.ZIP_DEFLATED
+    ) as zout:
+        for item in zin.infolist():
+            data = zin.read(item.filename)
+            if item.filename == "[Content_Types].xml":
+                data = data.replace(_TEMPLATE_CT, _DOCUMENT_CT)
+            zout.writestr(item, data)
+    buf.seek(0)
+    return DocxTemplate(buf)
 
 
 # ========== ХЕЛПЕРЫ ДЛЯ КОНТЕКСТА ==========
@@ -259,7 +290,7 @@ async def render_order_document(
     suggested_stem = "".join(ch if ch.isalnum() or ch in "._-" else "_" for ch in suggested_stem)
 
     # Рендер в .docx через docxtpl.
-    doc = DocxTemplate(str(template_abs))
+    doc = _open_docx_template(template_abs)
     doc.render(context)
 
     with tempfile.TemporaryDirectory() as tmp_dir_str:
@@ -481,7 +512,7 @@ async def render_object_journal_document(
     suggested_stem = f"journal_{spec_journal.code or spec_journal.id}_object_{obj.id}_{obj.name or ''}"
     suggested_stem = "".join(ch if ch.isalnum() or ch in "._-" else "_" for ch in suggested_stem)
 
-    doc = DocxTemplate(str(template_abs))
+    doc = _open_docx_template(template_abs)
     doc.render(context)
 
     with tempfile.TemporaryDirectory() as tmp_dir_str:
