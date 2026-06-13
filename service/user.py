@@ -1,8 +1,12 @@
 from typing import Optional, List, Tuple
 
 from fastapi import HTTPException
+from sqlalchemy import func, select
 
 from model.user import User
+from model.report import Report
+from model.order import Order
+from model.issue import Issue
 
 from schema.user import UserRequest
 from schema.pagination import PaginationParams
@@ -89,8 +93,44 @@ async def delete_by_id(id: int):
                 detail=f"Невозможно удалить защищённого пользователя '{existing.name}' — "
                        f"он необходим для работы системы.",
             )
+
+        # Подсчёт связанных записей. FK у reports.user_id, orders.user_id,
+        # issues.reported_by_id, issues.assigned_to_id (последний nullable —
+        # технически можно было бы зануллить, но прозрачнее блокировать
+        # удаление и попросить переназначить вручную).
+        related = await _count_user_dependencies(session, id)
+        if related:
+            blocks = ", ".join(f"{label}: {count}" for label, count in related)
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Невозможно удалить пользователя '{existing.name}' — у него "
+                    f"есть связанные записи ({blocks}). Переназначьте/удалите их "
+                    f"или деактивируйте пользователя (статус «Неактивен») вместо удаления."
+                ),
+            )
+
         res = await data.delete_user(session, id)
         return res
+
+
+async def _count_user_dependencies(session, user_id: int) -> list[tuple[str, int]]:
+    """Возвращает список (label, count) ненулевых FK-зависимостей юзера."""
+    pairs = [
+        ("отчётов", await session.scalar(
+            select(func.count()).select_from(Report).where(Report.user_id == user_id)
+        )),
+        ("заявок", await session.scalar(
+            select(func.count()).select_from(Order).where(Order.user_id == user_id)
+        )),
+        ("созданных неисправностей", await session.scalar(
+            select(func.count()).select_from(Issue).where(Issue.reported_by_id == user_id)
+        )),
+        ("назначенных неисправностей", await session.scalar(
+            select(func.count()).select_from(Issue).where(Issue.assigned_to_id == user_id)
+        )),
+    ]
+    return [(label, count) for label, count in pairs if count and count > 0]
 
 
 async def modify(user_id: int, user) -> Optional[User]:
