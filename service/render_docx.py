@@ -310,6 +310,87 @@ async def render_order_document(
         return pdf_path.read_bytes(), pdf_path.name, "application/pdf"
 
 
+async def render_orders_bulk_zip(
+    order_ids: list[int],
+    fmt: str,
+    current_user: User,
+) -> Tuple[bytes, str, str]:
+    """
+    Сформировать ZIP-архив с актами по нескольким заявкам.
+
+    Каждая заявка рендерится через render_order_document (своим шаблоном
+    по spec_order.template_storage_path). Ошибки на отдельных заявках
+    НЕ блокируют остальные — в архив добавляется errors.txt со списком.
+
+    Limit: 100 заявок за запрос. PDF-режим заметно медленнее (soffice на
+    каждую заявку), не рекомендуется для крупных пакетов.
+
+    Returns: (zip_bytes, filename, "application/zip").
+    """
+    if fmt not in ALLOWED_RENDER_FORMATS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Неподдерживаемый формат: {fmt!r}. Доступны: {sorted(ALLOWED_RENDER_FORMATS)}.",
+        )
+    if not order_ids:
+        raise HTTPException(status_code=400, detail="Не указаны id заявок")
+    if len(order_ids) > 100:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Слишком много заявок за раз ({len(order_ids)}). Максимум — 100.",
+        )
+
+    # check_permission делается внутри render_order_document на каждую заявку,
+    # отдельно дублировать не нужно.
+
+    successes: list[Tuple[str, bytes]] = []
+    errors: list[Tuple[int, str]] = []
+
+    for order_id in order_ids:
+        try:
+            content, filename, _media = await render_order_document(
+                order_id, fmt, current_user
+            )
+            successes.append((filename, content))
+        except HTTPException as e:
+            errors.append((order_id, f"HTTP {e.status_code}: {e.detail}"))
+        except Exception as e:  # noqa: BLE001 — намеренно ловим всё, чтобы один битый файл не валил пакет
+            errors.append((order_id, f"{type(e).__name__}: {e}"))
+
+    # Если все провалились — общий 400 с первой причиной (юзер увидит понятный
+    # текст, а не пустой zip).
+    if not successes:
+        first_err = errors[0][1] if errors else "неизвестная ошибка"
+        raise HTTPException(
+            status_code=400,
+            detail=f"Ни один из {len(order_ids)} актов не удалось сформировать. "
+                   f"Первая ошибка: {first_err}",
+        )
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        # Коллизии имён (две заявки с одинаковым номером и типом) разрешаем
+        # суффиксом _2, _3, … — чтобы файлы внутри ZIP не перезаписали друг друга.
+        used_counts: dict[str, int] = {}
+        for filename, content in successes:
+            base, ext = os.path.splitext(filename)
+            n = used_counts.get(filename, 0)
+            final_name = filename if n == 0 else f"{base}_{n + 1}{ext}"
+            used_counts[filename] = n + 1
+            zf.writestr(final_name, content)
+
+        if errors:
+            lines = [f"order_id={oid}: {msg}" for oid, msg in errors]
+            zf.writestr(
+                "errors.txt",
+                f"Не удалось сформировать {len(errors)} из {len(order_ids)} актов:\n\n"
+                + "\n".join(lines),
+            )
+
+    archive_name = f"acts_{date.today().strftime('%Y-%m-%d')}_{fmt}.zip"
+    return buf.getvalue(), archive_name, "application/zip"
+
+
 def build_attachment_headers(filename: str) -> dict:
     """
     Заголовки HTTP для скачивания файла с поддержкой не-ASCII имени (RFC 6266).

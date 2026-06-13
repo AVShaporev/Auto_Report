@@ -19,7 +19,7 @@ from schema.order import (
 from schema.pagination import PaginationParams, PaginatedResponse
 from service import order as order_service
 from service.order_pdf import render_order_pdf, render_order_primary_pdf, render_order_defect_pdf
-from service.render_docx import render_order_document, build_attachment_headers
+from service.render_docx import render_order_document, render_orders_bulk_zip, build_attachment_headers
 from core.dependencies import get_current_active_user
 
 
@@ -28,6 +28,14 @@ class BulkPdfRequest(BaseModel):
     order_ids: List[int] = Field(..., min_length=1, max_length=200,
                                   description="ID заявок (1..200 за раз)")
     kind: str = Field("to", description="Тип акта: 'to' (плановый), 'primary' (первичный) или 'defect' (дефектовка)")
+
+
+class BulkRenderRequest(BaseModel):
+    """Тело запроса для массового рендера актов через docxtpl."""
+    order_ids: List[int] = Field(..., min_length=1, max_length=100,
+                                  description="ID заявок (1..100 за раз)")
+    format: str = Field("docx", pattern="^(docx|pdf)$",
+                        description="Формат: 'docx' (быстро) или 'pdf' (медленнее, soffice)")
 
 
 def _safe_zip_name(name: str) -> str:
@@ -285,6 +293,33 @@ async def get_order_defect_pdf(
         headers={
             "Content-Disposition": f'attachment; filename="{filename}"',
         },
+    )
+
+
+@router.post("/render_zip")
+async def render_orders_zip(
+    payload: BulkRenderRequest,
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    Массовое скачивание актов по нескольким заявкам в одном ZIP.
+
+    Каждая заявка рендерится по своему шаблону (spec_order.template_storage_path).
+    Если одна провалилась — пропускаем, остальные собираются в архив;
+    в ZIP добавляется errors.txt со списком ошибок.
+
+    Для PDF-формата каждая заявка дополнительно конвертируется через soffice
+    headless (медленно, ~3-5s на акт). 100 PDF-актов ≈ 5-8 минут.
+
+    Требуется право: order_read (проверяется на каждую заявку отдельно).
+    """
+    content, filename, media_type = await render_orders_bulk_zip(
+        payload.order_ids, payload.format, current_user
+    )
+    return Response(
+        content=content,
+        media_type=media_type,
+        headers=build_attachment_headers(filename),
     )
 
 
