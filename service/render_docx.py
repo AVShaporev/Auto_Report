@@ -36,12 +36,14 @@ from model.organization import Organization
 from model.locality import Locality
 from model.street import Street
 from model.spec_journal import Spec_Journal
+from model.objects_equipment import Objects_Equipment
 from config import MEDIA_PATH
 from service.order import check_permission
 from service.order_pdf import (
     _RUSSIAN_MONTHS_GEN,
     _format_director_full_name,
     _build_address,
+    _build_equipment_groups,
 )
 
 
@@ -183,6 +185,11 @@ def _build_context(order: Order) -> dict:
         },
         "today": _today_short(),
         "today_long": _today_long(),
+        # Сгруппированное по системам оборудование объекта — для таблицы в акте.
+        # Структура: [{"index": 1, "system_name": "...", "rows": [{"index": "1.1", "name": "...", "count": N}, ...]}, ...]
+        # В docxtpl-шаблоне: {%tr for group in equipment_groups %} в одной строке,
+        # {%tr for row in group.rows %} во вложенной строке той же таблицы.
+        "equipment_groups": _build_equipment_groups(obj) if obj else [],
     }
 
 
@@ -225,6 +232,13 @@ async def _load_order_for_docx(session, order_id: int) -> Order:
             selectinload(Order.object).selectinload(ObjectModel.street).selectinload(Street.spec_street),
             selectinload(Order.object).selectinload(ObjectModel.spec_build),
             selectinload(Order.object).selectinload(ObjectModel.spec_room),
+            # objects_equipments + equipment + spec_system — для equipment_groups в шаблоне
+            selectinload(Order.object)
+                .selectinload(ObjectModel.objects_equipments)
+                .selectinload(Objects_Equipment.equipment),
+            selectinload(Order.object)
+                .selectinload(ObjectModel.objects_equipments)
+                .selectinload(Objects_Equipment.spec_system),
         )
     )
     result = await session.execute(stmt)
