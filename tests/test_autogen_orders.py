@@ -468,3 +468,40 @@ async def test_autogen_tick_endpoint_non_superadmin_403(
         headers=auth_headers(admin_token),
     )
     assert resp.status_code == 403
+
+
+# ============ scripts/backfill_planned_orders ============
+
+async def test_backfill_creates_missing_primary(db_session, reference_data):
+    """Backfill создаёт primary для объекта, у которого её нет."""
+    from scripts.backfill_planned_orders import _backfill_primary_orders
+
+    specs = await _seed_default_spec_orders(db_session)
+    await _seed_system_user(db_session)
+
+    stats = await _backfill_primary_orders()
+    assert stats["created"] == 1
+    assert stats["skipped_exists"] == 0
+    assert stats["errors"] == []
+
+    r = await db_session.execute(
+        select(Order).where(Order.spec_order_id == specs["primary"].id)
+    )
+    assert len(r.scalars().all()) == 1
+
+
+async def test_backfill_primary_idempotent(db_session, reference_data):
+    """Если primary уже есть — backfill его не дублирует."""
+    from scripts.backfill_planned_orders import _backfill_primary_orders
+
+    specs = await _seed_default_spec_orders(db_session)
+    await _seed_system_user(db_session)
+
+    # Прогон 1: создаёт primary.
+    stats1 = await _backfill_primary_orders()
+    assert stats1["created"] == 1
+
+    # Прогон 2: ничего не делает.
+    stats2 = await _backfill_primary_orders()
+    assert stats2["created"] == 0
+    assert stats2["skipped_exists"] == 1
