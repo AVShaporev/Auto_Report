@@ -228,10 +228,11 @@ tests/
 
 ## Что НЕ покрыто (и почему)
 
-- **PDF-генерация (`/object/{id}/fire-protection-log/pdf`,
-  `/object/bulk-fire-journal`).** Требует WeasyPrint + кучу шрифтов и
-  reference-PDF для сверки. Покрытие осмысленно делать визуальными
-  snapshot-тестами в отдельном CI-job — это другой класс тестов.
+- **DOCX/PDF-генерация (`/object/{id}/journal/{type_id}/render`,
+  `/object/render_journals_zip`, `/order/{id}/render`, `/order/render_zip`).**
+  Требует docxtpl-шаблоны + LibreOffice headless для PDF + reference-файлы
+  для сверки. Покрытие осмысленно делать визуальными snapshot-тестами в
+  отдельном CI-job — это другой класс тестов.
 - **Загрузка файлов через `report_attachment` / `issue_attachment`.**
   Требует моков `MEDIA_PATH` и валидных JPEG/PDF — добавьте отдельный
   модуль `test_attachments.py` с фикстурой временной media-папки.

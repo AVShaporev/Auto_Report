@@ -624,3 +624,73 @@ async def render_object_journal_document(
 
         pdf_path = await _convert_to_pdf(docx_path, tmp_dir)
         return pdf_path.read_bytes(), pdf_path.name, "application/pdf"
+
+
+async def render_object_journals_bulk_zip(
+    object_ids: list[int],
+    journal_type_id: int,
+    fmt: str,
+    current_user: User,
+) -> Tuple[bytes, str, str]:
+    """ZIP с журналами по одному виду spec_journal для пакета объектов.
+
+    Логика повторяет render_orders_bulk_zip: ошибка на одном объекте не
+    блокирует остальные, errors.txt прикладывается в архив. Лимит — 100.
+    """
+    if fmt not in ALLOWED_RENDER_FORMATS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Неподдерживаемый формат: {fmt!r}. Доступны: {sorted(ALLOWED_RENDER_FORMATS)}.",
+        )
+    if not object_ids:
+        raise HTTPException(status_code=400, detail="Не указаны id объектов")
+    if len(object_ids) > 100:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Слишком много объектов за раз ({len(object_ids)}). Максимум — 100.",
+        )
+
+    successes: list[Tuple[str, bytes]] = []
+    errors: list[Tuple[int, str]] = []
+
+    for object_id in object_ids:
+        try:
+            content, filename, _media = await render_object_journal_document(
+                object_id, journal_type_id, fmt, current_user
+            )
+            successes.append((filename, content))
+        except HTTPException as e:
+            errors.append((object_id, f"HTTP {e.status_code}: {e.detail}"))
+        except Exception as e:  # noqa: BLE001
+            errors.append((object_id, f"{type(e).__name__}: {e}"))
+
+    if not successes:
+        first_err = errors[0][1] if errors else "неизвестная ошибка"
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Ни один из {len(object_ids)} журналов не удалось сформировать. "
+                f"Первая ошибка: {first_err}"
+            ),
+        )
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        used_counts: dict[str, int] = {}
+        for filename, content in successes:
+            base, ext = os.path.splitext(filename)
+            n = used_counts.get(filename, 0)
+            final_name = filename if n == 0 else f"{base}_{n + 1}{ext}"
+            used_counts[filename] = n + 1
+            zf.writestr(final_name, content)
+
+        if errors:
+            lines = [f"object_id={oid}: {msg}" for oid, msg in errors]
+            zf.writestr(
+                "errors.txt",
+                f"Не удалось сформировать {len(errors)} из {len(object_ids)} журналов:\n\n"
+                + "\n".join(lines),
+            )
+
+    archive_name = f"journals_{date.today().strftime('%Y-%m-%d')}_{fmt}.zip"
+    return buf.getvalue(), archive_name, "application/zip"

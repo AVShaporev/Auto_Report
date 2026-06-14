@@ -1,9 +1,4 @@
-import io
-import re
-import zipfile
-from datetime import datetime
-
-from fastapi import APIRouter, Depends, Query, HTTPException, Response
+from fastapi import APIRouter, Depends, Query, Response
 from pydantic import BaseModel, Field
 from typing import Optional, List
 
@@ -17,21 +12,22 @@ from schema.object import (
 )
 from schema.pagination import PaginationParams, PaginatedResponse
 from service import object as object_service
-from service.object_pdf import render_object_fire_protection_log_pdf
-from service.render_docx import render_object_journal_document, build_attachment_headers
+from service.render_docx import (
+    render_object_journal_document,
+    render_object_journals_bulk_zip,
+    build_attachment_headers,
+)
 from core.dependencies import get_current_active_user
 
 
-class BulkFireJournalRequest(BaseModel):
-    """Тело запроса для массового скачивания журналов ПЗ по объектам."""
-    object_ids: List[int] = Field(..., min_length=1, max_length=10,
-                                   description="ID объектов (1..10 за раз — рендер тяжёлый)")
-    blank_rows: int = Field(25, ge=0, le=100,
-                             description="Количество пустых строк в каждом разделе")
+class BulkRenderJournalsRequest(BaseModel):
+    """Пакетный рендер журналов: один вид журнала на весь список объектов."""
+    object_ids: List[int] = Field(..., min_length=1, max_length=100,
+                                   description="ID объектов (до 100 за запрос)")
+    journal_type_id: int = Field(..., ge=1, description="ID вида журнала (spec_journals)")
+    format: str = Field("docx", pattern="^(docx|pdf)$",
+                         description="Формат документа: docx или pdf")
 
-
-def _safe_zip_name(name: str) -> str:
-    return re.sub(r'[\\/:*?"<>|]+', "_", name).strip().strip(".") or "file.pdf"
 
 router = APIRouter(prefix="/api/object", tags=["object"])
 
@@ -158,44 +154,30 @@ async def get_all_objects(
     
     return result
 
-@router.post("/bulk-fire-journal")
-async def bulk_object_fire_journal(
-    payload: BulkFireJournalRequest,
+@router.post("/render_journals_zip")
+async def render_object_journals_zip(
+    payload: BulkRenderJournalsRequest,
     current_user: User = Depends(get_current_active_user),
 ):
     """
-    Сформировать ZIP-архив с PDF-журналами эксплуатации систем противопожарной
-    защиты для списка объектов.
+    Массовое скачивание журналов по одному виду spec_journal для пакета объектов.
 
-    Требуется право: `object_read` (проверяется внутри render-функций).
+    Шаблон берётся из spec_journals (привязан к выбранному типу). Рендер идёт
+    через docxtpl, PDF — через soffice headless. Если на отдельных объектах
+    рендер падает (нет договора, нет шаблона и т.п.), остальные собираются
+    в архив; список ошибок прикладывается в errors.txt.
+
+    Лимит: 100 объектов за запрос.
+
+    Требуется право: object_read (проверяется внутри рендер-функции).
     """
-    buf = io.BytesIO()
-    errors: list[str] = []
-    with zipfile.ZipFile(buf, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
-        for oid in payload.object_ids:
-            try:
-                pdf_bytes, filename = await render_object_fire_protection_log_pdf(
-                    oid, current_user, blank_rows=payload.blank_rows
-                )
-            except HTTPException as e:
-                if e.status_code == 403:
-                    raise
-                errors.append(f"object_id={oid}: {e.detail}")
-                continue
-            except Exception as e:
-                errors.append(f"object_id={oid}: {e}")
-                continue
-            zf.writestr(_safe_zip_name(filename), pdf_bytes)
-
-        if errors:
-            zf.writestr("_errors.txt", "\n".join(errors).encode("utf-8"))
-
-    ts = datetime.now().strftime("%Y%m%d-%H%M%S")
-    archive_name = f"fire_journals_{ts}.zip"
+    content, filename, media_type = await render_object_journals_bulk_zip(
+        payload.object_ids, payload.journal_type_id, payload.format, current_user
+    )
     return Response(
-        content=buf.getvalue(),
-        media_type="application/zip",
-        headers={"Content-Disposition": f'attachment; filename="{archive_name}"'},
+        content=content,
+        media_type=media_type,
+        headers=build_attachment_headers(filename),
     )
 
 
@@ -210,10 +192,8 @@ async def render_object_journal(
     Сформировать заполненный бланк журнала для объекта по выбранному типу журнала
     (из справочника «Виды журналов» / spec_journals).
 
-    Параллельно с устаревшим /fire-protection-log/pdf — тот зашит на HTML-шаблон
-    через WeasyPrint. Новый /journal/{type_id}/render работает по Word-шаблонам
-    через docxtpl, что позволяет редактировать шаблоны в MS Word без участия
-    разработчика.
+    Рендер через docxtpl по .docx/.dotx-шаблону, привязанному к типу.
+    Шаблоны редактируются админами в MS Word без участия разработчика.
 
     Требуется право: object_read.
     """
@@ -224,30 +204,6 @@ async def render_object_journal(
         content=content,
         media_type=media_type,
         headers=build_attachment_headers(filename),
-    )
-
-
-@router.get("/{object_id}/fire-protection-log/pdf")
-async def get_object_fire_protection_log_pdf(
-    object_id: int,
-    blank_rows: int = Query(25, ge=0, le=100, description="Количество пустых строк в каждом разделе"),
-    current_user: User = Depends(get_current_active_user)
-):
-    """
-    Сформировать PDF бланка журнала эксплуатации систем противопожарной защиты
-    для объекта (по ПП РФ № 1479).
-
-    Требуется право: object_read
-    """
-    pdf_bytes, filename = await render_object_fire_protection_log_pdf(
-        object_id, current_user, blank_rows=blank_rows
-    )
-    return Response(
-        content=pdf_bytes,
-        media_type="application/pdf",
-        headers={
-            "Content-Disposition": f'attachment; filename="{filename}"',
-        },
     )
 
 
