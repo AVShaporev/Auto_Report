@@ -15,8 +15,9 @@ from fastapi import (
                     )
 from loguru import logger
 
-from config import MEDIA_PATH
+from config import MEDIA_PATH, settings
 from middleware import LogRequestsMiddleware
+from service.order_autogen import tick_planned_orders
 
 from api import spec_contract as api_spec_contract
 from api import contract as api_contract
@@ -55,6 +56,7 @@ from api import issue_attachment as api_issue_attachment
 from api import objects_equipment as api_objects_equipment
 from api import dashboard  as api_dashboard
 from api import log as api_log
+from api import autogen as api_autogen
 
 
 
@@ -95,13 +97,53 @@ logger.add(
 
 logger.info("🚀 Логирование Loguru настроено")
 
+async def _autogen_tick_job() -> None:
+    """Cron-обёртка для tick_planned_orders. Сама не падает — нужно ОЧЕНЬ
+    стараться, чтобы APScheduler не выбросил job-failure при первой ошибке
+    (он по умолчанию backoff'ает повторы и спамит логи)."""
+    try:
+        result = await tick_planned_orders()
+        logger.info(f"🗓 autogen-tick: {result.summary()}")
+        for err in result.errors:
+            logger.warning(f"🗓 autogen-tick error: {err}")
+    except Exception as e:
+        logger.exception(f"🗓 autogen-tick упал: {e}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[dict, None]:
     """Управление жизненным циклом приложения."""
     logger.info("Инициализация приложения...")
     MEDIA_PATH.mkdir(parents=True, exist_ok=True)
     logger.info(f"MEDIA_PATH: {MEDIA_PATH}")
+
+    # APScheduler для авто-генерации плановых заявок (раз в сутки, 00:30 МСК).
+    # На stage/prod settings.AUTOGEN_SCHEDULER_ENABLED=True; на dev можно
+    # выключить через .env, чтобы не зависеть от системного времени.
+    scheduler = None
+    if settings.AUTOGEN_SCHEDULER_ENABLED:
+        from apscheduler.schedulers.asyncio import AsyncIOScheduler
+        from apscheduler.triggers.cron import CronTrigger
+
+        scheduler = AsyncIOScheduler(timezone="Europe/Moscow")
+        scheduler.add_job(
+            _autogen_tick_job,
+            trigger=CronTrigger(hour=0, minute=30),
+            id="autogen_tick",
+            replace_existing=True,
+            misfire_grace_time=3600,  # терпит downtime до часа без skip'а
+            coalesce=True,             # пропустил 3 запуска подряд — выполнит один
+        )
+        scheduler.start()
+        logger.info("🗓 APScheduler запущен: autogen-tick ежедневно в 00:30 МСК")
+    else:
+        logger.info("🗓 APScheduler выключен (AUTOGEN_SCHEDULER_ENABLED=False)")
+
     yield
+
+    if scheduler is not None:
+        scheduler.shutdown(wait=False)
+        logger.info("🗓 APScheduler остановлен")
     logger.info("Завершение работы приложения...")
 
 # объект приложения FastAPI
@@ -163,6 +205,7 @@ app.include_router(api_issue_attachment.router)
 app.include_router(api_objects_equipment.router)
 app.include_router(api_dashboard.router)
 app.include_router(api_log.router)
+app.include_router(api_autogen.router)
 
 # запуск приложения fastapi
 if __name__ == "__main__":

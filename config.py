@@ -14,6 +14,10 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int
     REFRESH_TOKEN_EXPIRE_DAYS: int
     MEDIA_ROOT: str = "./media"
+    # Включён ли cron-tick auto-генерации заявок в lifespan'е приложения.
+    # На dev-машине можно отключить через AUTOGEN_SCHEDULER_ENABLED=false,
+    # чтобы не зависеть от системного времени. В prod/stage — оставить True.
+    AUTOGEN_SCHEDULER_ENABLED: bool = True
     model_config = SettingsConfigDict(
         env_file=os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
     )

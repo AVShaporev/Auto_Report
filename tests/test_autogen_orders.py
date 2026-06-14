@@ -440,3 +440,31 @@ async def test_api_create_object_survives_autogen_failure(
     )
     assert list_resp.status_code == 200, list_resp.text
     assert list_resp.json()["items"] == []
+
+
+# ============ POST /api/autogen/tick (admin trigger) ============
+
+async def test_autogen_tick_endpoint_superadmin_ok(
+    client, autogen_seed_full, superadmin_token, auth_headers
+):
+    """Superadmin может дёрнуть tick через API и получает счётчики."""
+    resp = await client.post(
+        "/api/autogen/tick",
+        headers=auth_headers(superadmin_token),
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert "summary" in body
+    assert body["orders_created"] == 1  # один объект из reference_data
+    assert body["errors"] == []
+
+
+async def test_autogen_tick_endpoint_non_superadmin_403(
+    client, admin_token, auth_headers
+):
+    """Обычный admin (не superadmin) получает 403."""
+    resp = await client.post(
+        "/api/autogen/tick",
+        headers=auth_headers(admin_token),
+    )
+    assert resp.status_code == 403
