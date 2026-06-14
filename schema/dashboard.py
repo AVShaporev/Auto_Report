@@ -42,6 +42,9 @@ class DashboardSpecStatsResponse(BaseModel):
 
     spec_equipments: int
     spec_orders: int
+    spec_journals: int = 0
+    spec_statuses: int = 0
+    spec_priorities: int = 0
     spec_systems: int = 0
     operations: int = 0
     periods: int = 0
