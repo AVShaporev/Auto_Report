@@ -93,7 +93,7 @@ async def get_order_paginated(
     skip: int = 0,
     limit: int = 20,
     search: Optional[str] = None,
-    spec_order_id: Optional[int] = None,
+    spec_order_id: Optional[List[int]] = None,
     contract_id: Optional[int] = None,
     object_id: Optional[int] = None,
     user_id: Optional[int] = None,
@@ -127,8 +127,9 @@ async def get_order_paginated(
 
     # Фильтры
     if spec_order_id:
-        query = query.where(Order.spec_order_id == spec_order_id)
-        count_query = count_query.where(Order.spec_order_id == spec_order_id)
+        # Список id'шников типов заявок — IN, чтобы поддержать multi-select на фронте.
+        query = query.where(Order.spec_order_id.in_(spec_order_id))
+        count_query = count_query.where(Order.spec_order_id.in_(spec_order_id))
 
     if contract_id:
         query = query.where(Order.contract_id == contract_id)

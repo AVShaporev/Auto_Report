@@ -48,7 +48,7 @@ router = APIRouter(prefix="/api/order", tags=["order"])
 async def get_order_list(
     pagination: PaginationParams = Depends(),
     search: Optional[str] = Query(None, description="Поиск по номеру или описанию"),
-    spec_order_id: Optional[int] = Query(None, ge=1, description="Фильтр по типу заявки"),
+    spec_order_id: Optional[List[int]] = Query(None, description="Фильтр по типам заявки (можно несколько)"),
     contract_id: Optional[int] = Query(None, ge=1, description="Фильтр по контракту"),
     object_id: Optional[int] = Query(None, ge=1, description="Фильтр по объекту"),
     user_id: Optional[int] = Query(None, ge=1, description="Фильтр по пользователю"),
