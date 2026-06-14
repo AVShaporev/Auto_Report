@@ -1,11 +1,21 @@
+import logging
 from typing import Optional, List, Tuple
+
 from fastapi import HTTPException
-from model.user import User
+from sqlalchemy import select
+from sqlalchemy.orm import selectinload
+
+from model.contract import Contract
 from model.object import Object
+from model.user import User
 from data import object as object_data
 from schema.object import ObjectCreate, ObjectUpdate
 from schema.pagination import PaginationParams
 from database.database import new_session
+from service.order_autogen import create_initial_orders_for_object
+
+
+logger = logging.getLogger(__name__)
 
 # ========== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ==========
 
@@ -311,7 +321,36 @@ async def create_object(
         
         # Создание
         obj = await object_data.create_object(session, object_create)
-        
+
+        # Авто-генерация заявок: «Первичное обследование» (всегда) и «Плановое ТО»
+        # (если у периода объекта проставлен calendar code). См. service/order_autogen.
+        # data.create_object уже committed → объект гарантированно сохранён.
+        # Если автогенерация падает — логируем, но НЕ ломаем создание объекта:
+        # пропущенные заявки админ создаст руками или их доберёт cron-tick.
+        obj_id = obj.id  # снимок до возможного expire'а сессии
+        try:
+            stmt = (
+                select(Object)
+                .where(Object.id == obj_id)
+                .options(
+                    selectinload(Object.contract).selectinload(Contract.customer),
+                    selectinload(Object.period),
+                )
+            )
+            obj_for_autogen = (await session.execute(stmt)).scalar_one()
+            await create_initial_orders_for_object(session, obj_for_autogen)
+            await session.commit()
+        except Exception:  # noqa: BLE001 — намеренно глотаем, не валим create_object
+            await session.rollback()
+            logger.exception(
+                "Авто-генерация заявок для объекта id=%s упала — "
+                "объект создан, заявки пропущены.",
+                obj_id,
+            )
+            # rollback expires obj — refresh, иначе вызывающий API упадёт
+            # MissingGreenlet при доступе к obj.id / obj.name после async-with.
+            await session.refresh(obj)
+
         return obj
 
 # ========== ОБНОВЛЕНИЕ ==========

@@ -14,6 +14,7 @@ partial UNIQUE-индексы из миграции в test-схеме отсу�
 """
 
 import pytest
+import pytest_asyncio
 from datetime import date
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
@@ -335,3 +336,91 @@ async def test_tick_skip_object_with_custom_period(db_session, reference_data):
     result = await tick_planned_orders(today=date(2026, 5, 15))
     assert result.orders_created == 0
     assert result.objects_skipped_no_period_code == 1
+
+
+# ============ Интеграция с service.object.create_object через API ============
+#
+# Тесты ниже идут через POST /api/object/create — это покрывает интеграцию
+# `service.object.create_object` → `create_initial_orders_for_object`.
+# Сидируем дефолтные spec_orders + system-юзера в отдельных фикстурах
+# (db_session работает до admin_token, который дёргает login через client —
+# смешивать db_session-в-теле с client в одном тесте на Windows нельзя,
+# см. tests/conftest.py docstring).
+
+
+@pytest_asyncio.fixture
+async def autogen_seed_full(db_session, reference_data) -> dict:
+    """Полный сидинг для авто-генерации: default-spec_orders + юзер system +
+    period.code='monthly'."""
+    specs = await _seed_default_spec_orders(db_session)
+    await _seed_system_user(db_session)
+    await _set_period_code(db_session, reference_data["period"].id, "monthly")
+    return {**reference_data, "default_spec_orders": specs}
+
+
+def _build_object_payload(ref: dict, *, name: str) -> dict:
+    """Минимальный JSON-body для POST /api/object/create."""
+    return {
+        "name": name,
+        "responsible_face": "Сидоров",
+        "responsible_faces_contact": "+70000000001",
+        "region_id": ref["region"].id,
+        "arial_id": ref["arial"].id,
+        "locality_id": ref["locality"].id,
+        "street_id": ref["street"].id,
+        "spec_build_id": ref["spec_build"].id,
+        "period_id": ref["period"].id,
+        "contract_id": ref["contract"].id,
+    }
+
+
+async def test_api_create_object_triggers_autogen(
+    client, autogen_seed_full, admin_token, auth_headers
+):
+    """POST /api/object/create → объект + две авто-заявки (primary + planned)."""
+    payload = _build_object_payload(autogen_seed_full, name="Объект №2 (autogen)")
+    resp = await client.post(
+        "/api/object/create",
+        json=payload,
+        headers=auth_headers(admin_token),
+    )
+    assert resp.status_code == 200, resp.text
+    new_object_id = resp.json()["id"]
+
+    # Запрашиваем список заявок этого объекта через API (избегаем db_session
+    # после client'а — Windows-asyncpg баг, см. conftest).
+    list_resp = await client.get(
+        f"/api/order/list?object_id={new_object_id}&per_page=10",
+        headers=auth_headers(admin_token),
+    )
+    assert list_resp.status_code == 200, list_resp.text
+    orders = list_resp.json()["items"]
+    assert len(orders) == 2
+
+    spec_codes = {o.get("spec_order_name") or "" for o in orders}
+    assert any("Первичное" in name or "primary" in name.lower() for name in spec_codes)
+    assert any("Плановое" in name or "planned" in name.lower() for name in spec_codes)
+
+
+async def test_api_create_object_survives_autogen_failure(
+    client, reference_data, admin_token, auth_headers
+):
+    """Если default-spec_orders + system-юзер не засидированы — объект
+    всё равно создаётся (autogen падает, но не валит endpoint)."""
+    # Сюда НЕ инжектим autogen_seed_full — данных для автогена нет.
+    payload = _build_object_payload(reference_data, name="Объект №2 (no autogen)")
+    resp = await client.post(
+        "/api/object/create",
+        json=payload,
+        headers=auth_headers(admin_token),
+    )
+    assert resp.status_code == 200, resp.text
+    new_object_id = resp.json()["id"]
+
+    # У объекта не должно быть ни одной заявки.
+    list_resp = await client.get(
+        f"/api/order/list?object_id={new_object_id}&per_page=10",
+        headers=auth_headers(admin_token),
+    )
+    assert list_resp.status_code == 200, list_resp.text
+    assert list_resp.json()["items"] == []
