@@ -19,8 +19,8 @@ class OrderCreate(BaseModel):
     """Схема для создания заявки.
 
     Номер генерируется сервером по маске
-    "{object.number_in_contract}/{MM}/{YYYY}/{customer.short_name}/{contract.short_subject}/{seq}",
-    где seq — порядковый номер заявки для пары (object, contract) среди всех её заявок.
+    "{object.number_in_contract}/{MM}/{YYYY}/{customer.short_name}/{contract.short_subject}/{spec_order.short_name}/{seq}",
+    где seq — порядковый номер заявки для пары (object, spec_order) — per-type нумерация.
     """
     spec_order_id: int = Field(..., ge=1, description="ID типа заявки")
     contract_id: int = Field(..., ge=1, description="ID контракта")

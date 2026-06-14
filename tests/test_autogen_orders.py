@@ -158,33 +158,49 @@ def test_sanitize_replaces_slashes():
 # ============ next_planned_order_number ============
 
 async def test_number_format_first_order(db_session, reference_data):
-    """Первая заявка для объекта — seq=1, формат корректный."""
+    """Первая заявка для пары (object, spec_order) — seq=1, формат
+    включает spec_order.short_name."""
+    specs = await _seed_default_spec_orders(db_session)
     obj = await _load_object_for_autogen(db_session, reference_data["object"].id)
-    number = await next_planned_order_number(db_session, obj, date(2026, 5, 15))
-    assert number == "1/05/2026/Заказчик/ТО/1"
+    # planned: name='Плановое ТО', short_name=None → fallback на name
+    number = await next_planned_order_number(
+        db_session, obj, specs["planned"], date(2026, 5, 15)
+    )
+    assert number == "1/05/2026/Заказчик/ТО/Плановое ТО/1"
 
 
-async def test_number_format_seq_increments(db_session, reference_data):
-    """После создания одной заявки seq у следующей = 2."""
-    await _seed_default_spec_orders(db_session)
+async def test_number_format_per_type_seq(db_session, reference_data):
+    """Per-type: primary и planned имеют независимые счётчики."""
+    specs = await _seed_default_spec_orders(db_session)
     await _seed_system_user(db_session)
     await _set_period_code(db_session, reference_data["period"].id, "monthly")
 
     obj = await _load_object_for_autogen(db_session, reference_data["object"].id)
 
-    # Используем create_initial — создаст primary + planned
+    # create_initial делает primary/1 и planned/1
     await create_initial_orders_for_object(db_session, obj, today=date(2026, 5, 15))
     await db_session.commit()
 
-    # Теперь seq должен быть 3 (две заявки уже есть)
-    number = await next_planned_order_number(db_session, obj, date(2026, 5, 15))
-    assert number == "1/05/2026/Заказчик/ТО/3"
+    # Следующий «прогноз»: planned/2 (а не /3, как было бы при глобальной нумерации)
+    next_planned = await next_planned_order_number(
+        db_session, obj, specs["planned"], date(2026, 6, 15)
+    )
+    assert next_planned == "1/06/2026/Заказчик/ТО/Плановое ТО/2"
+
+    # А primary остаётся на /1, для него счётчик независимый
+    next_primary = await next_planned_order_number(
+        db_session, obj, specs["primary"], date(2026, 6, 15)
+    )
+    assert next_primary == "1/06/2026/Заказчик/ТО/Первичное обследование/2"
 
 
 async def test_number_format_month_zero_padded(db_session, reference_data):
     """Январь → '01', а не '1'."""
+    specs = await _seed_default_spec_orders(db_session)
     obj = await _load_object_for_autogen(db_session, reference_data["object"].id)
-    number = await next_planned_order_number(db_session, obj, date(2026, 1, 5))
+    number = await next_planned_order_number(
+        db_session, obj, specs["planned"], date(2026, 1, 5)
+    )
     assert number.startswith("1/01/2026/")
 
 

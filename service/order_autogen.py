@@ -124,14 +124,18 @@ def _sanitize_for_number(value: Optional[str]) -> str:
 async def next_planned_order_number(
     session: AsyncSession,
     obj: ObjectModel,
+    spec_order: Spec_Order,
     today: date,
 ) -> str:
     """Сгенерировать номер заявки по маске
-    "<number_in_contract>/<MM>/<YYYY>/<customer.short_name>/<contract.short_subject>/<seq>".
+    "<number_in_contract>/<MM>/<YYYY>/<customer.short_name>/<contract.short_subject>/<spec_order.short_name>/<seq>".
 
-    `seq` — порядковый номер заявки для этого объекта (объект принадлежит
-    ровно одному договору, так что это совпадает с «N-я заявка по договору
-    для этого объекта»). Считается COUNT(*)+1 от всех заявок этого объекта.
+    `seq` — порядковый номер заявки для пары (object, spec_order):
+    COUNT(orders WHERE object_id=X AND spec_order_id=Y) + 1. Per-type
+    нумерация — иначе разные виды заявок дробят счётчик друг другу.
+
+    `spec_order.short_name` подставляется как есть (с заменой '/' на '-');
+    при пустом short_name берётся name, при пустом name — code.
 
     Требует, чтобы у `obj` была подгружена связь contract.customer.
     """
@@ -148,14 +152,20 @@ async def next_planned_order_number(
         getattr(customer, "short_name", None) if customer else None
     )
     subject_short = _sanitize_for_number(contract.short_subject)
+    spec_order_short = _sanitize_for_number(
+        spec_order.short_name or spec_order.name or spec_order.code
+    )
 
-    count_q = select(func.count(Order.id)).where(Order.object_id == obj.id)
+    count_q = select(func.count(Order.id)).where(
+        Order.object_id == obj.id,
+        Order.spec_order_id == spec_order.id,
+    )
     seq = (await session.execute(count_q)).scalar_one() + 1
 
     return (
         f"{obj.number_in_contract}/"
         f"{today.month:02d}/{today.year}/"
-        f"{customer_short}/{subject_short}/{seq}"
+        f"{customer_short}/{subject_short}/{spec_order_short}/{seq}"
     )
 
 
@@ -211,7 +221,7 @@ async def _create_order(
 ) -> Order:
     """Низкоуровневое создание Order. flush'ит, чтобы вытащить id и поймать
     UNIQUE-конфликт в пределах транзакции caller'а."""
-    number = await next_planned_order_number(session, obj, today)
+    number = await next_planned_order_number(session, obj, spec_order, today)
     order = Order(
         number=number,
         spec_order_id=spec_order.id,
