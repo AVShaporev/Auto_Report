@@ -87,7 +87,11 @@ async def get_all_spec_orders(
             "id": item.id,
             "name": item.name,
             "short_name": item.short_name,
-            "orders_count": len(item.orders) if item.orders else 0
+            "is_system": item.is_system,
+            "is_default_planned": item.is_default_planned,
+            "is_default_primary": item.is_default_primary,
+            "orders_count": len(item.orders) if item.orders else 0,
+            "template_filename": item.template_filename,
         }
         for item in spec_orders
     ]
@@ -131,6 +135,8 @@ async def create_spec_order(
         "short_name": spec_order.short_name,
         "code": spec_order.code,
         "is_system": spec_order.is_system,
+        "is_default_planned": spec_order.is_default_planned,
+        "is_default_primary": spec_order.is_default_primary,
         "description": spec_order.description,
         "orders_count": 0,
         "template_filename": spec_order.template_filename,

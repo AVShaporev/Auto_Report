@@ -155,6 +155,8 @@ async def get_spec_order_with_stats(
         return {
             "id": spec_order.id,
             "is_system": spec_order.is_system,
+            "is_default_planned": spec_order.is_default_planned,
+            "is_default_primary": spec_order.is_default_primary,
             "name": spec_order.name,
             "short_name": spec_order.short_name,
             "code": spec_order.code,
@@ -187,6 +189,18 @@ async def update_spec_order_with_stats(
                     detail=f"Тип заявки с названием '{spec_order_update.name}' уже существует"
                 )
 
+        # Если форма поставила флаг is_default_planned/primary в TRUE — сначала
+        # снимаем его с других spec_orders (кроме текущего), чтобы partial-UNIQUE
+        # не упал. Если форма поставила в FALSE — никаких других UPDATE'ов.
+        if spec_order_update.is_default_planned is True:
+            await _clear_default_flag_from_others(
+                session, flag_name="is_default_planned", except_id=spec_order_id,
+            )
+        if spec_order_update.is_default_primary is True:
+            await _clear_default_flag_from_others(
+                session, flag_name="is_default_primary", except_id=spec_order_id,
+            )
+
         spec_order = await spec_order_data.update_spec_order(session, spec_order_id, spec_order_update)
 
         orders_count = await spec_order_data.count_orders_by_spec_order(session, spec_order_id)
@@ -194,6 +208,8 @@ async def update_spec_order_with_stats(
         return {
             "id": spec_order.id,
             "is_system": spec_order.is_system,
+            "is_default_planned": spec_order.is_default_planned,
+            "is_default_primary": spec_order.is_default_primary,
             "name": spec_order.name,
             "short_name": spec_order.short_name,
             "code": spec_order.code,
@@ -235,6 +251,8 @@ async def get_spec_orders_paginated_with_stats(
             result_items.append({
                 "id": item.id,
                 "is_system": item.is_system,
+                "is_default_planned": item.is_default_planned,
+                "is_default_primary": item.is_default_primary,
                 "name": item.name,
                 "short_name": item.short_name,
                 "code": item.code,
@@ -246,6 +264,30 @@ async def get_spec_orders_paginated_with_stats(
 
 # ========== СОЗДАНИЕ ==========
 
+async def _clear_default_flag_from_others(
+    session,
+    *,
+    flag_name: str,
+    except_id: Optional[int] = None,
+) -> None:
+    """Снять is_default_planned/is_default_primary со всех spec_orders,
+    кроме того, что обновляется/создаётся. partial-UNIQUE-индекс в БД
+    отлавливает гонки, но в нормальном потоке мы хотим выдать заранее
+    очищенную таблицу — без NSF от пользователя."""
+    from sqlalchemy import text  # локальный — не нужен везде
+    if flag_name not in {"is_default_planned", "is_default_primary"}:
+        raise ValueError(f"Неподдерживаемый флаг {flag_name}")
+    if except_id is None:
+        await session.execute(text(
+            f"UPDATE spec_orders SET {flag_name} = FALSE WHERE {flag_name} = TRUE"
+        ))
+    else:
+        await session.execute(text(
+            f"UPDATE spec_orders SET {flag_name} = FALSE "
+            f"WHERE {flag_name} = TRUE AND id <> :eid"
+        ), {"eid": except_id})
+
+
 async def create_spec_order(
     spec_order_create: SpecOrderCreate,
     current_user: User
@@ -254,7 +296,7 @@ async def create_spec_order(
     Создать новый тип заявки
     """
     await check_permission(current_user, "spec_order_create", "создания типов заявок")
-    
+
     async with new_session() as session:
         # Проверка уникальности названия
         if await spec_order_data.check_spec_order_name_exists(session, spec_order_create.name):
@@ -269,6 +311,12 @@ async def create_spec_order(
                 status_code=400,
                 detail=f"Тип заявки с кодом '{spec_order_create.code}' уже существует"
             )
+
+        # Перед вставкой — снимаем default-флаги с других, чтобы UNIQUE не упал.
+        if spec_order_create.is_default_planned:
+            await _clear_default_flag_from_others(session, flag_name="is_default_planned")
+        if spec_order_create.is_default_primary:
+            await _clear_default_flag_from_others(session, flag_name="is_default_primary")
 
         # Создание
         spec_order = await spec_order_data.create_spec_order(session, spec_order_create)
