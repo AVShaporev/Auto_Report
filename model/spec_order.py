@@ -27,6 +27,10 @@ class Spec_Order(Base):
     short_name: Mapped[str_null_true]
     code: Mapped[Optional[str]] = mapped_column(unique=True, nullable=True)
     is_system: Mapped[bool] = mapped_column(default=False, server_default='false')
+    # Флаги «вид заявки по умолчанию» для авто-генерации (один TRUE на флаг
+    # на всю таблицу — гарантия partial UNIQUE-индексом в миграции).
+    is_default_planned: Mapped[bool] = mapped_column(default=False, server_default='false')
+    is_default_primary: Mapped[bool] = mapped_column(default=False, server_default='false')
     template_filename: Mapped[Optional[str]] = mapped_column(nullable=True)
     template_storage_path: Mapped[Optional[str]] = mapped_column(nullable=True)
 

@@ -1,12 +1,24 @@
 from pydantic import BaseModel, Field, ConfigDict
-from typing import Optional, List
+from typing import Literal, Optional, List
+
+
+# Литерал допустимых календарных кодов периода. None → авто-tick игнорирует.
+PeriodCode = Literal["monthly", "quarterly", "semiannual", "yearly", "custom"]
+
 
 # Базовая схема периода
 class PeriodBase(BaseModel):
     """Базовая схема периода обслуживания"""
     name: str = Field(..., min_length=2, max_length=100, description="Наименование периода")
     period: str = Field(..., min_length=2, max_length=50, description="Периодичность (месяц, квартал, год)")
-    
+    code: Optional[PeriodCode] = Field(
+        None,
+        description=(
+            "Календарный код расписания для авто-генерации плановых заявок: "
+            "monthly/quarterly/semiannual/yearly. custom — без авто-tick."
+        ),
+    )
+
     model_config = ConfigDict(from_attributes=True)
 
 # Схема для создания периода
@@ -19,6 +31,7 @@ class PeriodUpdate(BaseModel):
     """Схема для обновления периода"""
     name: Optional[str] = Field(None, min_length=2, max_length=100)
     period: Optional[str] = Field(None, min_length=2, max_length=50)
+    code: Optional[PeriodCode] = Field(None, description="Календарный код расписания")
     description: Optional[str] = Field(None, max_length=1000)
 
     model_config = ConfigDict(from_attributes=True)
@@ -39,6 +52,7 @@ class PeriodListResponse(BaseModel):
     id: int
     name: str
     period: str
+    code: Optional[PeriodCode] = None
     description: Optional[str] = None
     objects_count: int = 0
     reports_count: int = 0

@@ -14,6 +14,8 @@ class SpecOrderBase(BaseModel):
 class SpecOrderCreate(SpecOrderBase):
     """Схема для создания типа заявки"""
     description: Optional[str] = Field(None, max_length=1000, description="Описание/комментарий")
+    is_default_planned: bool = Field(False, description="Использовать для авто-генерации плановых заявок (макс. один TRUE на справочник)")
+    is_default_primary: bool = Field(False, description="Использовать для авто-генерации заявок первичного обследования (макс. один TRUE на справочник)")
 
 # Схема для обновления типа заявки (все поля опциональны)
 class SpecOrderUpdate(BaseModel):
@@ -22,6 +24,8 @@ class SpecOrderUpdate(BaseModel):
     short_name: Optional[str] = Field(None, max_length=50)
     code: Optional[str] = Field(None, min_length=2, max_length=50)
     description: Optional[str] = Field(None, max_length=1000)
+    is_default_planned: Optional[bool] = Field(None, description="Сделать видом по умолчанию для плановых авто-заявок")
+    is_default_primary: Optional[bool] = Field(None, description="Сделать видом по умолчанию для авто-заявок первичного обследования")
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -30,6 +34,8 @@ class SpecOrderResponse(SpecOrderBase):
     """Полная информация о типе заявки"""
     id: int
     is_system: bool = False
+    is_default_planned: bool = False
+    is_default_primary: bool = False
     description: Optional[str] = None
     orders_count: Optional[int] = Field(0, description="Количество заявок этого типа")
     template_filename: Optional[str] = Field(None, description="Оригинальное имя файла шаблона документа (если привязан)")
@@ -41,6 +47,8 @@ class SpecOrderListResponse(BaseModel):
     """Краткая информация о типе заявки для списков"""
     id: int
     is_system: bool = False
+    is_default_planned: bool = False
+    is_default_primary: bool = False
     name: str
     short_name: Optional[str] = None
     code: Optional[str] = None
