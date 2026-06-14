@@ -87,19 +87,30 @@ case "$TARGET" in
 esac
 
 # ─── 3. Pre-deploy backup ──────────────────────────────────────────────
-mkdir -p "$BACKUPS"
-TS=$(date +%Y%m%d-%H%M%S)
-BACKUP_FILE="$BACKUPS/pre-deploy-${TS}.sql.gz"
+# Делаем ТОЛЬКО при backend/all. Фронт-деплой схему БД не трогает, а
+# параллельный backend-деплой (наш частый кейс — оба GHA-workflow в одну
+# минуту) может в этот момент гонять alembic upgrade head: тогда pg_dump
+# зачитает pg_catalog в полёте DDL и упадёт "cache lookup failed for
+# index NNNN". С set -euo pipefail это валит весь deploy.sh, и фронт-
+# контейнер так и не пересобирается. См. memory feedback
+# [[autoreport-deploy-vds-race]].
+if [ "$TARGET" != "frontend" ]; then
+    mkdir -p "$BACKUPS"
+    TS=$(date +%Y%m%d-%H%M%S)
+    BACKUP_FILE="$BACKUPS/pre-deploy-${TS}.sql.gz"
 
-if docker ps --format '{{.Names}}' | grep -q '^auto-report-postgres$'; then
-    echo "[deploy] pg_dump → $BACKUP_FILE"
-    DB_USER=$(grep -E '^POSTGRES_USER=' "$ENV_FILE" | head -1 | cut -d= -f2)
-    DB_NAME=$(grep -E '^POSTGRES_DB=' "$ENV_FILE" | head -1 | cut -d= -f2)
-    docker exec auto-report-postgres \
-        pg_dump -U "$DB_USER" "$DB_NAME" | gzip > "$BACKUP_FILE"
-    echo "[deploy] Backup size: $(du -h "$BACKUP_FILE" | cut -f1)"
+    if docker ps --format '{{.Names}}' | grep -q '^auto-report-postgres$'; then
+        echo "[deploy] pg_dump → $BACKUP_FILE"
+        DB_USER=$(grep -E '^POSTGRES_USER=' "$ENV_FILE" | head -1 | cut -d= -f2)
+        DB_NAME=$(grep -E '^POSTGRES_DB=' "$ENV_FILE" | head -1 | cut -d= -f2)
+        docker exec auto-report-postgres \
+            pg_dump -U "$DB_USER" "$DB_NAME" | gzip > "$BACKUP_FILE"
+        echo "[deploy] Backup size: $(du -h "$BACKUP_FILE" | cut -f1)"
+    else
+        echo "[deploy] postgres не запущен (первый деплой?) — пропуск pre-deploy backup"
+    fi
 else
-    echo "[deploy] postgres не запущен (первый деплой?) — пропуск pre-deploy backup"
+    echo "[deploy] target=frontend — pg_dump пропускаем (БД не меняется)"
 fi
 
 # ─── 4. docker compose up ─────────────────────────────────────────────
