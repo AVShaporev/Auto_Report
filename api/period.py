@@ -85,6 +85,8 @@ async def get_all_periods(
             "id": item.id,
             "name": item.name,
             "period": item.period,
+            "code": item.code,
+            "description": item.description,
             "objects_count": len(item.objects) if item.objects else 0,
             "reports_count": len(item.reports) if item.reports else 0
         }
@@ -128,6 +130,8 @@ async def create_period(
         "id": period.id,
         "name": period.name,
         "period": period.period,
+        "code": period.code,
+        "description": period.description,
         "objects_count": 0,
         "reports_count": 0
     }
@@ -164,6 +168,8 @@ async def update_period(
         "id": period.id,
         "name": period.name,
         "period": period.period,
+        "code": period.code,
+        "description": period.description,
         "objects_count": objects_count,
         "reports_count": reports_count
     }
