@@ -146,6 +146,8 @@ async def get_period_with_stats(
             "id": period.id,
             "name": period.name,
             "period": period.period,
+            "code": period.code,
+            "description": period.description,
             "objects_count": objects_count,
             "reports_count": reports_count
         }
@@ -184,6 +186,8 @@ async def get_periods_paginated_with_stats(
                 "id": item.id,
                 "name": item.name,
                 "period": item.period,
+                "code": item.code,
+                "description": item.description,
                 "objects_count": objects_count,
                 "reports_count": reports_count
             })
