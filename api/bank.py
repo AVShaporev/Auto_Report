@@ -130,7 +130,7 @@ async def update_bank(
     
     # Получаем количество связанных организаций
     async with bank_service.new_session() as session:
-        organizations_count = await bank_service.bank_data.count_organizations(
+        organizations_count = await bank_service.bank_data.count_bank_organizations(
             session, 
             bank_id
         )
@@ -177,7 +177,7 @@ async def get_bank_by_bik(
     await bank_service.check_permission(current_user, "bank_read", "просмотра банков")
     
     async with bank_service.new_session() as session:
-        bank = await bank_service.bank_data.get_by_bik(session, bik)
+        bank = await bank_service.bank_data.get_bank_by_bik(session, bik)
         
         if not bank:
             raise HTTPException(
@@ -185,7 +185,7 @@ async def get_bank_by_bik(
                 detail=f"Банк с БИК '{bik}' не найден"
             )
         
-        organizations_count = await bank_service.bank_data.count_organizations(
+        organizations_count = await bank_service.bank_data.count_bank_organizations(
             session, 
             bank.id
         )

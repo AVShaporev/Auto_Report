@@ -146,11 +146,11 @@ async def update_arial(
     
     # Получаем статистику для ответа
     async with arial_service.new_session() as session:
-        organizations_count = await arial_service.arial_data.count_organizations(
+        organizations_count = await arial_service.arial_data.count_arial_organizations(
                                                                                 session, 
                                                                                 arial_id
                                                                                 )
-        objects_count = await arial_service.arial_data.count_objects(
+        objects_count = await arial_service.arial_data.count_arial_objects(
                                                                     session, 
                                                                     arial_id
                                                                     )

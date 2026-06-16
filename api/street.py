@@ -150,11 +150,11 @@ async def update_street(
     
     # Получаем статистику для ответа
     async with street_service.new_session() as session:
-        organizations_count = await street_service.street_data.count_organizations(
+        organizations_count = await street_service.street_data.count_street_organizations(
             session, 
             street_id
         )
-        objects_count = await street_service.street_data.count_objects(
+        objects_count = await street_service.street_data.count_street_objects(
             session, 
             street_id
         )

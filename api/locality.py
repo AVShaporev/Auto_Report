@@ -152,11 +152,11 @@ async def update_locality(
     
     # Получаем статистику для ответа
     async with locality_service.new_session() as session:
-        organizations_count = await locality_service.locality_data.count_organizations(
+        organizations_count = await locality_service.locality_data.count_locality_organizations(
                                                                                         session, 
                                                                                         locality_id
                                                                                         )
-        objects_count = await locality_service.locality_data.count_objects(
+        objects_count = await locality_service.locality_data.count_locality_objects(
                                                                             session, 
                                                                             locality_id
                                                                             )
