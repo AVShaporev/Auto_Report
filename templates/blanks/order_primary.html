@@ -23,7 +23,7 @@
         с другой стороны, составили настоящий акт о том, что при обследовании оборудования
         на объекте — <strong>{{ object.name }}</strong>, расположенного по адресу:
         <em>{{ object_address }}</em>, основание — 
-        {% if contract.spec_contract %}{{ contract.spec_contract }}{% else %}Договор{% endif %}
+        {% if contract.spec_contract and contract.spec_contract.name %}{{ contract.spec_contract.name }}{% else %}Договор{% endif %}
         №{{ contract.number }} от {{ contract.date_str }},
         оборудование в составе:
     </p>
