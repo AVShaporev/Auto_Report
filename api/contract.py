@@ -201,20 +201,20 @@ async def update_contract(
     
     # Получаем статистику для ответа
     async with contract_service.new_session() as session:
-        sub_contracts_count = await contract_service.contract_data.count_sub_contracts(
-            session, 
+        sub_contracts_count = await contract_service.contract_data.count_contract_sub_contracts(
+            session,
             contract_id
         )
-        objects_count = await contract_service.contract_data.count_objects(
-            session, 
+        objects_count = await contract_service.contract_data.count_contract_objects(
+            session,
             contract_id
         )
-        reports_count = await contract_service.contract_data.count_reports(
-            session, 
+        reports_count = await contract_service.contract_data.count_contract_reports(
+            session,
             contract_id
         )
-        orders_count = await contract_service.contract_data.count_orders(
-            session, 
+        orders_count = await contract_service.contract_data.count_contract_orders(
+            session,
             contract_id
         )
     

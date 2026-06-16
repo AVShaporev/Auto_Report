@@ -142,11 +142,11 @@ async def update_region(
     
     # Получаем статистику для ответа
     async with region_service.new_session() as session:
-        organizations_count = await region_service.region_data.count_organizations(
+        organizations_count = await region_service.region_data.count_region_organizations(
                                                                                     session, 
                                                                                     region_id
                                                                                     )
-        objects_count = await region_service.region_data.count_objects(
+        objects_count = await region_service.region_data.count_region_objects(
                                                                         session, 
                                                                         region_id
                                                                         )
@@ -195,7 +195,7 @@ async def get_region_by_symbol(
     await region_service.check_permission(current_user, "region_read", "просмотра регионов")
     
     async with region_service.new_session() as session:
-        region = await region_service.region_data.get_by_symbol(session, symbol)
+        region = await region_service.region_data.get_region_by_symbol(session, symbol)
         
         if not region:
             raise HTTPException(
@@ -203,11 +203,11 @@ async def get_region_by_symbol(
                                 detail=f"Регион с символом '{symbol}' не найден"
                                 )
         
-        organizations_count = await region_service.region_data.count_organizations(
+        organizations_count = await region_service.region_data.count_region_organizations(
                                                                                     session, 
                                                                                     region.id
                                                                                     )
-        objects_count = await region_service.region_data.count_objects(
+        objects_count = await region_service.region_data.count_region_objects(
                                                                         session, 
                                                                         region.id
                                                                         )
