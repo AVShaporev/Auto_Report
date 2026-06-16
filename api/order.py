@@ -1,9 +1,4 @@
-import io
-import re
-import zipfile
-from datetime import datetime
-
-from fastapi import APIRouter, Depends, Query, HTTPException, Response
+from fastapi import APIRouter, Depends, Query, Response
 from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import date
@@ -18,16 +13,8 @@ from schema.order import (
 )
 from schema.pagination import PaginationParams, PaginatedResponse
 from service import order as order_service
-from service.order_pdf import render_order_pdf, render_order_primary_pdf, render_order_defect_pdf
 from service.render_docx import render_order_document, render_orders_bulk_zip, build_attachment_headers
 from core.dependencies import get_current_active_user
-
-
-class BulkPdfRequest(BaseModel):
-    """Тело запроса для массового скачивания PDF-актов по заявкам."""
-    order_ids: List[int] = Field(..., min_length=1, max_length=200,
-                                  description="ID заявок (1..200 за раз)")
-    kind: str = Field("to", description="Тип акта: 'to' (плановый), 'primary' (первичный) или 'defect' (дефектовка)")
 
 
 class BulkRenderRequest(BaseModel):
@@ -37,10 +24,6 @@ class BulkRenderRequest(BaseModel):
     format: str = Field("docx", pattern="^(docx|pdf)$",
                         description="Формат: 'docx' (быстро) или 'pdf' (медленнее, soffice)")
 
-
-def _safe_zip_name(name: str) -> str:
-    # Минимальная санация: убираем символы, опасные для имени файла в ZIP/файловой системе
-    return re.sub(r'[\\/:*?"<>|]+', "_", name).strip().strip(".") or "file.pdf"
 
 router = APIRouter(prefix="/api/order", tags=["order"])
 
@@ -178,124 +161,6 @@ async def get_orders_by_status(
     
     return items
 
-@router.post("/bulk-pdf")
-async def bulk_order_pdf(
-    payload: BulkPdfRequest,
-    current_user: User = Depends(get_current_active_user),
-):
-    """
-    Сформировать ZIP-архив с PDF-актами по списку заявок.
-
-    `kind='to'` — акт ТО (плановый), `kind='primary'` — акт первичного обследования,
-    `kind='defect'` — акт дефектовки (диагностических и ремонтных работ).
-    Требуется право: `order_read` (проверяется внутри render-функций).
-    """
-    render_by_kind = {
-        "to": render_order_pdf,
-        "primary": render_order_primary_pdf,
-        "defect": render_order_defect_pdf,
-    }
-    if payload.kind not in render_by_kind:
-        raise HTTPException(400, detail="kind должен быть 'to', 'primary' или 'defect'")
-
-    render_fn = render_by_kind[payload.kind]
-
-    buf = io.BytesIO()
-    errors: list[str] = []
-    with zipfile.ZipFile(buf, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
-        for oid in payload.order_ids:
-            try:
-                pdf_bytes, filename = await render_fn(oid, current_user)
-            except HTTPException as e:
-                # 403 (нет прав) — останавливаем сразу, остальные пропускаем
-                if e.status_code == 403:
-                    raise
-                errors.append(f"order_id={oid}: {e.detail}")
-                continue
-            except Exception as e:
-                errors.append(f"order_id={oid}: {e}")
-                continue
-            zf.writestr(_safe_zip_name(filename), pdf_bytes)
-
-        if errors:
-            zf.writestr("_errors.txt", "\n".join(errors).encode("utf-8"))
-
-    ts = datetime.now().strftime("%Y%m%d-%H%M%S")
-    archive_name = f"acts_{payload.kind}_{ts}.zip"
-    return Response(
-        content=buf.getvalue(),
-        media_type="application/zip",
-        headers={"Content-Disposition": f'attachment; filename="{archive_name}"'},
-    )
-
-
-@router.get("/{order_id}/pdf")
-async def get_order_pdf(
-    order_id: int,
-    current_user: User = Depends(get_current_active_user)
-):
-    """
-    Сформировать PDF акта выполненных работ по заявке.
-
-    Шаблон выбирается по типу заявки (`spec_order`).
-    Сейчас поддерживается только «плановая».
-
-    Требуется право: order_read
-    """
-    pdf_bytes, filename = await render_order_pdf(order_id, current_user)
-    return Response(
-        content=pdf_bytes,
-        media_type="application/pdf",
-        headers={
-            "Content-Disposition": f'attachment; filename="{filename}"',
-        },
-    )
-
-
-@router.get("/{order_id}/primary/pdf")
-async def get_order_primary_pdf(
-    order_id: int,
-    current_user: User = Depends(get_current_active_user)
-):
-    """
-    Сформировать PDF акта первичного обследования по заявке.
-
-    Дата акта оставляется пустой для ручного заполнения.
-
-    Требуется право: order_read
-    """
-    pdf_bytes, filename = await render_order_primary_pdf(order_id, current_user)
-    return Response(
-        content=pdf_bytes,
-        media_type="application/pdf",
-        headers={
-            "Content-Disposition": f'attachment; filename="{filename}"',
-        },
-    )
-
-
-@router.get("/{order_id}/defect/pdf")
-async def get_order_defect_pdf(
-    order_id: int,
-    current_user: User = Depends(get_current_active_user)
-):
-    """
-    Сформировать PDF акта дефектовки (диагностических и ремонтных работ) по заявке.
-
-    Поля разделов и дата оставляются пустыми для ручного заполнения.
-
-    Требуется право: order_read
-    """
-    pdf_bytes, filename = await render_order_defect_pdf(order_id, current_user)
-    return Response(
-        content=pdf_bytes,
-        media_type="application/pdf",
-        headers={
-            "Content-Disposition": f'attachment; filename="{filename}"',
-        },
-    )
-
-
 @router.post("/render_zip")
 async def render_orders_zip(
     payload: BulkRenderRequest,
@@ -332,11 +197,6 @@ async def render_order_act(
     """
     Сформировать заполненный акт по заявке на основе .docx/.dotx-шаблона,
     привязанного к её типу (spec_order.template_filename).
-
-    Параллельно с устаревшими /pdf, /primary/pdf, /defect/pdf — те жёстко
-    зашиты на HTML-шаблоны через WeasyPrint; новый /render работает по
-    Word-шаблонам через docxtpl, что позволяет редактировать шаблоны
-    в MS Word без участия разработчика.
 
     Список доступных placeholder'ов для шаблона смотри в разделе
     «Документация» приложения (Phase 3).
