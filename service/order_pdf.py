@@ -175,6 +175,7 @@ async def _load_order_with_relations(session, order_id: int) -> Order:
         .where(Order.id == order_id)
         .options(
             selectinload(Order.spec_order),
+            selectinload(Order.contract).selectinload(Contract.spec_contract),
             selectinload(Order.contract)
                 .selectinload(Contract.customer)
                 .selectinload(Organization.spec_job_title),
@@ -236,6 +237,9 @@ async def render_order_pdf(order_id: int, current_user: User) -> Tuple[bytes, st
             "contract": {
                 "number": contract.number,
                 "date_of_consclusion": contract.date_of_consclusion,
+                "spec_contract": {
+                    "name": contract.spec_contract.name if contract.spec_contract else "",
+                },
             },
             "contract_date_str": _format_full_date(contract.date_of_consclusion),
             "act_date_full": _format_full_date(order.created_at),
@@ -280,7 +284,9 @@ async def render_order_primary_pdf(order_id: int, current_user: User) -> Tuple[b
                 "number": order.number,
             },
             "contract": {
-                "spec_contract": contract.spec_contract.name or "",
+                "spec_contract": {
+                    "name": contract.spec_contract.name if contract.spec_contract else "",
+                },
                 "number": contract.number,
                 "subject": contract.subject or "",
                 "short_subject": contract.short_subject or "",
