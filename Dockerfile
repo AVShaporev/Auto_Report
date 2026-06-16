@@ -50,9 +50,6 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 #   curl                  — HEALTHCHECK дёргает /openapi.json
 #   ca-certificates       — TLS-trust (исходящие HTTPS из бэка)
 #   tini                  — корректный PID 1, передаёт SIGTERM подпроцессу uvicorn
-#   libpango-1.0-0,
-#   libpangoft2-1.0-0,
-#   libharfbuzz0b         — WeasyPrint (HTML → PDF в order_pdf.py)
 #   libreoffice-core,
 #   libreoffice-writer    — soffice --headless --convert-to pdf (render_docx.py)
 #   fonts-dejavu,
@@ -64,9 +61,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         curl \
         ca-certificates \
         tini \
-        libpango-1.0-0 \
-        libpangoft2-1.0-0 \
-        libharfbuzz0b \
         libreoffice-core \
         libreoffice-writer \
         fonts-dejavu \

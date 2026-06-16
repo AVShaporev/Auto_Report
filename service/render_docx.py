@@ -2,8 +2,7 @@
 Рендер заполненного документа (.docx / .pdf) для заявки на базе .docx-/.dotx-шаблона,
 привязанного к её типу (`spec_order.template_storage_path`).
 
-Параллельная альтернатива HTML+weasyprint-пайплайну из service/order_pdf.py:
-здесь jinja-разметка живёт прямо внутри Word-документа (docxtpl), что даёт
+Jinja-разметка живёт прямо внутри Word-документа (docxtpl), что даёт
 не-разработчикам возможность редактировать шаблон в MS Word.
 
 PDF-вариант требует установленного LibreOffice headless на сервере
@@ -39,12 +38,97 @@ from model.spec_journal import Spec_Journal
 from model.objects_equipment import Objects_Equipment
 from config import MEDIA_PATH
 from service.order import check_permission
-from service.order_pdf import (
-    _RUSSIAN_MONTHS_GEN,
-    _format_director_full_name,
-    _build_address,
-    _build_equipment_groups,
-)
+
+
+_RUSSIAN_MONTHS_GEN = [
+    "января", "февраля", "марта", "апреля", "мая", "июня",
+    "июля", "августа", "сентября", "октября", "ноября", "декабря",
+]
+
+
+def _format_director_full_name(org: Organization) -> str:
+    parts = [
+        (getattr(org, "drector_last_name", "") or "").strip(),
+        (getattr(org, "director_first_name", "") or "").strip(),
+        (getattr(org, "drector_surname", "") or "").strip(),
+    ]
+    return " ".join(p for p in parts if p) or "—"
+
+
+def _build_address(obj: ObjectModel) -> str:
+    parts = []
+    if obj.region and obj.region.name:
+        parts.append(f"{obj.region.name} {obj.region.spec_region.name}")
+    if obj.arial and obj.arial.name:
+        parts.append(f"{obj.arial.name} {obj.arial.spec_arial.name}")
+    if obj.locality and obj.locality.name:
+        prefix = ""
+        sl = getattr(obj.locality, "spec_locality", None)
+        if sl and getattr(sl, "short_name", None):
+            prefix = f"{sl.short_name} "
+        parts.append(f"{prefix}{obj.locality.name}".strip())
+    if obj.street and obj.street.name:
+        prefix = ""
+        ss = getattr(obj.street, "spec_street", None)
+        if ss and getattr(ss, "short_name", None):
+            prefix = f"{ss.short_name} "
+        parts.append(f"{prefix}{obj.street.name}".strip())
+    if obj.build_number:
+        prefix = obj.spec_build.name if obj.spec_build and obj.spec_build.name else "д."
+        parts.append(f"{prefix} {obj.build_number}".strip())
+    if obj.room_number:
+        prefix = obj.spec_room.name if obj.spec_room and obj.spec_room.name else "пом."
+        parts.append(f"{prefix} {obj.room_number}".strip())
+    return ", ".join(parts) if parts else "—"
+
+
+def _build_equipment_groups(obj: ObjectModel) -> list[dict]:
+    """Сгруппировать оборудование объекта по типу обслуживаемой системы.
+
+    Используется в акте ТО: каждый раздел — это `spec_system`, нумерация
+    многоуровневая («1.» → «1.1.»). Оборудование без `spec_system` собирается
+    в отдельный раздел «Оборудование», который идёт в конце.
+    """
+    buckets: dict = {}
+    for oe in (obj.objects_equipments or []):
+        if not oe.equipment:
+            continue
+        key = oe.spec_system_id
+        if key not in buckets:
+            buckets[key] = {
+                "name": oe.spec_system.name if oe.spec_system else None,
+                "items": [],
+            }
+        buckets[key]["items"].append({
+            "name": oe.equipment.name or "—",
+            "count": oe.count if oe.count is not None else 0,
+        })
+
+    with_system = sorted(
+        ((k, v) for k, v in buckets.items() if k is not None),
+        key=lambda kv: (kv[1]["name"] or "").lower(),
+    )
+    ordered: list = list(with_system)
+    if None in buckets:
+        ordered.append((None, buckets[None]))
+
+    groups = []
+    for sec_idx, (_, bucket) in enumerate(ordered, start=1):
+        bucket["items"].sort(key=lambda it: (it["name"] or "").lower())
+        rows = [
+            {
+                "index": f"{sec_idx}.{item_idx}",
+                "name": it["name"],
+                "count": it["count"],
+            }
+            for item_idx, it in enumerate(bucket["items"], start=1)
+        ]
+        groups.append({
+            "index": sec_idx,
+            "system_name": bucket["name"] or "Оборудование",
+            "rows": rows,
+        })
+    return groups
 
 
 # python-docx (на котором сидит docxtpl) проверяет content_type главного
@@ -96,7 +180,7 @@ def _fmt_date(d: Optional[date]) -> str:
 def _build_org_address(org: Optional[Organization]) -> str:
     """
     Собрать полный адрес организации одной строкой.
-    Аналог _build_address из order_pdf.py, но для Organization
+    Аналог `_build_address`, но для Organization
     (у которой набор полей и связей идентичен Object).
     """
     if not org:
@@ -170,6 +254,9 @@ def _build_context(order: Order) -> dict:
             "date_of_completion": _fmt_date(contract.date_of_completion if contract else None),
             "subject": (contract.subject or "") if contract else "",
             "short_subject": (contract.short_subject or "") if contract else "",
+            "spec_contract": {
+                "name": (contract.spec_contract.name if (contract and contract.spec_contract) else ""),
+            },
         },
         "customer": _org_to_dict(customer),
         "executor": _org_to_dict(executor),
@@ -194,8 +281,6 @@ def _build_context(order: Order) -> dict:
 
 
 # ========== ЗАГРУЗКА ORDER СО ВСЕМИ СВЯЗЯМИ ==========
-# Отдельная от order_pdf._load_order_with_relations, потому что докручиваем
-# географию для customer/executor и role для user (HTML-пайплайн их не грузит).
 
 async def _load_order_for_docx(session, order_id: int) -> Order:
     customer_load = (
@@ -213,6 +298,7 @@ async def _load_order_for_docx(session, order_id: int) -> Order:
         .options(
             selectinload(Order.spec_order),
             selectinload(Order.user).selectinload(User.role),
+            selectinload(Order.contract).selectinload(Contract.spec_contract),
             # customer + его география
             customer_load.selectinload(Organization.region),
             customer_load.selectinload(Organization.arial),
@@ -507,6 +593,7 @@ async def _load_object_for_journal(session, object_id: int) -> ObjectModel:
             selectinload(ObjectModel.street).selectinload(Street.spec_street),
             selectinload(ObjectModel.spec_build),
             selectinload(ObjectModel.spec_room),
+            selectinload(ObjectModel.contract).selectinload(Contract.spec_contract),
             # contract + customer + executor с их географией
             selectinload(ObjectModel.contract).selectinload(Contract.customer).selectinload(Organization.region),
             selectinload(ObjectModel.contract).selectinload(Contract.customer).selectinload(Organization.arial),
@@ -547,6 +634,9 @@ def _build_journal_context(obj: ObjectModel) -> dict:
             "date_of_completion": _fmt_date(contract.date_of_completion if contract else None),
             "subject": (contract.subject or "") if contract else "",
             "short_subject": (contract.short_subject or "") if contract else "",
+            "spec_contract": {
+                "name": (contract.spec_contract.name if (contract and contract.spec_contract) else ""),
+            },
         },
         "customer": _org_to_dict(customer),
         "executor": _org_to_dict(executor),
