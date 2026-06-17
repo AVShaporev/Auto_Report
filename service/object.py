@@ -206,7 +206,15 @@ async def get_object_with_stats(
             "spec_room_name": obj.spec_room.name if obj.spec_room else None,
             "period_name": obj.period.name if obj.period else None,
             "contract_number": obj.contract.number if obj.contract else None,
-            "contract_type": obj.contract.type_contract if obj.contract else None,
+            # Тип контракта берём из spec_contract (каталога) — там реальные
+            # значения «Договор» / «Государственный контракт». Поле
+            # contract.type_contract — легаси-текст («по единице», «Равными
+            # частями»), сюда не подходит.
+            "contract_type": (
+                obj.contract.spec_contract.name
+                if obj.contract and obj.contract.spec_contract
+                else None
+            ),
             "contract_date_conclusion": obj.contract.date_of_consclusion if obj.contract else None,
             "contract_date_completion": obj.contract.date_of_completion if obj.contract else None,
             "equipments_count": equipments_count,
