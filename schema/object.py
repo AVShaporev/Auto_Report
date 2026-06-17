@@ -68,6 +68,7 @@ class ObjectResponse(ObjectBase):
     contract_type: Optional[str] = Field(None, description="Тип контракта (Государственный/Договор)")
     contract_date_conclusion: Optional[date] = Field(None, description="Дата заключения контракта")
     contract_date_completion: Optional[date] = Field(None, description="Срок (дата завершения) контракта")
+    address_pretty: Optional[str] = Field(None, description="Полный адрес со spec_*-префиксами, как в актах")
 
     # Статистика
     equipments_count: Optional[int] = Field(0, description="Количество оборудования")

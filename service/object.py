@@ -10,6 +10,7 @@ from model.object import Object
 from model.user import User
 from data import object as object_data
 from schema.object import ObjectCreate, ObjectUpdate
+from service.render_docx import build_address
 from schema.pagination import PaginationParams
 from database.database import new_session
 from service.order_autogen import create_initial_orders_for_object
@@ -211,7 +212,9 @@ async def get_object_with_stats(
             "equipments_count": equipments_count,
             "reports_count": reports_count,
             "orders_count": orders_count,
-            "address": address
+            "address": address,
+            # Полный «человекочитаемый» адрес со spec_*-префиксами, как в актах.
+            "address_pretty": build_address(obj),
         }
 
 async def get_objects_paginated_with_stats(
