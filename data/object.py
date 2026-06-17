@@ -31,11 +31,19 @@ async def get_object_by_id(
     query = select(Object).where(Object.id == object_id)
     
     if load_relations:
+        # Чейним spec_* для region/arial/locality/street — нужно сервису для
+        # сборки человекочитаемого адреса (build_address из render_docx).
+        # Без явного selectinload асинхронная сессия упадёт MissingGreenlet
+        # на obj.locality.spec_locality.
+        from model.region import Region
+        from model.arial import Arial
+        from model.locality import Locality
+        from model.street import Street
         query = query.options(
-            selectinload(Object.region),
-            selectinload(Object.arial),
-            selectinload(Object.locality),
-            selectinload(Object.street),
+            selectinload(Object.region).selectinload(Region.spec_region),
+            selectinload(Object.arial).selectinload(Arial.spec_arial),
+            selectinload(Object.locality).selectinload(Locality.spec_locality),
+            selectinload(Object.street).selectinload(Street.spec_street),
             selectinload(Object.spec_build),
             selectinload(Object.spec_room),
             selectinload(Object.period),

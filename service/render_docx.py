@@ -55,7 +55,7 @@ def _format_director_full_name(org: Organization) -> str:
     return " ".join(p for p in parts if p) or "—"
 
 
-def _build_address(obj: ObjectModel) -> str:
+def build_address(obj: ObjectModel) -> str:
     parts = []
     if obj.region and obj.region.name:
         parts.append(f"{obj.region.name} {obj.region.spec_region.name}")
@@ -180,7 +180,7 @@ def _fmt_date(d: Optional[date]) -> str:
 def _build_org_address(org: Optional[Organization]) -> str:
     """
     Собрать полный адрес организации одной строкой.
-    Аналог `_build_address`, но для Organization
+    Аналог `build_address`, но для Organization
     (у которой набор полей и связей идентичен Object).
     """
     if not org:
@@ -262,7 +262,7 @@ def _build_context(order: Order) -> dict:
         "executor": _org_to_dict(executor),
         "object": {
             "name": (obj.name or "") if obj else "",
-            "address": _build_address(obj) if obj else "",
+            "address": build_address(obj) if obj else "",
             "responsible_face": (obj.responsible_face or "") if obj else "",
             "responsible_faces_contact": (obj.responsible_faces_contact or "") if obj else "",
         },
@@ -624,7 +624,7 @@ def _build_journal_context(obj: ObjectModel) -> dict:
     return {
         "object": {
             "name": obj.name or "",
-            "address": _build_address(obj),
+            "address": build_address(obj),
             "responsible_face": obj.responsible_face or "",
             "responsible_faces_contact": obj.responsible_faces_contact or "",
         },
