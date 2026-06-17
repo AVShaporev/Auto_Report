@@ -402,14 +402,18 @@ async def _tick_one_object(
             result.objects_skipped_no_period_code += 1
             return
 
-        # Идемпотентность: предварительный SELECT — оптимизация под
-        # «уже есть» (избегаем raise/rollback на каждом объекте).
+        # Идемпотентность: дедуп по «есть ли уже плановая, чей period_start_date
+        # попадает в текущий или более поздний период». `>=` вместо `==` чинит
+        # кейс, когда админ меняет period.code объекта на более широкий
+        # (monthly → quarterly → yearly): заявка с period_start_date=2026-06-01
+        # должна считаться покрывающей и Q2 (period_start=2026-04-01),
+        # и 2026-й год целиком. Без этого tick плодит дубль на каждую смену.
         exists_q = (
             select(Order.id)
             .where(
                 Order.object_id == obj.id,
                 Order.spec_order_id == planned_spec_id,
-                Order.period_start_date == period_start,
+                Order.period_start_date >= period_start,
             )
             .limit(1)
         )
