@@ -320,9 +320,9 @@ async def delete_region(
     
     async with new_session() as session:
         # Проверяем существование и связанные объекты
-        region = await region_data.get_by_id(
-                                            session, 
-                                            region_id, 
+        region = await region_data.get_region_by_id(
+                                            session,
+                                            region_id,
                                             load_relations=True
                                             )
         
