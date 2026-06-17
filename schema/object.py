@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional, List
+from datetime import date
 
 # Базовая схема объекта
 class ObjectBase(BaseModel):
@@ -64,7 +65,10 @@ class ObjectResponse(ObjectBase):
     spec_room_name: Optional[str] = Field(None, description="Название типа помещения")
     period_name: Optional[str] = Field(None, description="Название периода")
     contract_number: Optional[str] = Field(None, description="Номер контракта")
-    
+    contract_type: Optional[str] = Field(None, description="Тип контракта (Государственный/Договор)")
+    contract_date_conclusion: Optional[date] = Field(None, description="Дата заключения контракта")
+    contract_date_completion: Optional[date] = Field(None, description="Срок (дата завершения) контракта")
+
     # Статистика
     equipments_count: Optional[int] = Field(0, description="Количество оборудования")
     reports_count: Optional[int] = Field(0, description="Количество отчетов")
