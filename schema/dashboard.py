@@ -48,3 +48,4 @@ class DashboardSpecStatsResponse(BaseModel):
     spec_systems: int = 0
     operations: int = 0
     periods: int = 0
+    organizations: int = 0
