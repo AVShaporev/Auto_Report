@@ -327,6 +327,27 @@ async def test_tick_new_month_creates_new_planned(db_session, reference_data):
     assert r_jun.orders_already_exist == 0
 
 
+async def test_tick_no_dupe_after_period_code_widened(db_session, reference_data):
+    """Регрессия: смена period.code на более широкий не должна плодить дубли.
+
+    monthly → quarterly: заявка за 2026-06-01 уже покрывает Q2 (period_start=2026-04-01).
+    Tick 17 июня НЕ должен создать новую — старая «внутри» нового периода.
+    """
+    await _seed_default_spec_orders(db_session)
+    await _seed_system_user(db_session)
+    await _set_period_code(db_session, reference_data["period"].id, "monthly")
+
+    r_jun = await tick_planned_orders(today=date(2026, 6, 16))
+    assert r_jun.orders_created == 1
+
+    # Админ переключает период на quarterly.
+    await _set_period_code(db_session, reference_data["period"].id, "quarterly")
+
+    r_next_day = await tick_planned_orders(today=date(2026, 6, 17))
+    assert r_next_day.orders_created == 0
+    assert r_next_day.orders_already_exist == 1
+
+
 async def test_tick_no_default_planned_returns_error(db_session, reference_data):
     """В spec_orders нет is_default_planned → tick молча сообщает ошибку,
     не валится."""
