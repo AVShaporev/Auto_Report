@@ -81,6 +81,7 @@ class ObjectListResponse(BaseModel):
     build_number: Optional[str] = None
     room_number: Optional[str] = None
     responsible_face: str
+    responsible_faces_contact: Optional[str] = None
     region_name: Optional[str] = None
     locality_name: Optional[str] = None
     street_name: Optional[str] = None

@@ -273,6 +273,7 @@ async def get_objects_paginated_with_stats(
                 "build_number": item.build_number,
                 "room_number": item.room_number,
                 "responsible_face": item.responsible_face,
+                "responsible_faces_contact": item.responsible_faces_contact,
                 "region_name": item.region.name if item.region else None,
                 "locality_name": item.locality.name if item.locality else None,
                 "street_name": item.street.name if item.street else None,
