@@ -59,8 +59,12 @@ services:
     # При последующих запусках pg_data уже инициализирована — переменные
     # игнорятся. ВАЖНО: если меняешь POSTGRES_PASSWORD после первого старта,
     # это НЕ ротирует пароль в БД, надо вручную ALTER USER через psql.
+    # ENV_FILE экспортируется deploy_vds.sh после расшифровки SOPS-файла
+    # (scripts/decrypt-env.sh vds-prod). Дефолт `../.env` оставлен на случай
+    # ручного `docker compose up` без SOPS — на чистом stage / dev-машине.
+    # На VDS этот дефолт больше не должен срабатывать после раскатки SOPS.
     env_file:
-      - ../.env
+      - ${ENV_FILE:-../.env}
 
     # Локальный 5432:5432 — наружу не торчит (только loopback хоста),
     # достаём из DBeaver через SSH-туннель:
@@ -103,8 +107,12 @@ services:
 
     # DB_*, SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES,
     # REFRESH_TOKEN_EXPIRE_DAYS, MEDIA_ROOT — всё в одном .env.
+    # ENV_FILE экспортируется deploy_vds.sh после расшифровки SOPS-файла
+    # (scripts/decrypt-env.sh vds-prod). Дефолт `../.env` оставлен на случай
+    # ручного `docker compose up` без SOPS — на чистом stage / dev-машине.
+    # На VDS этот дефолт больше не должен срабатывать после раскатки SOPS.
     env_file:
-      - ../.env
+      - ${ENV_FILE:-../.env}
 
     # Не пробрасываем :8000 наружу — Caddy → frontend-nginx → backend:8000
     # внутри docker-network.
