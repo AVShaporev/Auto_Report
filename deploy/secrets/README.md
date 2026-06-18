@@ -48,7 +48,13 @@ rm ./tmp-raw.env
 дешифрует нужный файл во временный `/tmp/auto-report-deploy.env`
 с правами 0600, экспортирует переменные, удаляет файл.
 
+## Ротация
+
+Процедуры ротации секретов (отдельных значений, master age-ключа, аварийный
+сценарий) описаны в [ROTATION.md](./ROTATION.md).
+
 ## Связано
 
 - `../../.sops.yaml` — конфиг recipient'а и path-regex'ов
+- [ROTATION.md](./ROTATION.md) — ротация ключей и секретов
 - memory `autoreport-saas-roadmap` — почему так
