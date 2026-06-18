@@ -31,11 +31,21 @@
 #   cd Auto_report_front && git checkout prod && cd ..
 #   cp Auto_Report/scripts/deploy_vds.sh scripts/deploy.sh
 #   chmod +x scripts/deploy.sh
-#   # заполнить /opt/auto-report/.env (шаблон — Auto_Report/.env.example).
-#   # Права: владелец root, группа deploy, mode 640 — deploy может читать
-#   # (docker compose --env-file требует чтения), но не писать.
-#   sudo chown root:deploy /opt/auto-report/.env
-#   sudo chmod 640 /opt/auto-report/.env
+#
+#   # SOPS-секреты (см. .sops.yaml и deploy/secrets/):
+#   sudo apt install -y age sops
+#   sudo mkdir -p /etc/sops/age
+#   sudo install -m 0640 -o root -g deploy keys.txt /etc/sops/age/keys.txt
+#   # ↑ keys.txt — приватный age-ключ (master), бэкап в Bitwarden как
+#   # autoreport-sops-age-master. На VDS лежит read-only для deploy-юзера.
+#
+#   # Старый plain `.env` после раскатки SOPS НЕ нужен — содержимое теперь
+#   # в deploy/secrets/vds-prod.env.sops, decrypt-env.sh пишет временный
+#   # /tmp/auto-report-deploy.vds-prod.env mode 0600 и подставляет в compose
+#   # через переменную ENV_FILE (см. ниже). Старый файл можно удалить:
+#   #   sudo rm /opt/auto-report/.env
+#   # Но до первой успешной раскатки SOPS-флоу лучше оставить — `${ENV_FILE:-../.env}`
+#   # в docker-compose.yml использует его как fallback.
 
 set -euo pipefail
 
@@ -44,7 +54,11 @@ REPO_BACK=/opt/auto-report/Auto_Report
 REPO_FRONT=/opt/auto-report/Auto_report_front
 COMPOSE_DIR="$REPO_BACK"                      # docker-compose.yml в бэке
 BACKUPS=/opt/auto-report/backups
-ENV_FILE=/opt/auto-report/.env
+# ENV_FILE заполняется ниже после расшифровки SOPS-блока.
+# Раньше тут был статический /opt/auto-report/.env, теперь — временный
+# /tmp/auto-report-deploy.vds-prod.env, который пишет scripts/decrypt-env.sh
+# и удаляет trap при выходе.
+ENV_FILE=""
 # /tmp, а не /var/lock — последний по дефолту mode 755 root:root,
 # deploy не сможет создать файл. /tmp mode 1777 — пишут все.
 LOCK_FILE=/tmp/auto-report-deploy.lock
@@ -65,6 +79,22 @@ if ! flock -x -w 600 9; then
     exit 1
 fi
 echo "[deploy] Lock acquired"
+
+# ─── 1.5. Расшифровка SOPS-секретов во временный ENV_FILE ─────────────
+# decrypt-env.sh лежит в репо бэка, читает /etc/sops/age/keys.txt и пишет
+# /tmp/auto-report-deploy.vds-prod.env mode 0600. Скрипт печатает путь —
+# захватываем в ENV_FILE. trap удалит файл при ЛЮБОМ выходе (успех / set -e /
+# Ctrl-C / kill) — секреты не остаются на диске даже если упадём посреди
+# docker compose up.
+#
+# Делаем ДО git fetch — если ключа на хосте нет, лучше отвалиться сразу,
+# чем сначала перетянуть код, а потом обнаружить что декрипт сломан.
+echo "[deploy] Расшифровка SOPS .env (vds-prod)"
+ENV_FILE=$("$REPO_BACK/scripts/decrypt-env.sh" vds-prod)
+trap 'rm -f "$ENV_FILE"' EXIT
+# Экспортируем, чтобы compose увидел подстановку ${ENV_FILE:-...} в env_file:.
+export ENV_FILE
+echo "[deploy] ENV_FILE=$ENV_FILE (mode $(stat -c '%a' "$ENV_FILE"))"
 
 # ─── 2. Git fetch + reset на нужных репо ──────────────────────────────
 pull_repo() {
