@@ -162,7 +162,9 @@ app.add_middleware(LogRequestsMiddleware)
 # Healthcheck endpoint без авторизации, без БД-запросов.
 # Используется GitHub Actions deploy-vds.yml workflow'ами и Dockerfile
 # HEALTHCHECK для проверки доступности бэка после rebuild.
-@app.get("/api/health", tags=["Health"])
+# HEAD-дубль нужен для UptimeRobot free plan, который шлёт только HEAD
+# (на GET-only роут возвращался бы 405 → "Down").
+@app.api_route("/api/health", methods=["GET", "HEAD"], tags=["Health"])
 async def health_check():
     return {"status": "ok"}
 
