@@ -1,0 +1,18 @@
+# /etc/sudoers.d/github-runner-sops — кладётся на 192.168.1.8 через:
+#   sudo install -m 0440 -o root -g root \
+#     /tmp/sudoers-github-runner-sops /etc/sudoers.d/github-runner-sops
+#   sudo visudo -c -f /etc/sudoers.d/github-runner-sops
+#
+# Зачем sudoers-правило:
+# - Бэк-деплой запускается от github-runner. Этому юзеру нужно ровно одно
+#   привилегированное действие: материализовать расшифрованный из SOPS .env
+#   как /etc/autoreport/<env>.env (root:autoreport 640).
+# - Помимо рестарта systemd, который уже разрешён в /etc/sudoers.d/github-runner
+#   (или в общем sudoers), это единственный новый sudo-вызов в deploy-backend.sh.
+#
+# Жёстко фиксируем имя скрипта + argv = github-runner не может попросить
+# поставить произвольный файл. Если кто-то когда-то решит передавать -c "prod"
+# вместо позиционного — sudo откажет; так и задумано (явное лучше неявного).
+
+github-runner ALL=(root) NOPASSWD: /opt/autoreport/scripts/install-env-file.sh prod
+github-runner ALL=(root) NOPASSWD: /opt/autoreport/scripts/install-env-file.sh stage
