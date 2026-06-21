@@ -18,23 +18,23 @@ class Period(Base):
     #   custom     — авто-tick не работает (для прежних/ручных периодов)
     code: Mapped[Optional[str]] = mapped_column(nullable=True)
 
-    # ✅ Правильное отношение с back_populates
+    # backref-коллекции: lazy="select" (default) — НЕ грузим автоматически.
+    # data/period.py явно подгружает .objects/.reports через
+    # selectinload(Period.objects)/selectinload(Period.reports) когда нужно
+    # (load_relations=True для /all и для delete-guard'а).
     objects: Mapped[List["Object"]] = relationship(
                                                     "Object",
                                                     back_populates="period",
-                                                    lazy="selectin"
                                                     )
 
     reports: Mapped[List["Report"]] = relationship(
                                                     "Report",
                                                     back_populates="period",
-                                                    lazy="selectin"
                                                     )
 
     operations: Mapped[List["Operation"]] = relationship(
         "Operation",
         back_populates="period",
-        lazy="selectin",
     )
 
     def __str__(self):

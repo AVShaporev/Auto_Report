@@ -5,9 +5,22 @@ from typing import Optional, List, Tuple
 
 from model.equipment import Equipment
 from model.objects_equipment import Objects_Equipment
+from model.spec_equipment import Spec_Equipment
 from schema.equipment import EquipmentCreate, EquipmentUpdate
 
 from utils.timer import timer
+
+
+# Параметризованный chain selectinload:
+# Equipment.spec_equipment (m2o) + Spec_Equipment.operations (m2m)
+# Используется в get_*_by_id/all/paginated при load_relations=True, потому что
+# service/equipment.py:135-136 ходит по equipment.spec_equipment.operations.
+# Без chain'а после B1 (Spec_Equipment.operations lazy=select) был бы
+# MissingGreenlet, потому что .operations не подгружено и lazy-load в async
+# не работает.
+_EQUIPMENT_RELATIONS_LOADER = selectinload(Equipment.spec_equipment).selectinload(
+    Spec_Equipment.operations
+)
 
 
 
@@ -24,7 +37,7 @@ async def get_equipment_by_id(
     query = select(Equipment).where(Equipment.id == equipment_id)
 
     if load_relations:
-        query = query.options(selectinload(Equipment.spec_equipment))
+        query = query.options(_EQUIPMENT_RELATIONS_LOADER)
 
     result = await session.execute(query)
     return result.scalar_one_or_none()
@@ -49,7 +62,7 @@ async def get_equipment_all(
     query = select(Equipment).order_by(Equipment.name)
 
     if load_relations:
-        query = query.options(selectinload(Equipment.spec_equipment))
+        query = query.options(_EQUIPMENT_RELATIONS_LOADER)
 
     result = await session.execute(query)
     return result.scalars().all()
@@ -113,7 +126,7 @@ async def get_equipment_paginated(
         query = query.order_by(Equipment.name)
 
     if load_relations:
-        query = query.options(selectinload(Equipment.spec_equipment))
+        query = query.options(_EQUIPMENT_RELATIONS_LOADER)
 
     query = query.offset(skip).limit(limit)
 

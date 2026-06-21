@@ -22,9 +22,13 @@ class Spec_Equipment(Base):
     name: Mapped[str_uniq]
     is_system: Mapped[bool] = mapped_column(default=False, server_default='false')
 
+    # lazy="select" (default) — backref'ы не грузим автоматически.
+    # data/spec_equipment.py явно подгружает .equipments через
+    # selectinload(Spec_Equipment.equipments) когда нужно (load_equipments=True).
+    # .operations подгружается в data/equipment.py для equipment-detail-view
+    # как chain: selectinload(Equipment.spec_equipment).selectinload(Spec_Equipment.operations).
     equipments: Mapped[List["Equipment"]] = relationship("Equipment",
                                                             back_populates="spec_equipment",
-                                                            lazy="selectin"
                                                             )
 
     # M:M с операциями (operations_spec_equipments) — определена в model/operation.py
@@ -32,7 +36,6 @@ class Spec_Equipment(Base):
         "Operation",
         secondary="operations_spec_equipments",
         back_populates="spec_equipments",
-        lazy="selectin",
     )
 
     def __str__(self):
