@@ -42,10 +42,13 @@ class Report(Base):
                                                 lazy="selectin"
                                             )
 
+    # lazy="joined" — JOIN в основном SELECT'е отчётов вместо отдельного
+    # selectin'а; автор отчёта почти всегда нужен в ответе и не тащит
+    # вложенных коллекций.
     user: Mapped["User"] = relationship(
                                             "User",
                                             back_populates="reports",
-                                            lazy="selectin"
+                                            lazy="joined"
                                         )
 
     status: Mapped["Spec_Status"] = relationship(

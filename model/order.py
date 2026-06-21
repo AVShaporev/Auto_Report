@@ -56,11 +56,13 @@ class Order(Base):
                                                 lazy="selectin"
                                             )
 
-    # Пользователь (многие к одному)
+    # Пользователь (многие к одному). lazy="joined" — JOIN в основном
+    # SELECT'е заявок вместо отдельного selectin'а; user обычно нужен
+    # каждому order'у (автор) и не тащит вложенных коллекций.
     user: Mapped["User"] = relationship(
         "User",
         back_populates="orders",  # Должно быть в User
-        lazy="selectin"
+        lazy="joined"
     )
     
     # Отчёт (один к одному)
