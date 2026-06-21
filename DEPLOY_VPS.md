@@ -533,7 +533,24 @@ timeout 60 bash -c 'until curl -fsS http://127.0.0.1:8080/api/docs > /dev/null; 
 - `backend_logs` volume содержит loguru-логи (см. `logs/`). Ротация — встроенная (loguru может настроить retention).
 - `docker compose logs -f backend` для оперативного просмотра.
 - Docker по умолчанию пишет JSON-логи в `/var/lib/docker/containers/...` — настроить `logging.options.max-size: "50m"` в `/etc/docker/daemon.json`, иначе диск переполнится.
-- Минимальный uptime-monitoring: UptimeRobot на `https://auto-report.example.com/api/docs` (бесплатно).
+
+### 9.1. UptimeRobot (внешний uptime-monitoring)
+
+Бесплатный план — до 50 мониторов, интервал ≥5 минут, нотификации по email.
+
+**Что мониторим:** `https://<ваш-домен>/api/health` (на боевом VDS — `https://hi-tech.cool-doc.ru/api/health`). Endpoint без авторизации и без БД-запросов, отдаёт `{"status":"ok"}`, проверяет всю цепочку Caddy → frontend-nginx → uvicorn → handler.
+
+**Настройка монитора:**
+1. Зарегистрироваться на [uptimerobot.com](https://uptimerobot.com), подтвердить email.
+2. **+ New Monitor** → `Monitor Type: HTTP(s)`, `Friendly Name: Auto_Report VDS`, `URL: https://<домен>/api/health`, `Monitoring Interval: 5 minutes`, в `Alert Contacts` отметить свой email. **Create Monitor**.
+3. (опционально) **Keyword Check** → искать `ok` — защищает от ситуации «200 OK с битым контентом».
+
+**Грабли free-плана:**
+- UptimeRobot **free** шлёт **HEAD**, не GET (выбор метода — только в платном Pro). FastAPI-роут с одиночным `@router.get(...)` на HEAD возвратит `405 Method Not Allowed` → монитор зависнет в `Down`.
+- В нашем `main.py` healthcheck объявлен как `@app.api_route("/api/health", methods=["GET", "HEAD"])` — оба метода отдают одинаковый JSON, монитор сразу видит `Up`. Если копируешь паттерн в новый endpoint — не забудь HEAD.
+
+**Сетевое:**
+- UptimeRobot пингует с пула IP (US/EU/AS). Если в Caddy/UFW добавляли rate-limit или geo-фильтры — проверь что они не блокируют UptimeRobot. Список IP — на их сайте в Docs.
 
 ---
 

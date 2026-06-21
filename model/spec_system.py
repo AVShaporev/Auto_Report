@@ -24,10 +24,11 @@ class Spec_System(Base):
     )
     is_system: Mapped[bool] = mapped_column(default=False, server_default='false')
 
+    # lazy="select" (default) — backref не грузим автоматически.
+    # Ни один читатель в текущем коде не обращается напрямую (grep пустой).
     objects_equipments: Mapped[List["Objects_Equipment"]] = relationship(
         "Objects_Equipment",
         back_populates="spec_system",
-        lazy="selectin",
     )
 
     def __str__(self):

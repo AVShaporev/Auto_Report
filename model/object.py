@@ -85,22 +85,25 @@ class Object(Base):
                                                     lazy="selectin"
                                                 )
 
+    # backref-коллекции: lazy="select" (default) — НЕ грузим автоматически.
+    # data/object.py подгружает явно через selectinload (load_relations=True
+    # для get_object_by_id / get_object_all / paginated). Чтение свойства
+    # `issues` ниже требует подгруженного objects_equipments — потребители
+    # либо вызывают data c load_relations=True, либо явно докидывают
+    # selectinload(Object.objects_equipments) к запросу.
     reports: Mapped[List["Report"]] = relationship(
                                                         "Report",
                                                         back_populates="object",
-                                                        lazy="selectin"
                                                     )
 
     orders: Mapped[List["Order"]] = relationship(
                                                     "Order",
                                                     back_populates="object",
-                                                    lazy="selectin"
                                                 )
 
     objects_equipments: Mapped[List["Objects_Equipment"]] = relationship(
                                                                             "Objects_Equipment",
                                                                             back_populates="object",
-                                                                            lazy="selectin",
                                                                             cascade="all, delete-orphan"
                                                                         )
     

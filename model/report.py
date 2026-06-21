@@ -42,10 +42,13 @@ class Report(Base):
                                                 lazy="selectin"
                                             )
 
+    # lazy="joined" — JOIN в основном SELECT'е отчётов вместо отдельного
+    # selectin'а; автор отчёта почти всегда нужен в ответе и не тащит
+    # вложенных коллекций.
     user: Mapped["User"] = relationship(
                                             "User",
                                             back_populates="reports",
-                                            lazy="selectin"
+                                            lazy="joined"
                                         )
 
     status: Mapped["Spec_Status"] = relationship(
@@ -61,11 +64,13 @@ class Report(Base):
                                                         uselist=False
                                                     )
 
+    # lazy="select" (default) — большие списки не должны тащить attachments.
+    # data/report.py использует raiseload(Report.attachments) для list/all,
+    # detail-view явно selectinload-ит attachments при load_attachments=True.
     attachments: Mapped[List["Report_Attachment"]] = relationship(
         "Report_Attachment",
         back_populates="report",
         cascade="all, delete-orphan",
-        lazy="selectin",
     )
 
     def __str__(self):

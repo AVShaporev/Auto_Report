@@ -80,18 +80,21 @@ class Issue(Base):
         lazy="selectin"
     )
     
+    # lazy="joined" — JOIN'ы в основном SELECT'е неисправностей вместо
+    # двух отдельных selectin'ов (reported_by + assigned_to). Оба m2o
+    # на User'а — без вложенных коллекций, JOIN дёшев.
     reported_by: Mapped["User"] = relationship(
         "User",
         foreign_keys=[reported_by_id],
         back_populates="reported_issues",
-        lazy="selectin"
+        lazy="joined"
     )
-    
+
     assigned_to: Mapped[Optional["User"]] = relationship(
         "User",
         foreign_keys=[assigned_to_id],
         back_populates="assigned_issues",
-        lazy="selectin"
+        lazy="joined"
     )
 
     attachments: Mapped[List["Issue_Attachment"]] = relationship(

@@ -53,10 +53,12 @@ class Equipment(Base):
         lazy="selectin",
     )
 
+    # lazy="select" (default) — data/equipment.py явно подгружает через
+    # selectinload(Equipment.objects_equipments) при load_relations=True
+    # (для delete-guard в service/equipment.py:287).
     objects_equipments: Mapped[List["Objects_Equipment"]] = relationship(
         "Objects_Equipment",
         back_populates="equipment",
-        lazy="selectin",
         cascade="all, delete-orphan"
     )
 

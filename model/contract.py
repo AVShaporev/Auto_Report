@@ -65,16 +65,20 @@ class Contract(Base):
                                                     lazy="subquery")
 
     # отчеты по объекту (один контракт - много отчетов)
+    # lazy="select" (default) — data/contract.py подгружает явно через
+    # selectinload(Contract.reports/orders) когда нужно (load_relations=True
+    # в get_contract_by_id для delete-guard); list-эндпоинты используют
+    # raiseload, чтобы случайное обращение упало громко, а не молча тащило
+    # каскад.
     reports: Mapped[List["Report"]] = relationship(
                                                         "Report",
                                                         back_populates="contract",  # Должно совпадать с Report.contract
-                                                        lazy="selectin"
                                                     )
 
     # заявки по объекту (один контракт - много заявок)
     orders: Mapped[List["Order"]] = relationship("Order",
                                                 back_populates="contract",
-                                                lazy="selectin")
+                                                )
 
     def __str__(self):
         return f"{self.__class__.__name__}(id={self.id}, number={self.number})"

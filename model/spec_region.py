@@ -10,10 +10,12 @@ class Spec_Region(Base):
     name: Mapped[str_uniq]
     is_system: Mapped[bool] = mapped_column(default=False, server_default='false')
 
+    # lazy="select" (default) — data/spec_region.py явно подгружает через
+    # selectinload(Spec_Region.regions) когда нужно (load_regions=True
+    # в /all и в delete-guard сервиса).
     regions: Mapped[List["Region"]] = relationship(
                                                         "Region",
                                                         back_populates="spec_region",
-                                                        lazy="selectin"
                                                     )
     
     def __str__(self):
