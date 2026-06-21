@@ -30,7 +30,13 @@ import argparse
 import asyncio
 import sys
 from datetime import date, datetime, timedelta
+from pathlib import Path
 from typing import Optional
+
+# Запуск как `python scripts/seed_mock.py` из корня репо не добавляет корень
+# в sys.path (только директорию скрипта), поэтому import model падает.
+# Подкладываем родительскую папку явно.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
