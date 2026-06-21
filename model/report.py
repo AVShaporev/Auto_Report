@@ -61,11 +61,13 @@ class Report(Base):
                                                         uselist=False
                                                     )
 
+    # lazy="select" (default) — большие списки не должны тащить attachments.
+    # data/report.py использует raiseload(Report.attachments) для list/all,
+    # detail-view явно selectinload-ит attachments при load_attachments=True.
     attachments: Mapped[List["Report_Attachment"]] = relationship(
         "Report_Attachment",
         back_populates="report",
         cascade="all, delete-orphan",
-        lazy="selectin",
     )
 
     def __str__(self):

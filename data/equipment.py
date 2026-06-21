@@ -11,16 +11,17 @@ from schema.equipment import EquipmentCreate, EquipmentUpdate
 from utils.timer import timer
 
 
-# Параметризованный chain selectinload:
-# Equipment.spec_equipment (m2o) + Spec_Equipment.operations (m2m)
-# Используется в get_*_by_id/all/paginated при load_relations=True, потому что
-# service/equipment.py:135-136 ходит по equipment.spec_equipment.operations.
-# Без chain'а после B1 (Spec_Equipment.operations lazy=select) был бы
-# MissingGreenlet, потому что .operations не подгружено и lazy-load в async
-# не работает.
-_EQUIPMENT_RELATIONS_LOADER = selectinload(Equipment.spec_equipment).selectinload(
-    Spec_Equipment.operations
-)
+# Параметризованный список loader-options для load_relations=True:
+# - Equipment.spec_equipment (m2o) + Spec_Equipment.operations (m2m)
+#   нужен service/equipment.py:135-136 (equipment.spec_equipment.operations);
+#   chain selectinload — потому что после B1/B2 Spec_Equipment.operations
+#   уже lazy="select", а в async-сессии lazy-load валит MissingGreenlet.
+# - Equipment.objects_equipments — нужен service/equipment.delete_equipment
+#   (line 287) для проверки связанных объектов; после B2 уже lazy="select".
+_EQUIPMENT_RELATIONS_OPTIONS = [
+    selectinload(Equipment.spec_equipment).selectinload(Spec_Equipment.operations),
+    selectinload(Equipment.objects_equipments),
+]
 
 
 
@@ -37,7 +38,7 @@ async def get_equipment_by_id(
     query = select(Equipment).where(Equipment.id == equipment_id)
 
     if load_relations:
-        query = query.options(_EQUIPMENT_RELATIONS_LOADER)
+        query = query.options(*_EQUIPMENT_RELATIONS_OPTIONS)
 
     result = await session.execute(query)
     return result.scalar_one_or_none()
@@ -62,7 +63,7 @@ async def get_equipment_all(
     query = select(Equipment).order_by(Equipment.name)
 
     if load_relations:
-        query = query.options(_EQUIPMENT_RELATIONS_LOADER)
+        query = query.options(*_EQUIPMENT_RELATIONS_OPTIONS)
 
     result = await session.execute(query)
     return result.scalars().all()
@@ -126,7 +127,7 @@ async def get_equipment_paginated(
         query = query.order_by(Equipment.name)
 
     if load_relations:
-        query = query.options(_EQUIPMENT_RELATIONS_LOADER)
+        query = query.options(*_EQUIPMENT_RELATIONS_OPTIONS)
 
     query = query.offset(skip).limit(limit)
 
