@@ -694,7 +694,20 @@ async def render_object_journal_document(
 
         context = _build_journal_context(obj)
 
-    suggested_stem = f"journal_{spec_journal.code or spec_journal.id}_object_{obj.id}_{obj.name or ''}"
+    # Имя файла: Журнал_ТО_<number_in_contract>_<customer.short_name>_<contract.short_subject>_<year>
+    contract = obj.contract
+    customer = contract.customer if contract else None
+    customer_short = (customer.short_name if customer else "") or ""
+    contract_short_subject = (contract.short_subject if contract else "") or ""
+    contract_year = (
+        contract.date_of_consclusion.year
+        if contract and contract.date_of_consclusion
+        else ""
+    )
+    suggested_stem = (
+        f"Журнал_ТО_{obj.number_in_contract}_{customer_short}"
+        f"_{contract_short_subject}_{contract_year}"
+    )
     suggested_stem = "".join(ch if ch.isalnum() or ch in "._-" else "_" for ch in suggested_stem)
 
     doc = _open_docx_template(template_abs)
