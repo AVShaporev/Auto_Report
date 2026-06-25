@@ -25,6 +25,13 @@ networks:
   ar_net:
     driver: bridge
 
+  # Внешняя сеть для SaaS Caddy (см. Auto_Report_Master/caddy/). К ней
+  # подключаем только frontend — Caddy ходит сюда на auto-report-frontend:80
+  # и резолвит имя по docker-DNS. Внутренняя маршрутизация на backend
+  # (через nginx proxy_pass) остаётся в ar_net.
+  ar_caddy:
+    external: true
+
 # =====================================================================
 # Тома (named volumes)
 # =====================================================================
@@ -149,8 +156,9 @@ services:
       context: ../Auto_report_front
       dockerfile: Dockerfile
 
-    # Caddy на хосте проксирует 443 → 127.0.0.1:8080.
-    # 8080 на 127.0.0.1: наружу не торчит, только через Caddy.
+    # Caddy в контейнере (см. Auto_Report_Master/caddy/) ходит сюда по
+    # docker-DNS через ar_caddy сеть → auto-report-frontend:80, без host-портов.
+    # 127.0.0.1:8080 оставляем как fallback для host-Caddy / отладки.
     ports:
       - "127.0.0.1:8080:80"
 
@@ -161,3 +169,4 @@ services:
 
     networks:
       - ar_net
+      - ar_caddy
