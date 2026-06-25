@@ -12,6 +12,12 @@ from schema.user import UserRequest
 
 from utils.timer import timer
 
+async def count_users(session: AsyncSession) -> int:
+    """Сколько пользователей всего в БД tenant'а. Используется в Etap 4 SaaS
+    для enforcement MAX_USERS и в /api/tenant/limits."""
+    return (await session.scalar(select(func.count()).select_from(User))) or 0
+
+
 @timer
 # Функция добавления строки в БД
 async def add_user(
