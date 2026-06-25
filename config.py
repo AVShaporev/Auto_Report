@@ -18,6 +18,14 @@ class Settings(BaseSettings):
     # На dev-машине можно отключить через AUTOGEN_SCHEDULER_ENABLED=false,
     # чтобы не зависеть от системного времени. В prod/stage — оставить True.
     AUTOGEN_SCHEDULER_ENABLED: bool = True
+    # SaaS-лимиты тарифа. Прокидываются master'ом через .env при provision'е
+    # tenant'а (см. Auto_Report_Master/scripts/provision-tenant.sh). На pre-SaaS
+    # инстансах (hi-tech) и в dev'е переменные не выставлены → Optional/None →
+    # лимиты не enforce'атся, баннер не показывается.
+    TENANT_SLUG: str | None = None
+    TENANT_PLAN: str | None = None
+    MAX_OBJECTS: int | None = None
+    MAX_USERS: int | None = None
     model_config = SettingsConfigDict(
         env_file=os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
     )

@@ -14,6 +14,7 @@ from service.render_docx import build_address
 from schema.pagination import PaginationParams
 from database.database import new_session
 from service.order_autogen import create_initial_orders_for_object
+from config import settings
 
 
 logger = logging.getLogger(__name__)
@@ -309,8 +310,23 @@ async def create_object(
     Создать новый объект
     """
     await check_permission(current_user, "object_create", "создания объектов")
-    
+
     async with new_session() as session:
+        # SaaS tenant-limit: если в env прокинут MAX_OBJECTS — проверяем,
+        # что не упёрлись. На pre-SaaS hi-tech / в dev MAX_OBJECTS=None →
+        # шаг пропускается, поведение как раньше.
+        if settings.MAX_OBJECTS is not None:
+            used = await object_data.count_objects(session)
+            if used >= settings.MAX_OBJECTS:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        f"Достигнут лимит тарифа {(settings.TENANT_PLAN or '').capitalize() or 'Basic'}: "
+                        f"{settings.MAX_OBJECTS} объектов. Обновитесь до Pro, "
+                        f"чтобы добавить ещё."
+                    ),
+                )
+
         # Проверка существования всех связанных объектов.
         # spec_room_id опционален — пропускаем проверку при None.
         checks = [

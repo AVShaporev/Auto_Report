@@ -13,6 +13,12 @@ from utils.loading import shallow_load
 
 # ========== ПОЛУЧЕНИЕ ==========
 
+async def count_objects(session: AsyncSession) -> int:
+    """Сколько объектов всего в БД tenant'а. Используется в Etap 4 SaaS для
+    enforcement MAX_OBJECTS и в /api/tenant/limits."""
+    return (await session.scalar(select(func.count()).select_from(Object))) or 0
+
+
 @timer
 async def get_object_by_id(
     session: AsyncSession,

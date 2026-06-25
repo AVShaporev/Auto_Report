@@ -17,6 +17,8 @@ from database.database import async_session_maker as new_session
 
 from service.auth import get_password_hash
 
+from config import settings
+
 
 # Поля, которые НЕЛЬЗЯ менять у is_protected=True юзера через update.
 # Личные данные (full_name, email, phone, telegram_id, password) — можно.
@@ -46,6 +48,20 @@ async def create(user_create: UserRequest) -> bool:
         bool: True если создан успешно
     """
     async with new_session() as session:
+        # SaaS tenant-limit: если MAX_USERS прокинут — проверяем. На pre-SaaS
+        # hi-tech / в dev MAX_USERS=None → пропускаем.
+        if settings.MAX_USERS is not None:
+            used = await data.count_users(session)
+            if used >= settings.MAX_USERS:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        f"Достигнут лимит тарифа {(settings.TENANT_PLAN or '').capitalize() or 'Basic'}: "
+                        f"{settings.MAX_USERS} пользователей. Обновитесь до Pro, "
+                        f"чтобы добавить ещё."
+                    ),
+                )
+
         # 1. Преобразуем Pydantic модель в SQLAlchemy модель
         user_data = user_create.dict(exclude={'password'})  # исключаем пароль
 

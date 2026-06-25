@@ -57,6 +57,7 @@ from api import objects_equipment as api_objects_equipment
 from api import dashboard  as api_dashboard
 from api import log as api_log
 from api import autogen as api_autogen
+from api import tenant as api_tenant
 
 
 
@@ -208,6 +209,7 @@ app.include_router(api_objects_equipment.router)
 app.include_router(api_dashboard.router)
 app.include_router(api_log.router)
 app.include_router(api_autogen.router)
+app.include_router(api_tenant.router)
 
 # запуск приложения fastapi
 if __name__ == "__main__":
