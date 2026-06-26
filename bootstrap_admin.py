@@ -27,9 +27,15 @@ SUPERADMIN_ROLE_NAME = "superadmin"
 
 
 def _all_role_perm_flags() -> dict:
-    """Возвращает True для всех Boolean-колонок Role (is_admin, is_superadmin, *_read/create/modify/delete)."""
+    """Возвращает True для Boolean-флагов прав Role (is_admin, is_superadmin,
+    *_read/create/modify/delete). is_protected исключаем — он передаётся явно
+    в Role(..., is_protected=True), иначе TypeError 'multiple values for keyword'."""
     columns = inspect(Role).columns
-    return {col.name: True for col in columns if isinstance(col.type, Boolean)}
+    return {
+        col.name: True
+        for col in columns
+        if isinstance(col.type, Boolean) and col.name != "is_protected"
+    }
 
 
 async def main() -> int:

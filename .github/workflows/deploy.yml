@@ -1,14 +1,14 @@
 name: Deploy backend
 on:
     push:
-      branches: [prod, stage]
+      branches: [stage]
     workflow_dispatch:
       inputs:
         env:
           description: 'Environment'
           required: true
           type: choice
-          options: [prod, stage]
+          options: [stage]
 concurrency:
     group: deploy-backend-${{ github.ref_name }}
     cancel-in-progress: false
