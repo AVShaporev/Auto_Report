@@ -37,7 +37,7 @@ async def get_report_list(
 
     Требуется право: report_read
     """
-    items, total = await report_service.get_reports_paginated_with_details(
+    items, total = await report_service.get_reports_paginated(
         pagination=pagination,
         current_user=current_user,
         search=search,
@@ -51,9 +51,9 @@ async def get_report_list(
         sort_by=sort_by,
         sort_order=sort_order
     )
-    
+
     pages = (total + pagination.limit - 1) // pagination.limit
-    
+
     return PaginatedResponse(
         items=items,
         total=total,
@@ -79,25 +79,10 @@ async def get_my_reports(
         status_id=status_id
     )
 
-    result_items = []
-    for item in items:
-        result_items.append({
-            "id": item.id,
-            "number": item.number,
-            "status_id": item.status_id,
-            "status_name": item.status.name if item.status else None,
-            "status_code": item.status.code if item.status else None,
-            "created_at": item.created_at,
-            "period_name": item.period.name if item.period else None,
-            "contract_number": item.contract.number if item.contract else None,
-            "object_name": item.object.name if item.object else None,
-            "user_name": item.user.name if item.user else None
-        })
-    
     pages = (total + pagination.limit - 1) // pagination.limit
-    
+
     return PaginatedResponse(
-        items=result_items,
+        items=items,
         total=total,
         page=pagination.page,
         per_page=pagination.limit,
@@ -141,7 +126,7 @@ async def get_unapproved_reports(
         st = await report_data.get_spec_status_by_code(session, 'not_approved')
     status_id = st.id if st else None
 
-    items, _ = await report_service.get_reports_paginated_with_details(
+    items, _ = await report_service.get_reports_paginated(
         pagination=PaginationParams(page=1, per_page=100),
         current_user=current_user,
         status_id=status_id,
@@ -159,12 +144,11 @@ async def get_report_by_id(
     
     Требуется право: report_read
     """
-    result = await report_service.get_report_with_details(
+    return await report_service.get_report_by_id(
         report_id,
-        current_user
+        current_user,
+        load_relations=True,
     )
-    
-    return result
 
 @router.post("/create", response_model=ReportResponse)
 async def create_report(
@@ -183,7 +167,7 @@ async def create_report(
         current_user  # 👈 Передаем текущего пользователя
     )
     
-    return await report_service.get_report_with_details(report.id, current_user)
+    return await report_service.get_report_by_id(report.id, current_user, load_relations=True)
 
 @router.put("/{report_id}", response_model=ReportResponse)
 async def update_report(
@@ -202,7 +186,7 @@ async def update_report(
         current_user
     )
     
-    return await report_service.get_report_with_details(report.id, current_user)
+    return await report_service.get_report_by_id(report.id, current_user, load_relations=True)
 
 @router.patch("/{report_id}/status", response_model=ReportResponse)
 async def update_report_status(
@@ -221,7 +205,7 @@ async def update_report_status(
         current_user
     )
 
-    return await report_service.get_report_with_details(report.id, current_user)
+    return await report_service.get_report_by_id(report.id, current_user, load_relations=True)
 
 @router.delete("/{report_id}")
 async def delete_report(
