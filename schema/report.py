@@ -1,8 +1,4 @@
-from pydantic import BaseModel, Field, ConfigDict
-from typing import Optional, List
-from datetime import date
-
-from pydantic import BaseModel, Field, ConfigDict, validator
+from pydantic import BaseModel, Field, ConfigDict, model_validator
 from typing import Optional, List
 from datetime import date
 
@@ -68,35 +64,14 @@ class ReportStatusUpdate(BaseModel):
 
 # ========== СХЕМЫ ДЛЯ ОТВЕТА ==========
 
-class ReportResponse(BaseModel):
-    """Полная информация об отчете (с user_id для ответа)"""
-    id: int
-    number: str
-    status_id: int
-    period_id: int
-    contract_id: int
-    object_id: int
-    user_id: int  # 👈 user_id только в ответе
-    created_at: date
-    description: Optional[str] = None
-
-    # Связанные данные
-    period_name: Optional[str] = Field(None, description="Название периода")
-    contract_number: Optional[str] = Field(None, description="Номер контракта")
-    object_name: Optional[str] = Field(None, description="Название объекта")
-    user_name: Optional[str] = Field(None, description="Имя пользователя")
-    status_name: Optional[str] = Field(None, description="Название статуса")
-    status_code: Optional[str] = Field(None, description="Код статуса")
-    order_id: Optional[int] = Field(None, description="ID связанной заявки")
-    order_number: Optional[str] = Field(None, description="Номер связанной заявки")
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-# ========== КРАТКАЯ СХЕМА ДЛЯ СПИСКА ==========
-
 class ReportListResponse(BaseModel):
-    """Краткая информация об отчете для списков"""
+    """Краткая информация об отчете для списков.
+
+    Принимает либо готовый dict, либо ORM-объект Report (model_validator
+    ниже расплющивает связи). Сервисный слой может возвращать ORM напрямую —
+    flatten происходит здесь, в одной точке. Чтобы flatten отработал,
+    relations должны быть подгружены (load_relations=True в data-слое).
+    """
     id: int
     number: str
     status_id: int
@@ -114,6 +89,32 @@ class ReportListResponse(BaseModel):
     order_number: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _flatten_relations(cls, data):
+        if not hasattr(data, "__table__"):
+            return data
+        return {
+            **{c.name: getattr(data, c.name) for c in data.__table__.columns},
+            "status_name": data.status.name if data.status else None,
+            "status_code": data.status.code if data.status else None,
+            "period_name": data.period.name if data.period else None,
+            "contract_number": data.contract.number if data.contract else None,
+            "object_name": data.object.name if data.object else None,
+            "user_name": data.user.name if data.user else None,
+            "order_id": data.order.id if data.order else None,
+            "order_number": data.order.number if data.order else None,
+        }
+
+
+class ReportResponse(ReportListResponse):
+    """Полная информация об отчете: + user_id и description.
+
+    Наследует flatten-валидатор от ReportListResponse.
+    """
+    user_id: int
+    description: Optional[str] = None
 
 
 # ========== СХЕМА ДЛЯ ВЫПАДАЮЩЕГО СПИСКА ==========
