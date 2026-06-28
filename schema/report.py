@@ -103,8 +103,11 @@ class ReportListResponse(BaseModel):
     status_name: Optional[str] = None
     status_code: Optional[str] = None
     created_at: date
+    period_id: int
     period_name: Optional[str] = None
+    contract_id: int
     contract_number: Optional[str] = None
+    object_id: int
     object_name: Optional[str] = None
     user_name: Optional[str] = None
     order_id: Optional[int] = None
