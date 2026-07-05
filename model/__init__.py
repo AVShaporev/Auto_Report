@@ -39,6 +39,7 @@ from model.organization import Organization
 # Бизнес-сущности (зависят от справочников / базовых)
 from model.role import Role
 from model.user import User
+from model.user_session import UserSession
 from model.contract import Contract
 from model.sub_contract import Sub_Contract
 from model.object import Object
@@ -61,7 +62,7 @@ __all__ = [
     # базовые
     "Bank", "Region", "Arial", "Locality", "Street", "Period", "Organization",
     # бизнес
-    "Role", "User",
+    "Role", "User", "UserSession",
     "Contract", "Sub_Contract",
     "Object", "Equipment", "Objects_Equipment",
     "Operation",
