@@ -63,6 +63,13 @@ templates/           jinja-шаблоны (если есть)
 - `POST /api/auth/sessions/{id}/revoke` — отозвать конкретную сессию.
 - `POST /api/user/{id}/revoke-all-sessions` — админ: разлогинить юзера везде.
 - `GET /api/auth/me` — требует Bearer-токен, возвращает текущего юзера.
+
+### Push-tokens (Mobile M1.2)
+- `POST /api/user/me/push-token` — upsert `{platform, token, device_id?, app_version?}`. platform ∈ {ios, android, web}. Один и тот же `token` может «переехать» с юзера A на юзера B при смене логина на устройстве.
+- `DELETE /api/user/me/push-token` — body `{token}`, снимает регистрацию (только своего юзера).
+- `GET /api/user/me/push-tokens` — свой список для UI/дебага.
+- Cleanup: APScheduler ежедневно в 03:15 МСК сносит записи с `last_seen_at < NOW-30d`.
+- **Отправка** уведомлений (FCM/APNs) ещё НЕ реализована — это Mobile M7. Пока только инфра.
 - Access 30 мин, refresh 30 дней, алгоритм HS256, секрет в `.env`.
 
 ## `.env`
