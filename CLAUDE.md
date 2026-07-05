@@ -56,8 +56,12 @@ templates/           jinja-шаблоны (если есть)
 - Таблицы именуются по классу в lowercase + `s` (см. `Base.__tablename__`).
 
 ## Auth
-- `POST /api/auth/login` — OAuth2 form `{ username, password }` → `{ user, access_token, refresh_token }`.
-- `POST /api/auth/refresh` — JSON body `{ refresh_token }` → новый access-токен. Stateless (без БД-проверки отзыва).
+- `POST /api/auth/login` — OAuth2 form `{ username, password }` → `{ user, access_token, refresh_token }`. Создаёт запись `user_sessions` (jti = refresh.jti).
+- `POST /api/auth/refresh` — JSON body `{ refresh_token }`. Если jti есть в `user_sessions` — rotate: старая помечается `revoked_at`, выдаётся новая пара. Если записи нет (легаси-токен до Mobile M1.1) — fallback: только новый access, refresh не ротируется. Отозванный/просроченный jti → 401.
+- `POST /api/auth/logout` — `{ refresh_token }` + Bearer access. Помечает свою сессию revoked.
+- `GET /api/auth/sessions` — список активных сессий текущего юзера.
+- `POST /api/auth/sessions/{id}/revoke` — отозвать конкретную сессию.
+- `POST /api/user/{id}/revoke-all-sessions` — админ: разлогинить юзера везде.
 - `GET /api/auth/me` — требует Bearer-токен, возвращает текущего юзера.
 - Access 30 мин, refresh 30 дней, алгоритм HS256, секрет в `.env`.
 
@@ -76,7 +80,7 @@ REFRESH_TOKEN_EXPIRE_DAYS=30
 `.env` в `.gitignore` и в git-истории отсутствует. `SECRET_KEY` ротирован 2026-04-18 (сгенерирован через `secrets.token_urlsafe(64)`). Пароль БД (`DB_PASSWORD`) пока не ротирован — вынесено в отдельный пункт.
 
 ## Известные баги (TODO)
-- В `api/auth.py:login` dependency `db: Session = Depends(get_db)` где `get_db = get_db_url` (возвращает строку) — работает только потому, что `db` не используется. Почистить.
+_Все пункты закрыты. Оставь этот раздел для будущих находок._
 
 ## Связь с фронтом
 Фронт по умолчанию ходит через Vite-proxy на `localhost:8000`. CORS middleware не подключён — в проде поставить reverse-proxy (nginx) либо добавить `CORSMiddleware`.

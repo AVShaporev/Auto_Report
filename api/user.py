@@ -26,6 +26,8 @@ from service.user import (get_all,
 from model.user import User
 
 from service.auth import (get_current_user)
+from database.database import new_session
+from data import user_session as user_session_dao
 
 from schema.user import UserResponse, UserRequest, UserUpdate
 from schema.pagination import PaginationParams, PaginatedResponse
@@ -122,6 +124,23 @@ async def delete(request: Request, user: User = Depends(get_current_user), user_
         detail="У Вас недостаточно прав для удаления ролей"
         )
     return None
+
+@router.post('/{user_id}/revoke-all-sessions')
+async def revoke_all_sessions(
+    user_id: int,
+    user_auth: User = Depends(get_current_user),
+):
+    """Админ-эндпоинт: разлогинить юзера со всех устройств. Помечает
+    revoked_at у всех активных user_sessions выбранного юзера."""
+    if not (user_auth and user_auth.role.user_modify):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Недостаточно прав",
+        )
+    async with new_session() as session:
+        revoked = await user_session_dao.revoke_all_user_sessions(session, user_id)
+    return {"revoked": revoked}
+
 
 @router.put('/{user_id}')
 async def put_modify_user(

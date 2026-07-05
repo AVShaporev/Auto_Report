@@ -1,42 +1,59 @@
-from datetime import timedelta
+from datetime import datetime, timezone
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordRequestForm
-from sqlalchemy.orm import Session
-from pydantic import BaseModel
-from jose import jwt
-from jose.exceptions import JWTError
+from pydantic import BaseModel, ConfigDict
 
-from config import get_db_url as get_db, get_auth_data
-from service import auth as security
-from config import settings
+from database.database import new_session
 from schema import token as token_schema
-from schema.user import UserBase, LoginResponse, UserLogin
+from schema.user import UserLogin, LoginResponse
 
-from service.auth import (create_access_token,
-                            authenticate_user,
-                            get_current_user)
+from service.auth import (
+    authenticate_user,
+    create_access_token,
+    decode_refresh_token,
+    get_current_user,
+    issue_session_pair,
+    rotate_session_pair,
+)
 
 from model.user import User
 from model.dao import UsersDAO
+from data import user_session as user_session_dao
 
 
 class RefreshRequest(BaseModel):
     refresh_token: str
 
 
+class LogoutRequest(BaseModel):
+    refresh_token: Optional[str] = None
+
+
+class SessionResponse(BaseModel):
+    id: int
+    ip_address: Optional[str] = None
+    user_agent: Optional[str] = None
+    geo_country: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+    expires_at: datetime
+    revoked_at: Optional[datetime] = None
+    is_current: bool = False
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 router = APIRouter(prefix='/api/auth', tags=['API'])
+
 
 @router.post("/login", response_model=LoginResponse)
 async def login(
-    db: Session = Depends(get_db),
-    form_data: OAuth2PasswordRequestForm = Depends()
+    request: Request,
+    form_data: OAuth2PasswordRequestForm = Depends(),
 ):
-
-    user = await authenticate_user(
-        form_data.username, form_data.password
-    )
-
+    user = await authenticate_user(form_data.username, form_data.password)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -44,44 +61,24 @@ async def login(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    access_token = security.create_access_token(user.name)
-    refresh_token = security.create_refresh_token(user.name)
-    
-    user = UserLogin.model_validate(user)
+    async with new_session() as session:
+        access_token, refresh_token = await issue_session_pair(
+            session, user, request=request
+        )
 
-    response_auth_user = LoginResponse(user=user,
-                                        access_token=access_token,
-                                        refresh_token=refresh_token)
+    user_out = UserLogin.model_validate(user)
+    return LoginResponse(
+        user=user_out,
+        access_token=access_token,
+        refresh_token=refresh_token,
+    )
 
-    return response_auth_user
 
 @router.post("/refresh", response_model=token_schema.Token)
-async def refresh_token(payload: RefreshRequest):
-    auth_data = get_auth_data()
-    try:
-        decoded = jwt.decode(
-            payload.refresh_token,
-            auth_data['secret_key'],
-            algorithms=[auth_data['algorithm']],
-        )
-    except JWTError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid refresh token",
-        )
-
-    if decoded.get("type") != "refresh":
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token type",
-        )
-
-    username = decoded.get("sub")
-    if not username:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid refresh token",
-        )
+async def refresh_token(payload: RefreshRequest, request: Request):
+    decoded = decode_refresh_token(payload.refresh_token)
+    username = decoded["sub"]
+    jti = decoded.get("jti")
 
     user = await UsersDAO.find_one_or_none(name=username)
     if not user or not user.is_active:
@@ -90,18 +87,109 @@ async def refresh_token(payload: RefreshRequest):
             detail="User not found or inactive",
         )
 
-    new_access_token = security.create_access_token(username)
+    async with new_session() as session:
+        session_row = None
+        if jti:
+            session_row = await user_session_dao.get_user_session_by_jti(session, jti)
+
+        if session_row is None:
+            # Legacy fallback: старый токен без записи в user_sessions.
+            # Web-клиент продолжает работать до истечения. Не ротируем —
+            # выдаём только новый access, тот же refresh.
+            new_access = create_access_token(username)
+            return {
+                "username": username,
+                "access_token": new_access,
+                "refresh_token": payload.refresh_token,
+                "token_type": "bearer",
+            }
+
+        if session_row.revoked_at is not None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Session revoked",
+            )
+        exp = session_row.expires_at
+        if exp.tzinfo is None:
+            exp = exp.replace(tzinfo=timezone.utc)
+        if exp < datetime.now(timezone.utc):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Session expired",
+            )
+        if session_row.user_id != user.id:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Session user mismatch",
+            )
+
+        access_token, new_refresh = await rotate_session_pair(
+            session, user, session_row, request=request
+        )
+
     return {
         "username": username,
-        "access_token": new_access_token,
-        "refresh_token": payload.refresh_token,
+        "access_token": access_token,
+        "refresh_token": new_refresh,
         "token_type": "bearer",
     }
 
 
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+async def logout(
+    payload: LogoutRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """Revoke текущей сессии. Клиент передаёт свой refresh_token в теле —
+    по jti находим сессию и помечаем revoked."""
+    if not payload.refresh_token:
+        # Пустое тело — no-op success, всё равно клиент дропнет токены локально.
+        return
+    try:
+        decoded = decode_refresh_token(payload.refresh_token)
+    except HTTPException:
+        return
+    jti = decoded.get("jti")
+    if not jti:
+        return
+    async with new_session() as session:
+        row = await user_session_dao.get_user_session_by_jti(session, jti)
+        if row and row.user_id == current_user.id:
+            await user_session_dao.revoke_user_session(session, row)
+
+
+@router.get("/sessions", response_model=List[SessionResponse])
+async def list_sessions(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+):
+    """Список активных сессий текущего юзера. Не помечает current —
+    у access-токена нет jti; клиент сам сопоставит по своему сохранённому
+    refresh если нужно."""
+    async with new_session() as session:
+        rows = await user_session_dao.list_user_sessions_for_user(
+            session, current_user.id, active_only=True
+        )
+    return [SessionResponse.model_validate(r) for r in rows]
+
+
+@router.post("/sessions/{session_id}/revoke", status_code=status.HTTP_204_NO_CONTENT)
+async def revoke_session(
+    session_id: int,
+    current_user: User = Depends(get_current_user),
+):
+    async with new_session() as session:
+        row = await user_session_dao.get_user_session_by_id(session, session_id)
+        if row is None or row.user_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Session not found",
+            )
+        await user_session_dao.revoke_user_session(session, row)
+
+
 @router.get("/me", response_model=UserLogin)
-async def login(
-    db: Session = Depends(get_db),
-    user: User = Depends(get_current_user)
+async def me(
+    user: User = Depends(get_current_user),
 ):
     return user
