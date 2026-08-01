@@ -15,6 +15,7 @@ from fastapi.responses import (
                                 HTMLResponse,
                                 JSONResponse
                                 )
+from pydantic import BaseModel, ConfigDict, Field
 
 from service.user import (get_all,
                             get_one,
@@ -28,6 +29,7 @@ from model.user import User
 from service.auth import (get_current_user)
 from database.database import new_session
 from data import user_session as user_session_dao
+from data import push_token as push_token_dao
 
 from schema.user import UserResponse, UserRequest, UserUpdate
 from schema.pagination import PaginationParams, PaginatedResponse
@@ -37,7 +39,82 @@ from model.role import Role
 from errors import Duplicate, Missing, BaseLocking
 
 
+_ALLOWED_PLATFORMS = {"ios", "android", "web"}
+
+
+class PushTokenRegisterRequest(BaseModel):
+    platform: str = Field(..., description="ios / android / web")
+    token: str = Field(..., min_length=8, max_length=512)
+    device_id: Optional[str] = Field(None, max_length=128)
+    app_version: Optional[str] = Field(None, max_length=32)
+
+
+class PushTokenDeleteRequest(BaseModel):
+    token: str = Field(..., min_length=8, max_length=512)
+
+
+class PushTokenResponse(BaseModel):
+    id: int
+    platform: str
+    token: str
+    device_id: Optional[str] = None
+    app_version: Optional[str] = None
+    last_seen_at: datetime
+    is_active: bool
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 router = APIRouter(prefix='/api/user', tags=['API'])
+
+
+@router.post("/me/push-token", response_model=PushTokenResponse)
+async def register_push_token(
+    payload: PushTokenRegisterRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """Регистрация FCM/APNs токена текущего юзера. Upsert по `token`
+    (если этот же токен уже был зарегистрирован — на другого юзера,
+    например при смене логина на устройстве — user_id перезаписывается)."""
+    if payload.platform not in _ALLOWED_PLATFORMS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"platform must be one of {sorted(_ALLOWED_PLATFORMS)}",
+        )
+    async with new_session() as session:
+        row = await push_token_dao.upsert_push_token(
+            session,
+            user_id=current_user.id,
+            platform=payload.platform,
+            token=payload.token,
+            device_id=payload.device_id,
+            app_version=payload.app_version,
+        )
+    return PushTokenResponse.model_validate(row)
+
+
+@router.delete("/me/push-token", status_code=status.HTTP_204_NO_CONTENT)
+async def unregister_push_token(
+    payload: PushTokenDeleteRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """Клиент разлогинивается или отзывает разрешение push — сносим
+    его регистрацию по token."""
+    async with new_session() as session:
+        await push_token_dao.delete_push_token(
+            session, current_user.id, payload.token
+        )
+
+
+@router.get("/me/push-tokens", response_model=List[PushTokenResponse])
+async def list_my_push_tokens(
+    current_user: User = Depends(get_current_user),
+):
+    async with new_session() as session:
+        rows = await push_token_dao.list_push_tokens_for_user(
+            session, current_user.id
+        )
+    return [PushTokenResponse.model_validate(r) for r in rows]
 
 @router.get("/list", response_model=PaginatedResponse[UserResponse])
 async def get_users(

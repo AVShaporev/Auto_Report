@@ -111,6 +111,21 @@ async def _autogen_tick_job() -> None:
         logger.exception(f"🗓 autogen-tick упал: {e}")
 
 
+async def _push_tokens_cleanup_job() -> None:
+    """Ежедневная чистка push_tokens с last_seen_at > 30 дней. Токен,
+    в который FCM/APNs больше не доставляет, всё равно бесполезен."""
+    try:
+        from database.database import new_session
+        from data import push_token as push_token_dao
+        async with new_session() as session:
+            deleted = await push_token_dao.cleanup_stale_push_tokens(
+                session, max_age_days=30
+            )
+        logger.info(f"🔔 push-tokens cleanup: удалено {deleted}")
+    except Exception as e:
+        logger.exception(f"🔔 push-tokens cleanup упал: {e}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[dict, None]:
     """Управление жизненным циклом приложения."""
@@ -135,8 +150,18 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[dict, None]:
             misfire_grace_time=3600,  # терпит downtime до часа без skip'а
             coalesce=True,             # пропустил 3 запуска подряд — выполнит один
         )
+        scheduler.add_job(
+            _push_tokens_cleanup_job,
+            trigger=CronTrigger(hour=3, minute=15),
+            id="push_tokens_cleanup",
+            replace_existing=True,
+            misfire_grace_time=3600,
+            coalesce=True,
+        )
         scheduler.start()
-        logger.info("🗓 APScheduler запущен: autogen-tick ежедневно в 00:30 МСК")
+        logger.info(
+            "🗓 APScheduler запущен: autogen-tick 00:30 МСК + push-tokens cleanup 03:15 МСК"
+        )
     else:
         logger.info("🗓 APScheduler выключен (AUTOGEN_SCHEDULER_ENABLED=False)")
 
