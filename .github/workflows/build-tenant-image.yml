@@ -1,0 +1,101 @@
+# Auto_Report — сборка образа для SaaS-tenant'ов.
+#
+# Мультитенантный провижн (Auto_Report_Master/scripts/provision-tenant.sh)
+# больше НЕ билдит образ на каждом новом tenant'е — вместо этого мастер-
+# скрипт делает `docker compose up -d` с готовым образом, который этот
+# workflow заранее собирает в GitHub-hosted runner (2 vCPU / 7 GB RAM
+# бесплатно) и пушит в GitHub Container Registry.
+#
+# Почему это критично: билд на 2 GB VDS = 100% CPU + OOM при 4+ живых
+# tenant'ах. Провижн падает или подвешивает соседей. GHA-hosted runner
+# делает билд без ущерба продакшену; VDS только `docker pull`.
+#
+# Триггер: push в prod (после deploy-vds.yml — оба workflow идут одновременно,
+# но независимо) + ручной workflow_dispatch.
+#
+# Что должно быть настроено:
+#   1. Package visibility — public (Settings → Packages → auto-report-tenant
+#      → Change visibility). Тогда VDS pull'ит без docker login.
+#   2. Никаких новых secrets: GITHUB_TOKEN уже есть, SSH_HOST/SSH_PRIVATE_KEY
+#      те же что у deploy-vds.yml.
+
+name: Build tenant image
+
+on:
+  push:
+    branches: [prod]
+  workflow_dispatch:
+
+# Пакеты пушим под токеном workflow'а — нужен write.
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: build-tenant-image
+  cancel-in-progress: false
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      image_tag: ${{ steps.meta.outputs.short_sha }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set image metadata
+        id: meta
+        run: |
+          # Владелец org/user в lower-case (docker требует lowercase в имени).
+          echo "owner=$(echo ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+          echo "short_sha=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ steps.meta.outputs.owner }}/auto-report-tenant:latest
+            ghcr.io/${{ steps.meta.outputs.owner }}/auto-report-tenant:${{ steps.meta.outputs.short_sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  notify-vds:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: SSH to VDS — pull + retag короткое имя
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          port: 48461
+          username: deploy
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script_stop: true
+          script: |
+            set -euo pipefail
+            OWNER=$(echo ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]')
+            FULL="ghcr.io/${OWNER}/auto-report-tenant:latest"
+            echo "→ docker pull ${FULL}"
+            docker pull "${FULL}"
+            # Retag в короткое имя, которое использует provision-tenant.sh.
+            # Не завязываемся на конкретного github-владельца — если репо
+            # переедет, поменяется только этот workflow.
+            docker tag "${FULL}" auto-report-tenant:latest
+            docker image ls auto-report-tenant --format "{{.Repository}}:{{.Tag}} {{.CreatedSince}}"
