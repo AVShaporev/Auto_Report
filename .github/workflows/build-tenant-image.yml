@@ -80,22 +80,40 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: SSH to VDS — pull + retag короткое имя
+      - name: SSH to VDS — login + pull + retag короткое имя
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.SSH_HOST }}
           port: 48461
           username: deploy
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          # envs — вайтлист переменных, которые SSH пробросит внутрь скрипта.
+          # Без него $GHCR_TOKEN / $GHCR_ACTOR не будут видны в heredoc'е.
+          envs: GHCR_ACTOR,GHCR_TOKEN,REPO_OWNER
           script_stop: true
+          # Секции ${{ ... }} процессит GHA (в момент запуска workflow'а
+          # подставляет реальные значения), а $VAR — bash уже на VDS.
           script: |
             set -euo pipefail
-            OWNER=$(echo ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]')
+            OWNER=$(echo "${REPO_OWNER}" | tr '[:upper:]' '[:lower:]')
             FULL="ghcr.io/${OWNER}/auto-report-tenant:latest"
+
+            # Логинимся под workflow-токеном (packages: read из permissions).
+            # Работает и с private-пакетом, и с public — не нужно ручных настроек.
+            # `--password-stdin` не оставляет пароль в history/ps.
+            echo "→ docker login ghcr.io"
+            echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_ACTOR}" --password-stdin
+
             echo "→ docker pull ${FULL}"
             docker pull "${FULL}"
+
             # Retag в короткое имя, которое использует provision-tenant.sh.
-            # Не завязываемся на конкретного github-владельца — если репо
-            # переедет, поменяется только этот workflow.
             docker tag "${FULL}" auto-report-tenant:latest
             docker image ls auto-report-tenant --format "{{.Repository}}:{{.Tag}} {{.CreatedSince}}"
+
+            # Логаут — не оставляем credentials на VDS.
+            docker logout ghcr.io >/dev/null || true
+        env:
+          GHCR_ACTOR: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO_OWNER: ${{ github.repository_owner }}

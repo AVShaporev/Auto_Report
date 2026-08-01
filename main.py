@@ -46,6 +46,7 @@ from api import street as api_street
 from api import spec_build as api_spec_build
 from api import spec_room as api_spec_room
 from api import auth as api_user_auth
+from api import mobile as api_mobile
 from api import role as api_role
 from api import user as api_user
 from api import organization as api_organization
@@ -235,6 +236,7 @@ app.include_router(api_dashboard.router)
 app.include_router(api_log.router)
 app.include_router(api_autogen.router)
 app.include_router(api_tenant.router)
+app.include_router(api_mobile.router)
 
 # запуск приложения fastapi
 if __name__ == "__main__":
