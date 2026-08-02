@@ -64,6 +64,13 @@ templates/           jinja-шаблоны (если есть)
 - `POST /api/user/{id}/revoke-all-sessions` — админ: разлогинить юзера везде.
 - `GET /api/auth/me` — требует Bearer-токен, возвращает текущего юзера.
 
+### Chunked media upload (Mobile M1.5)
+- `POST /api/mobile/media/upload/init` — `{kind, filename, total_size}` → `{upload_id, max_chunk_size, expires_at}`. Создаёт tmp-файл в `MEDIA/mobile/tmp/`.
+- `PUT /api/mobile/media/upload/{upload_id}` с `Content-Range: bytes X-Y/TOTAL` и бинарём body → append chunk. Валидирует что chunk идёт по порядку.
+- Финальный chunk (received==total) автоматически финализируется: Pillow resize (max 2000px, JPEG q=80) → move в `MEDIA/mobile/<uuid>_<name>.jpg` → возврат `final_path`.
+- `GET /api/mobile/media/upload/{upload_id}` — статус.
+- Лимиты: MAX_UPLOAD_SIZE=50 MB, MAX_CHUNK_SIZE=5 MB, session TTL=1 час. Cleanup expired session'ов + orphan tmp-файлов @03:45 МСК.
+
 ### Idempotency-middleware (Mobile M1.4)
 - Заголовок `X-Idempotency-Key: <uuid>` (8-128 printable-ASCII) на POST/PUT/PATCH/DELETE.
 - Middleware декодит Bearer-JWT → user_name, scope'ит ключ по (user, key).

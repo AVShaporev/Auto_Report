@@ -42,6 +42,7 @@ from model.user import User
 from model.user_session import UserSession
 from model.push_token import PushToken
 from model.idempotency_key import IdempotencyKey
+from model.media_upload_session import MediaUploadSession
 from model.contract import Contract
 from model.sub_contract import Sub_Contract
 from model.object import Object
@@ -65,6 +66,7 @@ __all__ = [
     "Bank", "Region", "Arial", "Locality", "Street", "Period", "Organization",
     # бизнес
     "Role", "User", "UserSession", "PushToken", "IdempotencyKey",
+    "MediaUploadSession",
     "Contract", "Sub_Contract",
     "Object", "Equipment", "Objects_Equipment",
     "Operation",

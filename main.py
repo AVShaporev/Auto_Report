@@ -139,6 +139,16 @@ async def _idempotency_cleanup_job() -> None:
         logger.exception(f"🔑 idempotency cleanup упал: {e}")
 
 
+async def _mobile_upload_cleanup_job() -> None:
+    """Ежедневная чистка expired chunked-upload session'ов + orphan tmp-файлов."""
+    try:
+        from service.mobile_upload import cleanup_stale_sessions_and_files
+        sessions, files = await cleanup_stale_sessions_and_files()
+        logger.info(f"📤 mobile upload cleanup: sessions={sessions} files={files}")
+    except Exception as e:
+        logger.exception(f"📤 mobile upload cleanup упал: {e}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[dict, None]:
     """Управление жизненным циклом приложения."""
@@ -179,10 +189,18 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[dict, None]:
             misfire_grace_time=3600,
             coalesce=True,
         )
+        scheduler.add_job(
+            _mobile_upload_cleanup_job,
+            trigger=CronTrigger(hour=3, minute=45),
+            id="mobile_upload_cleanup",
+            replace_existing=True,
+            misfire_grace_time=3600,
+            coalesce=True,
+        )
         scheduler.start()
         logger.info(
             "🗓 APScheduler запущен: autogen-tick 00:30 МСК + push-tokens cleanup 03:15 МСК "
-            "+ idempotency cleanup 03:30 МСК"
+            "+ idempotency cleanup 03:30 МСК + mobile upload cleanup 03:45 МСК"
         )
     else:
         logger.info("🗓 APScheduler выключен (AUTOGEN_SCHEDULER_ENABLED=False)")
