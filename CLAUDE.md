@@ -64,6 +64,13 @@ templates/           jinja-шаблоны (если есть)
 - `POST /api/user/{id}/revoke-all-sessions` — админ: разлогинить юзера везде.
 - `GET /api/auth/me` — требует Bearer-токен, возвращает текущего юзера.
 
+### Idempotency-middleware (Mobile M1.4)
+- Заголовок `X-Idempotency-Key: <uuid>` (8-128 printable-ASCII) на POST/PUT/PATCH/DELETE.
+- Middleware декодит Bearer-JWT → user_name, scope'ит ключ по (user, key).
+- При повторном запросе с тем же ключом (<24 ч) возвращает закэшированный ответ + `X-Idempotent-Replay: true`.
+- Кэшируется **только 2xx**, TTL 24 ч, cleanup daily @03:30 МСК.
+- Без header'а или без auth — middleware прозрачно пропускает.
+
 ### Push-tokens (Mobile M1.2)
 - `POST /api/user/me/push-token` — upsert `{platform, token, device_id?, app_version?}`. platform ∈ {ios, android, web}. Один и тот же `token` может «переехать» с юзера A на юзера B при смене логина на устройстве.
 - `DELETE /api/user/me/push-token` — body `{token}`, снимает регистрацию (только своего юзера).

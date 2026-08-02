@@ -16,7 +16,7 @@ from fastapi import (
 from loguru import logger
 
 from config import MEDIA_PATH, settings
-from middleware import LogRequestsMiddleware
+from middleware import IdempotencyMiddleware, LogRequestsMiddleware
 from service.order_autogen import tick_planned_orders
 
 from api import spec_contract as api_spec_contract
@@ -127,6 +127,18 @@ async def _push_tokens_cleanup_job() -> None:
         logger.exception(f"🔔 push-tokens cleanup упал: {e}")
 
 
+async def _idempotency_cleanup_job() -> None:
+    """Ежедневная чистка expired idempotency_keys."""
+    try:
+        from database.database import new_session
+        from data import idempotency_key as ik_data
+        async with new_session() as session:
+            deleted = await ik_data.cleanup_expired_idempotency_keys(session)
+        logger.info(f"🔑 idempotency cleanup: удалено {deleted}")
+    except Exception as e:
+        logger.exception(f"🔑 idempotency cleanup упал: {e}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[dict, None]:
     """Управление жизненным циклом приложения."""
@@ -159,9 +171,18 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[dict, None]:
             misfire_grace_time=3600,
             coalesce=True,
         )
+        scheduler.add_job(
+            _idempotency_cleanup_job,
+            trigger=CronTrigger(hour=3, minute=30),
+            id="idempotency_cleanup",
+            replace_existing=True,
+            misfire_grace_time=3600,
+            coalesce=True,
+        )
         scheduler.start()
         logger.info(
-            "🗓 APScheduler запущен: autogen-tick 00:30 МСК + push-tokens cleanup 03:15 МСК"
+            "🗓 APScheduler запущен: autogen-tick 00:30 МСК + push-tokens cleanup 03:15 МСК "
+            "+ idempotency cleanup 03:30 МСК"
         )
     else:
         logger.info("🗓 APScheduler выключен (AUTOGEN_SCHEDULER_ENABLED=False)")
@@ -182,7 +203,11 @@ app = FastAPI(lifespan=lifespan,
                     "clientId": "swagger"
                 })
 
-# Добавляем middleware до подключения роутеров
+# Middleware до подключения роутеров. Порядок регистрации в FastAPI —
+# LIFO: последний add_middleware стоит первым в стеке при обработке запроса.
+# Idempotency должна быть ВНУТРИ логгирования (чтобы в логи попадали
+# и short-circuit'нутые replay'ы) → регистрируем ПЕРВОЙ.
+app.add_middleware(IdempotencyMiddleware)
 app.add_middleware(LogRequestsMiddleware)
 
 
