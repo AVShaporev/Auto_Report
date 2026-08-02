@@ -1,11 +1,12 @@
-"""Mobile-компактные endpoints для PWA/Capacitor-клиента (Mobile M1.3).
+"""Mobile-компактные endpoints для PWA/Capacitor-клиента (Mobile M1.3+M1.5).
 
 Все под общим `/api/mobile/*`, все требуют Bearer JWT (существующий
 get_current_user из service/auth.py).
 """
-from typing import List
+from typing import List, Optional
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from pydantic import BaseModel, ConfigDict
 
 from database.database import new_session
 from data import mobile as mobile_data
@@ -17,6 +18,7 @@ from schema.mobile import (
     MobileReportListItem,
 )
 from service.auth import get_current_user
+from service import mobile_upload as upload_service
 
 
 router = APIRouter(prefix="/api/mobile", tags=["mobile"])
@@ -67,6 +69,105 @@ async def mobile_reports(
             limit=limit,
         )
     return [MobileReportListItem(**r) for r in rows]
+
+
+# ============================================================================
+# M1.5 — Chunked media upload
+# ============================================================================
+
+class MobileUploadInitRequest(BaseModel):
+    kind: str  # 'issue_photo' | 'report_signature' | 'report_photo' | ...
+    filename: str
+    total_size: int
+
+
+class MobileUploadStatusResponse(BaseModel):
+    upload_id: str
+    kind: str
+    filename: str
+    total_size: int
+    received_bytes: int
+    is_complete: bool
+    final_path: Optional[str] = None
+    max_chunk_size: int
+    expires_at: str
+
+    model_config = ConfigDict(from_attributes=False)
+
+
+def _row_to_status(row) -> MobileUploadStatusResponse:
+    return MobileUploadStatusResponse(
+        upload_id=row.upload_id,
+        kind=row.kind,
+        filename=row.filename,
+        total_size=row.total_size,
+        received_bytes=row.received_bytes,
+        is_complete=row.is_complete,
+        final_path=row.final_path,
+        max_chunk_size=upload_service.MAX_CHUNK_SIZE,
+        expires_at=row.expires_at.isoformat(),
+    )
+
+
+@router.post("/media/upload/init", response_model=MobileUploadStatusResponse)
+async def mobile_upload_init(
+    body: MobileUploadInitRequest,
+    current_user: User = Depends(get_current_user),
+) -> MobileUploadStatusResponse:
+    try:
+        row = await upload_service.init_upload_session(
+            user_name=current_user.name,
+            kind=body.kind,
+            filename=body.filename,
+            total_size=body.total_size,
+        )
+    except upload_service.UploadError as e:
+        raise HTTPException(status_code=e.status_code, detail=str(e))
+    return _row_to_status(row)
+
+
+@router.put("/media/upload/{upload_id}", response_model=MobileUploadStatusResponse)
+async def mobile_upload_chunk(
+    upload_id: str,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+) -> MobileUploadStatusResponse:
+    content_range = request.headers.get("content-range")
+    if not content_range:
+        raise HTTPException(status_code=400, detail="Content-Range header required")
+    chunk_bytes = await request.body()
+    if not chunk_bytes:
+        raise HTTPException(status_code=400, detail="empty body")
+    try:
+        row = await upload_service.append_chunk(
+            upload_id=upload_id,
+            user_name=current_user.name,
+            content_range=content_range,
+            chunk_bytes=chunk_bytes,
+        )
+        # Если это был последний chunk — сразу финализируем.
+        if row.received_bytes >= row.total_size:
+            finalized = await upload_service.finalize_if_complete(upload_id=upload_id)
+            if finalized is not None:
+                row = finalized
+    except upload_service.UploadError as e:
+        raise HTTPException(status_code=e.status_code, detail=str(e))
+    return _row_to_status(row)
+
+
+@router.get("/media/upload/{upload_id}", response_model=MobileUploadStatusResponse)
+async def mobile_upload_status(
+    upload_id: str,
+    current_user: User = Depends(get_current_user),
+) -> MobileUploadStatusResponse:
+    async with new_session() as session:
+        from data import media_upload_session as upload_data
+        row = await upload_data.get_media_upload_session(session, upload_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="upload session not found")
+    if row.user_name != current_user.name:
+        raise HTTPException(status_code=403, detail="access denied")
+    return _row_to_status(row)
 
 
 @router.get("/orders", response_model=List[MobileOrderListItem])
