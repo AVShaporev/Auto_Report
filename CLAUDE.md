@@ -64,6 +64,12 @@ templates/           jinja-шаблоны (если есть)
 - `POST /api/user/{id}/revoke-all-sessions` — админ: разлогинить юзера везде.
 - `GET /api/auth/me` — требует Bearer-токен, возвращает текущего юзера.
 
+### QR-onboarding (Mobile M1.6)
+- `POST /api/auth/mobile-onboard` — body `{token}`. Валидирует HS256-JWT общим ключом `MOBILE_ONBOARD_SECRET` (shared с master). Проверяет `type=mobile_onboard`, `tenant=TENANT_SLUG`, sub-user существует и активен. Выпускает обычную пару (access, refresh) через существующий `issue_session_pair` (M1.1) — с session-row в user_sessions.
+- Токен генерирует master: `POST /api/tenants/{slug}/mobile-onboard-token` (см. Auto_Report_Master). Клиент сканирует QR → парсит URL → передаёт token сюда → получает `{user, access_token, refresh_token}`.
+- Если `MOBILE_ONBOARD_SECRET` не задан → 503 (feature disabled).
+- Если токен на другой tenant → 401 «Token issued for different tenant».
+
 ### Chunked media upload (Mobile M1.5)
 - `POST /api/mobile/media/upload/init` — `{kind, filename, total_size}` → `{upload_id, max_chunk_size, expires_at}`. Создаёт tmp-файл в `MEDIA/mobile/tmp/`.
 - `PUT /api/mobile/media/upload/{upload_id}` с `Content-Range: bytes X-Y/TOTAL` и бинарём body → append chunk. Валидирует что chunk идёт по порядку.

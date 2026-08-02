@@ -26,6 +26,13 @@ class Settings(BaseSettings):
     TENANT_PLAN: str | None = None
     MAX_OBJECTS: int | None = None
     MAX_USERS: int | None = None
+    # Mobile M1.6 QR-onboarding. Shared secret между master'ом и tenant'ом
+    # для подписи короткоживущих onboard-JWT. Master в env
+    # MOBILE_ONBOARD_SECRET подписывает — tenant этим же ключом проверяет.
+    # Если не задан → /api/auth/mobile-onboard возвращает 503.
+    # provision-tenant.sh прокидывает secret из master-env для новых
+    # tenant'ов; существующим нужно добавить руками в .env.sops + redeploy.
+    MOBILE_ONBOARD_SECRET: str | None = None
     model_config = SettingsConfigDict(
         env_file=os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
     )

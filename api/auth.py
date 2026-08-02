@@ -31,6 +31,10 @@ class LogoutRequest(BaseModel):
     refresh_token: Optional[str] = None
 
 
+class MobileOnboardRequest(BaseModel):
+    token: str
+
+
 class SessionResponse(BaseModel):
     id: int
     ip_address: Optional[str] = None
@@ -186,6 +190,83 @@ async def revoke_session(
                 detail="Session not found",
             )
         await user_session_dao.revoke_user_session(session, row)
+
+
+@router.post("/mobile-onboard", response_model=LoginResponse)
+async def mobile_onboard(
+    payload: MobileOnboardRequest,
+    request: Request,
+):
+    """Обменять master-выпущенный onboard-JWT на пару (access, refresh) без пароля.
+
+    Master (POST /api/tenants/{slug}/mobile-onboard-token) подписывает
+    JWT: {sub: username, tenant: slug, type: 'mobile_onboard', iat, exp, nonce}
+    ключом MOBILE_ONBOARD_SECRET. Здесь мы валидируем тем же ключом,
+    проверяем tenant = TENANT_SLUG (мы уверены, что это наш tenant, не
+    подмешали чужой onboard), находим юзера и вызываем issue_session_pair —
+    получается обычная пара (access, refresh) через существующий M1.1 flow.
+    """
+    from jose import jwt
+    from jose.exceptions import JWTError
+    from config import settings
+    from service.auth import issue_session_pair as _issue
+
+    if not settings.MOBILE_ONBOARD_SECRET:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Mobile onboarding disabled: MOBILE_ONBOARD_SECRET не задан.",
+        )
+
+    try:
+        decoded = jwt.decode(
+            payload.token,
+            settings.MOBILE_ONBOARD_SECRET,
+            algorithms=["HS256"],
+        )
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired onboard token",
+        )
+
+    if decoded.get("type") != "mobile_onboard":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token type",
+        )
+
+    token_tenant = decoded.get("tenant")
+    if settings.TENANT_SLUG and token_tenant != settings.TENANT_SLUG:
+        # Токен выпущен для другого tenant'а — отдаём 401 (не 403, чтобы
+        # клиент понял: неверный tenant, надо переспросить нужный slug).
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token issued for different tenant",
+        )
+
+    username = decoded.get("sub")
+    if not username:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token missing sub",
+        )
+
+    user = await UsersDAO.find_with_role(name=username)
+    if not user or not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found or inactive",
+        )
+
+    async with new_session() as session:
+        access_token, refresh_token = await _issue(session, user, request=request)
+
+    user_out = UserLogin.model_validate(user)
+    return LoginResponse(
+        user=user_out,
+        access_token=access_token,
+        refresh_token=refresh_token,
+    )
 
 
 @router.get("/me", response_model=UserLogin)
