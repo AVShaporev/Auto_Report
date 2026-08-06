@@ -110,4 +110,10 @@ REFRESH_TOKEN_EXPIRE_DAYS=30
 _Все пункты закрыты. Оставь этот раздел для будущих находок._
 
 ## Связь с фронтом
-Фронт по умолчанию ходит через Vite-proxy на `localhost:8000`. CORS middleware не подключён — в проде поставить reverse-proxy (nginx) либо добавить `CORSMiddleware`.
+Фронт по умолчанию ходит через Vite-proxy на `localhost:8000` (same origin, CORS не задействован).
+В prod фронт живёт за общим Caddy-хостом с бэком — тоже same origin.
+
+**CORS** подключён в `main.py` для mobile-Capacitor-app'а и dev-стендов:
+- Regex покрывает `capacitor://localhost`, `https://localhost(:port)?`, `https://<любой>.cool-doc.ru`.
+- Доп-origins через env `EXTRA_CORS_ORIGINS` (запятыми), например `https://192.168.1.3:5174` для smoke-теста mobile-dev'а с ноута.
+- `allow_credentials=False`, `allow_methods=["*"]`, `allow_headers=["*"]`, `expose_headers` включают `Content-Disposition` (mobile читает имя файла) и `X-Idempotent-Replay`.

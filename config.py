@@ -33,6 +33,11 @@ class Settings(BaseSettings):
     # provision-tenant.sh прокидывает secret из master-env для новых
     # tenant'ов; существующим нужно добавить руками в .env.sops + redeploy.
     MOBILE_ONBOARD_SECRET: str | None = None
+    # CORS: доп-origins через запятую для dev/smoke mobile-app'а (например
+    # "https://192.168.1.3:5174,https://192.168.1.5:5174"). Прод-регекс уже
+    # покрывает capacitor://localhost, https://localhost, *.cool-doc.ru —
+    # см. main.py add_middleware(CORSMiddleware).
+    EXTRA_CORS_ORIGINS: str = ""
     model_config = SettingsConfigDict(
         env_file=os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
     )
