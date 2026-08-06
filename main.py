@@ -13,6 +13,7 @@ from fastapi import (
                     Response,
                     Depends
                     )
+from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
 
 from config import MEDIA_PATH, settings
@@ -225,8 +226,32 @@ app = FastAPI(lifespan=lifespan,
 # LIFO: последний add_middleware стоит первым в стеке при обработке запроса.
 # Idempotency должна быть ВНУТРИ логгирования (чтобы в логи попадали
 # и short-circuit'нутые replay'ы) → регистрируем ПЕРВОЙ.
+# CORS — САМОЙ ПОСЛЕДНЕЙ, чтобы Access-Control-заголовки навешивались
+# на все ответы (включая exception'ы из вложенных middleware).
 app.add_middleware(IdempotencyMiddleware)
 app.add_middleware(LogRequestsMiddleware)
+
+# CORS для mobile-app (Capacitor webview) + master/tenant frontend'ов + dev.
+# В prod фронт+бэк живут за одним Caddy-хостом (same origin) → CORS не нужен
+# для web-SPA. Но mobile-Capacitor всегда cross-origin: Android grafts
+# `https://localhost` (androidScheme), iOS — `capacitor://localhost`. Плюс
+# dev-режим mobile-app'а ходит с LAN-IP `https://192.168.x.x:5174`.
+# EXTRA_CORS_ORIGINS в .env — доп-origins для конкретных dev-стендов.
+_cors_extras = [
+    o.strip() for o in settings.EXTRA_CORS_ORIGINS.split(",") if o.strip()
+]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origin_regex=(
+        r"^(capacitor|https)://localhost(:\d+)?$"
+        r"|^https://[a-z0-9-]+\.cool-doc\.ru$"
+    ),
+    allow_origins=_cors_extras,
+    allow_credentials=False,  # mobile ходит с Bearer'ом, не с cookies
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["Content-Disposition", "X-Idempotent-Replay"],
+)
 
 
 # Healthcheck endpoint без авторизации, без БД-запросов.
