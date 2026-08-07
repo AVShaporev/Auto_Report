@@ -188,18 +188,21 @@ async def get_orders_mobile_list(
     only_open: bool = True,
     limit: int = 100,
 ) -> List[dict]:
+    # Order.status — обычный строковый enum ('new', 'in_progress', 'completed',
+    # 'cancelled'), НЕ FK на Spec_Status. Возвращаем raw-значение, мобильный
+    # клиент решает, как показывать. Аналогично Order.user_id — это АВТОР
+    # заявки, а не «назначенный» (у order концепции assignee нет).
     stmt = (
         select(
             Order.id,
             Order.number,
+            Order.status.label("status_name"),
             Order.period_start_date,
             Order.created_at,
-            Spec_Status.name.label("status_name"),
             Spec_Order.name.label("order_type"),
             Object.name.label("object_name"),
-            User.full_name.label("assigned_to_name"),
+            User.full_name.label("assigned_to_name"),  # фактически автор
         )
-        .join(Spec_Status, Spec_Status.id == Order.status_id)
         .join(Spec_Order, Spec_Order.id == Order.spec_order_id)
         .join(Object, Object.id == Order.object_id)
         .outerjoin(User, User.id == Order.user_id)
@@ -207,11 +210,8 @@ async def get_orders_mobile_list(
     if only_mine and user_id is not None:
         stmt = stmt.where(Order.user_id == user_id)
     if only_open:
-        # Открытыми считаем всё, что не done/cancelled. Точный enum статусов
-        # не хардкодим — фильтруем по семантике имени.
-        stmt = stmt.where(
-            ~Spec_Status.name.ilike("%выполн%")
-        )
+        # Открытые = не завершены и не отменены.
+        stmt = stmt.where(Order.status.in_(["new", "in_progress"]))
     stmt = stmt.order_by(Order.created_at.desc()).limit(limit)
 
     rows = (await session.execute(stmt)).mappings().all()
