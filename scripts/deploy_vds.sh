@@ -151,19 +151,29 @@ fi
 # на VDS ещё нет (первый деплой либо пробуксовал notify-vds) — compose падает
 # с "No such image", деплой красный, надо руками docker pull + retag или
 # перезапустить build-tenant-image workflow.
+#
+# --force-recreate: compose по умолчанию не пересоздаёт контейнер, если
+# service-config-hash не изменился. При правке .env.sops компоуз этого не
+# видит (сравнивает только имя/путь env-file, не контент), и новые
+# переменные окружения НЕ попадают в контейнер, пока не поменяется
+# что-то ещё в compose.yml. --force-recreate снимает эту засаду ценой
+# всегда лишних ~10-30 сек downtime, что для деплоя приемлемо. Инцидент
+# 2026-08-08: MOBILE_ONBOARD_SECRET добавили в hi-tech .env.sops, deploy.sh
+# отработал зелёным, но контейнер продолжал жить со старым env → mobile-
+# onboard 503 «SECRET не задан».
 cd "$COMPOSE_DIR"
 case "$TARGET" in
     backend)
-        echo "[deploy] docker compose up -d backend"
-        docker compose up -d backend
+        echo "[deploy] docker compose up -d --force-recreate backend"
+        docker compose up -d --force-recreate backend
         ;;
     frontend)
-        echo "[deploy] docker compose up -d frontend"
-        docker compose up -d frontend
+        echo "[deploy] docker compose up -d --force-recreate frontend"
+        docker compose up -d --force-recreate frontend
         ;;
     all)
-        echo "[deploy] docker compose up -d (все сервисы)"
-        docker compose up -d
+        echo "[deploy] docker compose up -d --force-recreate (все сервисы)"
+        docker compose up -d --force-recreate
         ;;
 esac
 
