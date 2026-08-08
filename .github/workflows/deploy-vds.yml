@@ -1,9 +1,20 @@
-# Auto_Report — деплой бэка на VDS (188.120.227.138, hi-tech.cool-doc.ru).
+# Auto_Report — деплой бэка hi-tech на VDS (188.120.227.138, hi-tech.cool-doc.ru).
 #
-# Триггер: push в prod (или вручную workflow_dispatch).
-# Параллельно с этим срабатывает старый .github/workflows/deploy.yml,
-# который обновляет 192.168.1.8 prod (bare-metal) — два prod-окружения
-# обновляются вместе.
+# Триггер: НЕ push, а `workflow_run` от build-tenant-image.yml по completion.
+# Порядок событий на push в prod:
+#   1. push → build-tenant-image workflow стартует (build + push ghcr + retag на VDS).
+#   2. Он завершается (~4-6 мин).
+#   3. Этот workflow triggerится через workflow_run → SSH на VDS → deploy.sh backend.
+#   4. deploy.sh делает `docker compose up -d backend` (БЕЗ --build): compose видит
+#      обновлённый auto-report-tenant:latest и recreate'ит контейнер за ~10с.
+# Без такого ordering'а был race: deploy.sh стартовал в ту же секунду что и build,
+# успевал сделать compose up с ЕЩЁ старым образом → hi-tech оставался на прошлой
+# версии. И заодно docker build на VDS был единой точкой отказа (см. коммит
+# «switch hi-tech to pre-built image»).
+#
+# Параллельно с этим срабатывает старый .github/workflows/deploy.yml, который
+# обновляет 192.168.1.8 prod (bare-metal) — он на self-hosted runner'е и не
+# зависит от VDS-инфры.
 #
 # Runner: GitHub-hosted ubuntu-latest, SSH-ится на VDS через appleboy/ssh-action.
 # Не self-hosted — на VDS лишний runner-процесс ел бы ~150 MB RAM.
@@ -16,12 +27,16 @@
 name: Deploy backend to VDS
 
 on:
-  push:
+  # Ждём завершения build-tenant-image (образ retag'нут на VDS) — только тогда
+  # имеет смысл делать docker compose up на hi-tech.
+  workflow_run:
+    workflows: ["Build tenant image"]
+    types: [completed]
     branches: [prod]
   workflow_dispatch:
 
-# Один деплой за раз. cancel-in-progress=false — нельзя обрывать docker build
-# на полпути, лучше дать закончить и стартовать второй.
+# Один деплой за раз. cancel-in-progress=false — нельзя обрывать docker
+# compose up на полпути, лучше дать закончить и стартовать второй.
 concurrency:
   group: deploy-vds-backend
   cancel-in-progress: false
@@ -30,6 +45,12 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # Ключевое условие: workflow_run триггерится даже если build упал.
+    # Не хотим катить hi-tech на потенциально сломанном/старом образе.
+    # workflow_dispatch (manual) пропускаем всегда — юзер знает, что делает.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
 
     steps:
       - name: SSH and run deploy.sh backend
@@ -46,7 +67,7 @@ jobs:
 
       - name: Healthcheck https://hi-tech.cool-doc.ru/api/health
         run: |
-          # Бэку после rebuild + alembic upgrade нужно 15-40s, плюс tini → uvicorn.
+          # Compose recreate + alembic upgrade + tini → uvicorn ~15-40s.
           # 45 итераций × 4s = 180s суммарного таймаута.
           for i in $(seq 1 45); do
             code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 \
