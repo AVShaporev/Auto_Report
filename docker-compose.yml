@@ -106,11 +106,18 @@ services:
     container_name: auto-report-backend
     restart: unless-stopped
 
-    # build.context = текущая папка (Auto_Report репо).
-    # Dockerfile в корне репо (multi-stage, см. сам файл).
-    build:
-      context: .
-      dockerfile: Dockerfile
+    # image (не build) — pre-built образ из ghcr.io, тот же что и у
+    # SaaS-tenant'ов (Auto_Report_Master/templates/tenant-compose.yml.tpl).
+    # Собирается в GHA (.github/workflows/build-tenant-image.yml) на
+    # GitHub-hosted runner'е, пушится в ghcr.io/<owner>/auto-report-tenant,
+    # затем notify-vds job'а делает docker pull + docker tag ... в короткое
+    # имя auto-report-tenant:latest на самом VDS.
+    #
+    # Почему это критично для hi-tech: раньше docker compose --build пытался
+    # тянуть poetry с pypi.org во время build'а, и любой сбой pypi/сетевая
+    # проблема на VDS валила деплой. Теперь VDS только запускает готовый
+    # артефакт — no pip, no pypi, детерминированно.
+    image: auto-report-tenant:latest
 
     # DB_*, SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES,
     # REFRESH_TOKEN_EXPIRE_DAYS, MEDIA_ROOT — всё в одном .env.
@@ -150,11 +157,12 @@ services:
     container_name: auto-report-frontend
     restart: unless-stopped
 
-    # build.context = соседний фронт-репо.
-    # На VDS оба репо должны лежать в /opt/auto-report/{Auto_Report,Auto_report_front}/.
-    build:
-      context: ../Auto_report_front
-      dockerfile: Dockerfile
+    # image (не build) — pre-built образ из ghcr.io, тот же что и у
+    # SaaS-tenant'ов. Собирается в Auto_report_front/.github/workflows/
+    # build-tenant-image.yml на GitHub-hosted runner'е (Node + npm build
+    # съедают ~2GB RAM во время сборки — на 2GB VDS OOM неизбежен).
+    # notify-vds retag'ает в короткое имя auto-report-front-tenant:latest.
+    image: auto-report-front-tenant:latest
 
     # Caddy в контейнере (см. Auto_Report_Master/caddy/) ходит сюда по
     # docker-DNS через ar_caddy сеть → auto-report-frontend:80, без host-портов.

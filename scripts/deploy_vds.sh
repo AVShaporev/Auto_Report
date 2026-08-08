@@ -144,19 +144,26 @@ else
 fi
 
 # ─── 4. docker compose up ─────────────────────────────────────────────
+# Больше НЕ --build: backend/frontend теперь тянут pre-built образы
+# (auto-report-tenant:latest / auto-report-front-tenant:latest), retag'нутые
+# на VDS через notify-vds job'у в build-tenant-image workflow'ах обоих репо.
+# Compose просто recreate'ит контейнер с текущим тэгом образа. Если образа
+# на VDS ещё нет (первый деплой либо пробуксовал notify-vds) — compose падает
+# с "No such image", деплой красный, надо руками docker pull + retag или
+# перезапустить build-tenant-image workflow.
 cd "$COMPOSE_DIR"
 case "$TARGET" in
     backend)
-        echo "[deploy] docker compose up -d --build backend"
-        docker compose up -d --build backend
+        echo "[deploy] docker compose up -d backend"
+        docker compose up -d backend
         ;;
     frontend)
-        echo "[deploy] docker compose up -d --build frontend"
-        docker compose up -d --build frontend
+        echo "[deploy] docker compose up -d frontend"
+        docker compose up -d frontend
         ;;
     all)
-        echo "[deploy] docker compose up -d --build (все сервисы)"
-        docker compose up -d --build
+        echo "[deploy] docker compose up -d (все сервисы)"
+        docker compose up -d
         ;;
 esac
 
