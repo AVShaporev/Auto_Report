@@ -1,5 +1,7 @@
 import os
 from pathlib import Path
+from urllib.parse import quote
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -57,7 +59,13 @@ MEDIA_TEMPLATES_PATH.mkdir(parents=True, exist_ok=True)
 
 
 def get_db_url():
-    return (f"postgresql+asyncpg://{settings.DB_USER}:{settings.DB_PASSWORD}@"
+    # URL-encode пользователя и пароль: base64-пароли содержат +/= (все они
+    # reserved-symbols в URL), а трейлинг \r/\n от sops/sed редактирования
+    # тоже ломает URL-парсер asyncpg → он отправляет в БД усечённый пароль
+    # и получает InvalidPassword. quote(safe='') кодирует всё что нельзя.
+    user = quote(settings.DB_USER, safe='')
+    password = quote(settings.DB_PASSWORD, safe='')
+    return (f"postgresql+asyncpg://{user}:{password}@"
             f"{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}")
 
 def get_auth_data():
