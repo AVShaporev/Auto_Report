@@ -24,6 +24,9 @@ class LinkMobilePhotosRequest(BaseModel):
     """
     final_paths: list[str] = Field(..., min_length=1, max_length=10)
     title: Optional[str] = Field(None, max_length=255)
+    # Тег вложения выбирает инженер в мобильном UI (селектор перед PhotoUploader).
+    # Дефолт 'report_photo' оставлен на случай backward-compat со старыми клиентами.
+    kind: ReportAttachmentKind = ReportAttachmentKind.report_photo
 
 
 class ReportAttachmentResponse(BaseModel):

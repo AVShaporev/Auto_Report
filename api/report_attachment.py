@@ -82,6 +82,7 @@ async def link_mobile_photos(
         report_id=report_id,
         final_paths=body.final_paths,
         title=body.title,
+        kind=body.kind,
         current_user=current_user,
     )
 
