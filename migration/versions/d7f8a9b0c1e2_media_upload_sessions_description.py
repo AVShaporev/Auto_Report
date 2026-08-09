@@ -23,11 +23,16 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column(
-        'media_upload_sessions',
-        sa.Column('description', sa.String(), nullable=True),
+    # IF NOT EXISTS: hi-tech БД уже могла получить эту колонку через ручной
+    # ALTER TABLE (был quick-fix пока GHA не докатил образ с миграцией).
+    # Не мешаем повторному прогону, чтобы alembic upgrade не упал на дубле.
+    op.execute(
+        "ALTER TABLE media_upload_sessions "
+        "ADD COLUMN IF NOT EXISTS description VARCHAR"
     )
 
 
 def downgrade() -> None:
-    op.drop_column('media_upload_sessions', 'description')
+    op.execute(
+        "ALTER TABLE media_upload_sessions DROP COLUMN IF EXISTS description"
+    )
