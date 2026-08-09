@@ -30,12 +30,17 @@ pillow-heif = "^1.3.0"
 pypdf = "^6.10.2"
 docxtpl = "^0.20.2"
 apscheduler = "^3.10.4"
+# httpx нужен в runtime — service/master_client.py дёргает master API
+# для soft-mode банера (SaaS Этап 8.2). Раньше httpx был в dev-группе
+# (для тестов), но Dockerfile ставит `poetry export --without dev`,
+# и на 192-stage systemd unit тоже без dev-группы — оба падали с
+# ModuleNotFoundError. Перенесено 2026-08-09.
+httpx = "^0.27.2"
 
 
 [tool.poetry.group.dev.dependencies]
 python-docx = "^1.2.0"
 pytest-asyncio = "^0.25.0"
-httpx = "^0.27.2"
 
 [tool.pytest.ini_options]
 # Тесты лежат в ./tests, asyncio_mode=auto означает что
