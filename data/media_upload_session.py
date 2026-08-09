@@ -53,8 +53,12 @@ async def update_media_upload_progress(
     *,
     received_bytes: int,
 ) -> None:
+    # updated_at не трогаем — Base.updated_at имеет onupdate=datetime.now
+    # (naive), сработает автоматом. Ручное `datetime.now(timezone.utc)` ломало
+    # asyncpg: колонка через Base типизирована как TIMESTAMP WITHOUT TIME ZONE,
+    # aware datetime не биндится и падает DataError "can't subtract
+    # offset-naive and offset-aware datetimes" (M5.3 hotfix).
     row.received_bytes = received_bytes
-    row.updated_at = datetime.now(timezone.utc)
     await session.commit()
 
 
@@ -66,7 +70,6 @@ async def finalize_media_upload_session(
 ) -> None:
     row.final_path = final_path
     row.is_complete = True
-    row.updated_at = datetime.now(timezone.utc)
     await session.commit()
 
 
