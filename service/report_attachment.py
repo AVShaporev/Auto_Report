@@ -15,7 +15,10 @@ from database.database import new_session
 from model.report_attachment import Report_Attachment
 from model.user import User
 from schema.report_attachment import ReportAttachmentKind
-from service.attachment_converter import convert_uploads_to_pdf
+from service.attachment_converter import (
+    convert_disk_files_to_pdf,
+    convert_uploads_to_pdf,
+)
 
 
 # ========== УТИЛИТЫ ==========
@@ -167,6 +170,95 @@ async def upload_attachment(
 
         # Перечитываем с загрузкой uploader для ответа.
         fresh = await attachment_data.get_report_attachment_by_id(session, attachment.id, load_uploader=True)
+        return _to_response(fresh)
+
+
+# ========== ЛИНКОВКА MOBILE-ФОТО (M5.3) ==========
+
+async def link_mobile_photos(
+    *,
+    report_id: int,
+    final_paths: List[str],
+    title: Optional[str],
+    current_user: User,
+) -> dict:
+    """Собрать mobile-загруженные фото (MEDIA/mobile/*.jpg) в один PDF-attachment.
+
+    Работает без re-upload: фото уже на диске после chunked-upload (M1.5).
+    Ограничение kind='report_photo' — фото с объекта, доказательство работ.
+    """
+    _check_permission(current_user, "report_modify", "линковки mobile-фото")
+
+    # Валидация путей: они должны быть под MEDIA/mobile, без path-traversal.
+    resolved_paths: List[Path] = []
+    for rel in final_paths:
+        if not rel or ".." in rel.split("/") or rel.startswith("/"):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Некорректный final_path: '{rel}'",
+            )
+        # M1.5 кладёт в MEDIA/mobile/<uuid>_<name>.jpg — принимаем как есть,
+        # так и голое имя (для гибкости на случай если фронт отдал basename).
+        candidate = MEDIA_PATH / rel
+        candidate_alt = MEDIA_PATH / "mobile" / rel
+        if candidate.is_file():
+            resolved_paths.append(candidate)
+        elif candidate_alt.is_file():
+            resolved_paths.append(candidate_alt)
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Файл '{rel}' не найден в MEDIA",
+            )
+
+    pdf_bytes, pages = await convert_disk_files_to_pdf(resolved_paths)
+    size_bytes = len(pdf_bytes)
+
+    async with new_session() as session:
+        report = await report_data.get_report_by_id(session, report_id)
+        if not report:
+            raise HTTPException(status_code=404, detail=f"Отчёт с id {report_id} не найден")
+        if report.user_id != current_user.id and not current_user.role.is_admin:
+            raise HTTPException(
+                status_code=403,
+                detail="Вы можете добавлять вложения только в свои отчёты",
+            )
+        if report.status and report.status.code == 'approved':
+            raise HTTPException(
+                status_code=400,
+                detail="Отчёт утверждён — изменять вложения нельзя",
+            )
+
+        kind_str = ReportAttachmentKind.report_photo.value
+        attachment = await attachment_data.create_report_attachment(
+            session,
+            report_id=report_id,
+            kind=kind_str,
+            title=(title or None),
+            size_bytes=size_bytes,
+            pages=pages,
+            uploaded_by=current_user.id,
+        )
+
+        report_dir = _report_dir(report_id)
+        report_dir.mkdir(parents=True, exist_ok=True)
+        filename = _attachment_filename(attachment.id, kind_str, title)
+        abs_path = report_dir / filename
+        try:
+            abs_path.write_bytes(pdf_bytes)
+        except OSError as exc:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Не удалось сохранить файл вложения: {exc}",
+            )
+
+        rel_path = str(Path("reports") / str(report_id) / filename).replace("\\", "/")
+        await attachment_data.set_report_attachment_path(session, attachment.id, rel_path)
+        await session.commit()
+
+        fresh = await attachment_data.get_report_attachment_by_id(
+            session, attachment.id, load_uploader=True
+        )
         return _to_response(fresh)
 
 
