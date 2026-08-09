@@ -10,6 +10,20 @@ class ReportAttachmentKind(str, Enum):
     journal = "journal"
     equipment = "equipment"
     other = "other"
+    # Mobile-app линкует набор фото с объекта в одно вложение через
+    # POST /api/report/{id}/attachments/link-mobile-photos (M5.3).
+    report_photo = "report_photo"
+
+
+class LinkMobilePhotosRequest(BaseModel):
+    """Тело запроса линковки фото из MEDIA/mobile/*.jpg к отчёту.
+
+    Мобильный клиент сначала грузит фото через chunked-upload (M1.5),
+    получает final_path'ы, затем передаёт их сюда — backend соберёт
+    все фото в один многостраничный PDF и создаст Report_Attachment.
+    """
+    final_paths: list[str] = Field(..., min_length=1, max_length=10)
+    title: Optional[str] = Field(None, max_length=255)
 
 
 class ReportAttachmentResponse(BaseModel):

@@ -8,6 +8,7 @@
 - Реальный формат определяется по содержимому (Pillow / pypdf), а не по расширению.
 """
 import io
+from pathlib import Path
 from typing import List, Tuple
 
 import img2pdf
@@ -76,6 +77,65 @@ async def convert_uploads_to_pdf(files: List[UploadFile]) -> Tuple[bytes, int]:
                 detail=(
                     f"Файл '{filename}' — PDF. Готовый PDF можно загрузить только один, "
                     "и без других файлов в этом вложении."
+                ),
+            )
+        image_payloads.append(_normalize_image_to_jpeg(data, filename))
+
+    try:
+        pdf_bytes = img2pdf.convert(image_payloads)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Не удалось собрать PDF из изображений: {exc}",
+        )
+    return pdf_bytes, len(image_payloads)
+
+
+async def convert_disk_files_to_pdf(paths: List[Path]) -> Tuple[bytes, int]:
+    """Сконвертировать список файлов С ДИСКА в один многостраничный PDF.
+
+    Аналог convert_uploads_to_pdf, но для случая когда файлы УЖЕ на диске
+    (например, mobile chunked-upload положил их в MEDIA/mobile/*.jpg).
+    Используется в M5.3 link-mobile-photos endpoint.
+    """
+    if not paths:
+        raise HTTPException(status_code=400, detail="Не передано ни одного файла")
+    if len(paths) > MAX_FILES_PER_ATTACHMENT:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Слишком много файлов в одном вложении (максимум {MAX_FILES_PER_ATTACHMENT})",
+        )
+
+    raw_payloads: List[Tuple[str, bytes]] = []
+    for path in paths:
+        if not path.is_file():
+            raise HTTPException(
+                status_code=400,
+                detail=f"Файл '{path.name}' не найден на диске",
+            )
+        data = path.read_bytes()
+        if not data:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Файл '{path.name}' пустой",
+            )
+        if len(data) > MAX_FILE_SIZE:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Файл '{path.name}' превышает лимит "
+                    f"{MAX_FILE_SIZE // (1024 * 1024)} МБ"
+                ),
+            )
+        raw_payloads.append((path.name, data))
+
+    image_payloads: List[bytes] = []
+    for filename, data in raw_payloads:
+        if _looks_like_pdf(data):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Файл '{filename}' — PDF. Линковать можно только фото."
                 ),
             )
         image_payloads.append(_normalize_image_to_jpeg(data, filename))

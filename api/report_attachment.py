@@ -5,7 +5,11 @@ from fastapi.responses import FileResponse
 
 from core.dependencies import get_current_active_user
 from model.user import User
-from schema.report_attachment import ReportAttachmentKind, ReportAttachmentResponse
+from schema.report_attachment import (
+    LinkMobilePhotosRequest,
+    ReportAttachmentKind,
+    ReportAttachmentResponse,
+)
 from service import report_attachment as attachment_service
 
 router = APIRouter(prefix="/api/report", tags=["report-attachments"])
@@ -51,6 +55,33 @@ async def upload_report_attachment(
         kind=kind,
         title=title,
         files=files,
+        current_user=current_user,
+    )
+
+
+@router.post(
+    "/{report_id}/attachments/link-mobile-photos",
+    response_model=ReportAttachmentResponse,
+)
+async def link_mobile_photos(
+    report_id: int,
+    body: LinkMobilePhotosRequest,
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    Прилинковать mobile-фото к отчёту (M5.3).
+
+    Мобильный клиент сначала грузит фото через chunked-upload M1.5
+    (POST /api/mobile/media/upload/init → PUT chunks → получает final_path),
+    затем передаёт список final_path сюда. Backend собирает фото в один
+    многостраничный PDF и создаёт Report_Attachment kind='report_photo'.
+
+    Требуется право: report_modify. Утверждённый отчёт менять нельзя.
+    """
+    return await attachment_service.link_mobile_photos(
+        report_id=report_id,
+        final_paths=body.final_paths,
+        title=body.title,
         current_user=current_user,
     )
 
