@@ -13,7 +13,10 @@
 # Запуск из /opt/auto-report/Auto_Report/:
 #   docker compose up -d --build
 #
-# Compose автоматически подхватывает ../.env через env_file у каждого сервиса.
+# Все сервисы требуют переменной окружения ENV_FILE — путь до расшифрованного
+# SOPS env-файла (см. scripts/deploy_vds.sh + scripts/decrypt-env.sh).
+# Без ENV_FILE compose up падает явно. Fallback на ../.env убран после
+# инцидента 2026-08-08 (legacy plaintext молча перекрывал SOPS).
 # `version:` тег не нужен — он deprecated с compose v2+.
 
 # =====================================================================
@@ -67,11 +70,13 @@ services:
     # игнорятся. ВАЖНО: если меняешь POSTGRES_PASSWORD после первого старта,
     # это НЕ ротирует пароль в БД, надо вручную ALTER USER через psql.
     # ENV_FILE экспортируется deploy_vds.sh после расшифровки SOPS-файла
-    # (scripts/decrypt-env.sh vds-prod). Дефолт `../.env` оставлен на случай
-    # ручного `docker compose up` без SOPS — на чистом stage / dev-машине.
-    # На VDS этот дефолт больше не должен срабатывать после раскатки SOPS.
+    # (scripts/decrypt-env.sh <env>). Без ENV_FILE `docker compose up` явно
+    # упадёт («env file path is empty»/«file not found»). Fallback на
+    # legacy plaintext ../.env убран после инцидента 2026-08-08 — compose
+    # молча тянул рассинхронизированный файл и backend падал на
+    # InvalidPasswordError.
     env_file:
-      - ${ENV_FILE:-../.env}
+      - ${ENV_FILE}
 
     # Локальный 5432:5432 — наружу не торчит (только loopback хоста),
     # достаём из DBeaver через SSH-туннель:
@@ -122,11 +127,10 @@ services:
     # DB_*, SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES,
     # REFRESH_TOKEN_EXPIRE_DAYS, MEDIA_ROOT — всё в одном .env.
     # ENV_FILE экспортируется deploy_vds.sh после расшифровки SOPS-файла
-    # (scripts/decrypt-env.sh vds-prod). Дефолт `../.env` оставлен на случай
-    # ручного `docker compose up` без SOPS — на чистом stage / dev-машине.
-    # На VDS этот дефолт больше не должен срабатывать после раскатки SOPS.
+    # (scripts/decrypt-env.sh <env>). Без ENV_FILE `docker compose up` явно
+    # упадёт — см. комментарий у postgres.
     env_file:
-      - ${ENV_FILE:-../.env}
+      - ${ENV_FILE}
 
     # Не пробрасываем :8000 наружу — Caddy → frontend-nginx → backend:8000
     # внутри docker-network.
