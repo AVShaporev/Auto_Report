@@ -180,6 +180,7 @@ async def link_mobile_photos(
     report_id: int,
     final_paths: List[str],
     title: Optional[str],
+    kind: ReportAttachmentKind,
     current_user: User,
 ) -> dict:
     """Собрать mobile-загруженные фото (MEDIA/mobile/*.jpg) в один PDF-attachment.
@@ -229,7 +230,7 @@ async def link_mobile_photos(
                 detail="Отчёт утверждён — изменять вложения нельзя",
             )
 
-        kind_str = ReportAttachmentKind.report_photo.value
+        kind_str = kind.value
         attachment = await attachment_data.create_report_attachment(
             session,
             report_id=report_id,
