@@ -178,14 +178,44 @@ async def get_all_organizations(
                                 ):
     """
     Получить все организации (без пагинации)
-    
+
     Требуется право: organization_read
     """
     organizations = await org_service.get_all_organizations(
                                                             current_user,
                                                             load_relations = False)
-    
+
     return organizations
+
+@router.get("/customer/all", response_model=List[OrganizationListResponse])
+async def get_all_customer_organizations(
+                                current_user: User = Depends(get_current_active_user)
+                                ):
+    """
+    Получить всех заказчиков (organization.customer=True) без пагинации.
+
+    Требуется право: organization_read
+    """
+    return await org_service.get_all_organizations(
+                                                    current_user,
+                                                    load_relations=False,
+                                                    customer=True
+                                                )
+
+@router.get("/executor/all", response_model=List[OrganizationListResponse])
+async def get_all_executor_organizations(
+                                current_user: User = Depends(get_current_active_user)
+                                ):
+    """
+    Получить всех подрядчиков (organization.executor=True) без пагинации.
+
+    Требуется право: organization_read
+    """
+    return await org_service.get_all_organizations(
+                                                    current_user,
+                                                    load_relations=False,
+                                                    executor=True
+                                                )
 
 @router.get("/{organization_id}", response_model=OrganizationResponse)
 async def get_organization_by_id(

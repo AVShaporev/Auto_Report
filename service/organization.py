@@ -163,15 +163,22 @@ async def get_organizations_paginated(
 
 async def get_all_organizations(
                                 current_user: User,
-                                load_relations: bool = False
+                                load_relations: bool = False,
+                                customer: Optional[bool] = None,
+                                executor: Optional[bool] = None
                                 ) -> List[Organization]:
     """
-    Получить все организации (без пагинации)
+    Получить все организации без пагинации (опционально с фильтром по флагам customer/executor)
     """
     await check_permission(current_user, "organization_read", "просмотра организаций")
-    
+
     async with new_session() as session:
-        return await org_data.get_organization_all(session, load_relations)
+        return await org_data.get_organization_all(
+                                                    session,
+                                                    load_relations=load_relations,
+                                                    customer=customer,
+                                                    executor=executor
+                                                )
 
 # ========== СОЗДАНИЕ ==========
 
