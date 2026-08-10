@@ -68,19 +68,28 @@ async def get_organization_by_inn(
 @timer
 async def get_organization_all(
                                 session: AsyncSession,
-                                load_relations: bool = False
+                                load_relations: bool = False,
+                                customer: Optional[bool] = None,
+                                executor: Optional[bool] = None
                                 ) -> List[Organization]:
     """
-    Получить все организации
+    Получить все организации (опционально с фильтром по флагам customer/executor)
     """
-    query = select(Organization).order_by(Organization.name)
-    
+    query = select(Organization)
+
+    if customer is not None:
+        query = query.where(Organization.customer == customer)
+    if executor is not None:
+        query = query.where(Organization.executor == executor)
+
+    query = query.order_by(Organization.name)
+
     if load_relations:
         query = query.options(
                                 selectinload(Organization.bank),
                                 selectinload(Organization.region)
                                 )
-    
+
     result = await session.execute(query)
     return result.scalars().all()
 
