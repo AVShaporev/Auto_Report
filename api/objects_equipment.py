@@ -7,6 +7,7 @@ from schema.objects_equipment import (
     ObjectsEquipmentUpdate,
     ObjectsEquipmentResponse,
     ObjectsEquipmentListResponse,
+    ObjectsEquipmentOptionResponse,
     AddEquipmentToObject,
     EquipmentOnObjectResponse
 )
@@ -61,6 +62,34 @@ async def get_links_list(
         per_page=pagination.limit,
         pages=pages
     )
+
+# ========== ВЫПАДАЮЩИЙ СПИСОК ==========
+
+@router.get("/options", response_model=List[ObjectsEquipmentOptionResponse])
+async def get_objects_equipment_options(
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Получить все связи объект-оборудование для выпадающих списков (без пагинации).
+
+    Нужно фронту для каскадных селектов «Договор → Объект → Оборудование» в форме
+    неисправности: /list ограничен per_page<=100 через PaginationParams, поэтому
+    не годится когда связей > 100.
+
+    Требуется право: object_equipment_read
+    """
+    items = await link_service.get_objects_equipment_options(current_user)
+
+    return [
+        {
+            "id": item.id,
+            "object_id": item.object_id,
+            "equipment_id": item.equipment_id,
+            "equipment_name": item.equipment.name if item.equipment else None,
+            "inventory_number": item.inventory_number,
+        }
+        for item in items
+    ]
 
 # ========== ПОЛУЧЕНИЕ ПО ОБЪЕКТУ ==========
 

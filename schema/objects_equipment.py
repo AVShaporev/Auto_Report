@@ -109,6 +109,21 @@ class EquipmentOnObjectResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+# ========== СХЕМА ДЛЯ ВЫПАДАЮЩЕГО СПИСКА ==========
+
+class ObjectsEquipmentOptionResponse(BaseModel):
+    """Минимальная информация о связи объект-оборудование для выпадающих списков.
+    Используется в формах, где нужен селект «оборудование на объекте» (например,
+    IssueForm) — весь список без пагинации, фильтруется на клиенте по object_id."""
+    id: int
+    object_id: int
+    equipment_id: int
+    equipment_name: Optional[str] = None
+    inventory_number: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 # ========== СХЕМА ДЛЯ ДОБАВЛЕНИЯ ОБОРУДОВАНИЯ НА ОБЪЕКТ ==========
 
 class AddEquipmentToObject(BaseModel):
