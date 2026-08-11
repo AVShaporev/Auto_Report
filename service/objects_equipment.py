@@ -63,6 +63,18 @@ async def get_link_by_id(
         
         return link
 
+async def get_objects_equipment_options(
+    current_user: User
+) -> List[Objects_Equipment]:
+    """
+    Получить все связи объект-оборудование для выпадающих списков (формы IssueForm и т.п.).
+    """
+    await check_permission(current_user, "object_equipment_read", "просмотра связей объект-оборудование")
+
+    async with new_session() as session:
+        return await link_data.get_objects_equipment_all(session, load_relations=True)
+
+
 async def get_links_by_object(
     object_id: int,
     current_user: User
