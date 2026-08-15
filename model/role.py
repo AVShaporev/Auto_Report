@@ -198,6 +198,12 @@ class Role(Base):
     spec_status_modify: Mapped[bool] = mapped_column(default=False)
     spec_status_delete: Mapped[bool] = mapped_column(default=False)
 
+    # права на статусы заявок (справочник)
+    spec_order_status_read: Mapped[bool] = mapped_column(default=False)
+    spec_order_status_create: Mapped[bool] = mapped_column(default=False)
+    spec_order_status_modify: Mapped[bool] = mapped_column(default=False)
+    spec_order_status_delete: Mapped[bool] = mapped_column(default=False)
+
     # права на приоритеты неисправностей (справочник)
     spec_priority_read: Mapped[bool] = mapped_column(default=False)
     spec_priority_create: Mapped[bool] = mapped_column(default=False)
