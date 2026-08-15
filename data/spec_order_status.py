@@ -8,35 +8,33 @@ from utils.timer import timer
 
 
 # Read-only справочник. Сидится миграцией e8f9a0b1c2d3 (4 системные строки).
-# CRUD не нужен — статусы фиксированы кодом (см. Literal-валидатор в
-# api/order.py:update_order_status).
+# CRUD не нужен — статусы фиксированы. Если админ через прямой SQL захочет
+# добавить/переименовать — фронт подхватит через /options.
 
 
 @timer
 async def get_spec_order_status_all(session: AsyncSession) -> List[Spec_Order_Status]:
-    """Все статусы в порядке display_order (для селектов на фронте)."""
-    query = select(Spec_Order_Status).order_by(
-        Spec_Order_Status.display_order, Spec_Order_Status.id
-    )
+    """Все статусы отсортированы по id (порядок сида = порядок отображения)."""
+    query = select(Spec_Order_Status).order_by(Spec_Order_Status.id)
     result = await session.execute(query)
     return result.scalars().all()
 
 
-@timer
-async def get_spec_order_status_by_code(
-    session: AsyncSession, code: str
-) -> Optional[Spec_Order_Status]:
-    query = select(Spec_Order_Status).where(Spec_Order_Status.code == code)
-    result = await session.execute(query)
-    return result.scalar_one_or_none()
+async def get_default_status_id(session: AsyncSession) -> int:
+    """id статуса по умолчанию (is_default=true).
 
-
-async def get_status_id_by_code(
-    session: AsyncSession, code: str
-) -> Optional[int]:
-    """Resolve строковый код → id. Возвращает None если код не найден
-    (защиты нет: service должен обработать, обычно 400 Bad Request или
-    fallback на код 'new'). Один SELECT id без загрузки объекта."""
-    query = select(Spec_Order_Status.id).where(Spec_Order_Status.code == code)
-    result = await session.execute(query)
-    return result.scalar_one_or_none()
+    Используется autogen'ом и create_order когда клиент не передал status_id.
+    Partial unique index гарантирует одну такую строку. Если её вдруг нет
+    (сид не прогнан?) — вернём MIN(id) как fallback.
+    """
+    result = await session.execute(
+        select(Spec_Order_Status.id).where(Spec_Order_Status.is_default.is_(True))
+    )
+    sid = result.scalar_one_or_none()
+    if sid is not None:
+        return sid
+    # Fallback: первый по id (обычно "Новая" после сида).
+    result2 = await session.execute(
+        select(Spec_Order_Status.id).order_by(Spec_Order_Status.id).limit(1)
+    )
+    return result2.scalar_one()

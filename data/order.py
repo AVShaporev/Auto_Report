@@ -6,32 +6,11 @@ from datetime import date
 
 from model.order import Order
 from model.object import Object
-from model.spec_order_status import Spec_Order_Status
 from schema.order import OrderCreate, OrderUpdate
+from data import spec_order_status as spec_order_status_data
 
 from utils.timer import timer
 from utils.loading import shallow_load
-
-
-# ---------------------------------------------------------------------------
-# Helper — резолв кода статуса в id справочника. Order.status_id — FK на
-# spec_order_statuses.id (миграция f9a0b1c2d3e4). API-контракт по-прежнему
-# принимает/отдаёт строковый код; конвертация — вот здесь.
-# ---------------------------------------------------------------------------
-async def _status_id_from_code(session: AsyncSession, code: str) -> int:
-    row = await session.execute(
-        select(Spec_Order_Status.id).where(Spec_Order_Status.code == code)
-    )
-    sid = row.scalar_one_or_none()
-    if sid is None:
-        # Fallback на 'new' — единственный сценарий когда сюда попал невалид,
-        # это в обход Literal-валидатора (например через модель напрямую).
-        # 'new' сидится системным и не удаляется, так что всегда есть.
-        row2 = await session.execute(
-            select(Spec_Order_Status.id).where(Spec_Order_Status.code == "new")
-        )
-        sid = row2.scalar_one()
-    return sid
 
 
 
@@ -120,7 +99,7 @@ async def get_order_paginated(
     contract_id: Optional[int] = None,
     object_id: Optional[int] = None,
     user_id: Optional[int] = None,
-    status: Optional[str] = None,
+    status_id: Optional[List[int]] = None,
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
     region_id: Optional[List[int]] = None,
@@ -166,16 +145,10 @@ async def get_order_paginated(
         query = query.where(Order.user_id == user_id)
         count_query = count_query.where(Order.user_id == user_id)
 
-    if status:
-        # Order.status теперь FK на spec_order_statuses.id — фильтр по коду
-        # через JOIN. lazy="joined" уже загружает spec_order_status для чтения,
-        # но explicit JOIN даёт где-условию доступ к колонке.
-        query = query.join(
-            Spec_Order_Status, Spec_Order_Status.id == Order.status_id
-        ).where(Spec_Order_Status.code == status)
-        count_query = count_query.join(
-            Spec_Order_Status, Spec_Order_Status.id == Order.status_id
-        ).where(Spec_Order_Status.code == status)
+    if status_id:
+        # Мультиселект по id справочника — фильтруем по FK напрямую, без JOIN.
+        query = query.where(Order.status_id.in_(status_id))
+        count_query = count_query.where(Order.status_id.in_(status_id))
 
     if date_from:
         query = query.where(Order.created_at >= date_from)
@@ -247,17 +220,15 @@ async def get_order_paginated(
 @timer
 async def get_order_options(
     session: AsyncSession,
-    status: Optional[str] = None
+    status_id: Optional[int] = None
 ) -> List[Order]:
     """
     Получить минимальную информацию о заявках для выпадающих списков
     """
     query = select(Order).order_by(Order.created_at.desc())
 
-    if status:
-        query = query.join(
-            Spec_Order_Status, Spec_Order_Status.id == Order.status_id
-        ).where(Spec_Order_Status.code == status)
+    if status_id:
+        query = query.where(Order.status_id == status_id)
 
     result = await session.execute(query)
     return result.scalars().all()
@@ -361,19 +332,19 @@ async def count_reports_by_order(
 async def update_order_status(
     session: AsyncSession,
     order_id: int,
-    status: str
+    status_id: int
 ) -> Optional[Order]:
-    """Обновить статус заявки.
+    """Обновить статус заявки. Принимает FK id из spec_order_statuses.
 
-    Принимает строковый код (API-совместимость). Внутри резолвит в
-    status_id через справочник spec_order_statuses. Literal-валидатор в
-    api/order.py уже отсеял невалидные коды до этого момента.
+    Валидация «есть ли такой id» — на уровне DB (FK constraint), 400 сюда
+    не долетит; при попытке несуществующего id INSERT/UPDATE упадёт с
+    ForeignKeyViolation.
     """
     order = await get_order_by_id(session, order_id, load_relations=False)
     if not order:
         return None
 
-    order.status_id = await _status_id_from_code(session, status)
+    order.status_id = status_id
     await session.commit()
     await session.refresh(order)
     return order
@@ -390,15 +361,15 @@ async def create_order(
 ) -> Order:
     """Создать новую заявку. number и user_id приходят из сервиса.
 
-    OrderCreate несёт `status` строкой (API-совместимость), но в модели
-    Order теперь status_id FK — конвертируем перед созданием.
+    Если OrderCreate.status_id не задан — берём дефолтный
+    (spec_order_statuses.is_default=true).
     """
     order_data = order_create.model_dump()
     order_data['user_id'] = user_id
     order_data['number'] = number
 
-    status_code = order_data.pop('status', None) or 'new'
-    order_data['status_id'] = await _status_id_from_code(session, status_code)
+    if not order_data.get('status_id'):
+        order_data['status_id'] = await spec_order_status_data.get_default_status_id(session)
 
     order = Order(**order_data)
     session.add(order)
@@ -416,17 +387,13 @@ async def update_order(
 ) -> Optional[Order]:
     """Обновить заявку.
 
-    OrderUpdate.status — строковый код (API-компат), конвертируем в
-    status_id перед setattr. Order.status теперь @property (read-only).
+    OrderUpdate.status_id — если передан, обновляется как обычное FK-поле.
     """
     order = await get_order_by_id(session, order_id, load_relations=False)
     if not order:
         return None
 
     update_data = order_update.model_dump(exclude_unset=True)
-    status_code = update_data.pop('status', None)
-    if status_code is not None:
-        update_data['status_id'] = await _status_id_from_code(session, status_code)
     for field, value in update_data.items():
         if hasattr(order, field):
             setattr(order, field, value)

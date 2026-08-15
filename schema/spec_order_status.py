@@ -1,17 +1,17 @@
+from typing import Optional
+
 from pydantic import BaseModel, Field, ConfigDict
 
 
 class SpecOrderStatusOptionResponse(BaseModel):
-    """Статус заявки для селектов/бейджей на фронтах.
+    """Статус заявки для селектов/фильтров/бейджей на фронтах.
 
-    code — системный код на Order.status ('new', 'in_progress', ...).
-    name — ру-имя ('Новая', 'В работе', ...).
-    display_order — рекомендуемый порядок в UI.
+    Канон 4 поля: id, name, description, is_default. Ру-имя — единственный
+    источник отображения; на фронтах никакого code→name маппинга нет.
     """
     id: int
-    code: str
     name: str
-    is_system: bool = False
-    display_order: int = 0
+    description: Optional[str] = None
+    is_default: bool = False
 
     model_config = ConfigDict(from_attributes=True)

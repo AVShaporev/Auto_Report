@@ -79,27 +79,12 @@ class Order(Base):
         uselist=False  # Важно для один-к-одному
     )
 
-    # Справочник статуса. lazy="joined" — читатели всегда получают ру-имя
-    # без отдельного SELECT'а, а @property status ниже работает без сюрпризов.
+    # Справочник статуса. lazy="joined" — читатели получают ру-имя без
+    # отдельного SELECT'а.
     spec_order_status: Mapped["Spec_Order_Status"] = relationship(
         "Spec_Order_Status",
         lazy="joined",
     )
-
-    @property
-    def status(self) -> Optional[str]:
-        """Backward-compat: строковый код статуса ('new', 'in_progress',…).
-
-        Читается через relationship. При lazy="joined" всегда populated
-        для ORM-загруженных объектов. Для только что созданных (до commit+
-        refresh) сервис должен вручную refresh или set spec_order_status.
-        """
-        return self.spec_order_status.code if self.spec_order_status else None
-
-    @property
-    def status_name(self) -> Optional[str]:
-        """Ру-имя статуса из справочника."""
-        return self.spec_order_status.name if self.spec_order_status else None
 
     def __str__(self):
         return f"Order(id={self.id}, number={self.number})"
