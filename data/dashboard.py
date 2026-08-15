@@ -21,7 +21,9 @@ async def get_dashboard_stats(session: AsyncSession) -> Dict[str, Any]:
             (SELECT COUNT(*) FROM issues) as issues,
             (SELECT COUNT(*) FROM reports) as reports,
             
-            (SELECT COUNT(*) FROM orders WHERE status = 'pending') as pending_orders,
+            (SELECT COUNT(*) FROM orders o
+             JOIN spec_order_statuses sos ON sos.id = o.status_id
+             WHERE sos.code IN ('new', 'in_progress')) as pending_orders,
             (SELECT COUNT(*) FROM issues WHERE is_resolved = false) as unresolved_issues,
             (SELECT COUNT(*) FROM issues WHERE is_critical = true AND is_resolved = false) as critical_issues
     """)
