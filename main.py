@@ -101,6 +101,15 @@ logger.add(
 
 logger.info("🚀 Логирование Loguru настроено")
 
+# Версия приложения — читается из корневого VERSION файла при старте.
+# Bump'ится руками при релизах, SemVer (MAJOR.MINOR.PATCH).
+try:
+    _VERSION_PATH = Path(__file__).resolve().parent / "VERSION"
+    APP_VERSION = _VERSION_PATH.read_text(encoding="utf-8").strip()
+except Exception:
+    APP_VERSION = "unknown"
+logger.info(f"📦 Auto_Report v{APP_VERSION} starting…")
+
 async def _autogen_tick_job() -> None:
     """Cron-обёртка для tick_planned_orders. Сама не падает — нужно ОЧЕНЬ
     стараться, чтобы APScheduler не выбросил job-failure при первой ошибке
