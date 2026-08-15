@@ -17,6 +17,11 @@ from database.database import Base, int_pk, str_uniq
 # (Literal[...] в api/order.py update_order_status), не на уровне FK.
 # Это осознанно: чтобы миграция была чисто аддитивной и обратимой.
 class Spec_Order_Status(Base):
+    # Base.__tablename__ = cls.__name__.lower() + 's' → 'spec_order_statuss'
+    # (двойное s на конце). Переопределяем на «человеческое» английское
+    # множественное `spec_order_statuses` — то же имя использует миграция
+    # e8f9a0b1c2d3 и FK в model/order.py.
+    __tablename__ = 'spec_order_statuses'
 
     id: Mapped[int_pk]
     name: Mapped[str_uniq]   # 'Новая', 'В работе', 'Выполнена', 'Отменена'

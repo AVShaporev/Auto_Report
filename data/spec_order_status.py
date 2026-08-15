@@ -29,3 +29,14 @@ async def get_spec_order_status_by_code(
     query = select(Spec_Order_Status).where(Spec_Order_Status.code == code)
     result = await session.execute(query)
     return result.scalar_one_or_none()
+
+
+async def get_status_id_by_code(
+    session: AsyncSession, code: str
+) -> Optional[int]:
+    """Resolve строковый код → id. Возвращает None если код не найден
+    (защиты нет: service должен обработать, обычно 400 Bad Request или
+    fallback на код 'new'). Один SELECT id без загрузки объекта."""
+    query = select(Spec_Order_Status.id).where(Spec_Order_Status.code == code)
+    result = await session.execute(query)
+    return result.scalar_one_or_none()

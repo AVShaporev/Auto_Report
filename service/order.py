@@ -448,14 +448,10 @@ async def update_order_status(
     Обновить статус заявки
     """
     await check_permission(current_user, "order_modify", "изменения статуса заявок")
-    
-    valid_statuses = ["new", "in_progress", "completed", "cancelled"]
-    if status not in valid_statuses:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Недопустимый статус. Допустимые значения: {', '.join(valid_statuses)}"
-        )
-    
+
+    # Валидация допустимости кода — на уровне API (Literal[...]) и на уровне
+    # DB (FK на spec_order_statuses). Здесь дублировать не нужно.
+
     async with new_session() as session:
         # Проверяем существование и права
         existing = await order_data.get_order_by_id(session, order_id)

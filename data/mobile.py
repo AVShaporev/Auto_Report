@@ -189,18 +189,16 @@ async def get_orders_mobile_list(
     only_open: bool = True,
     limit: int = 100,
 ) -> List[dict]:
-    # Order.status — обычный строковый enum ('new', 'in_progress', 'completed',
-    # 'cancelled'), НЕ FK на Spec_Status. Ру-имя тянем через soft-JOIN на
-    # spec_order_statuses по коду (справочник, сидится миграцией e8f9a0b1c2d3).
-    # LEFT JOIN — чтобы старая запись с редким/удалённым кодом не пропала из
-    # списка (status_name будет NULL — фронт покажет сырое `status`).
+    # Order.status_id → spec_order_statuses.id (миграция f9a0b1c2d3e4).
+    # Строковый код + ру-имя тянем из справочника JOIN'ом. JOIN inner —
+    # status_id NOT NULL, справочник всегда есть.
     # User.user_id — это АВТОР заявки, а не «назначенный» (у order
     # концепции assignee нет).
     stmt = (
         select(
             Order.id,
             Order.number,
-            Order.status.label("status"),
+            Spec_Order_Status.code.label("status"),
             Spec_Order_Status.name.label("status_name"),
             Order.period_start_date,
             Order.created_at,
@@ -210,14 +208,14 @@ async def get_orders_mobile_list(
         )
         .join(Spec_Order, Spec_Order.id == Order.spec_order_id)
         .join(Object, Object.id == Order.object_id)
+        .join(Spec_Order_Status, Spec_Order_Status.id == Order.status_id)
         .outerjoin(User, User.id == Order.user_id)
-        .outerjoin(Spec_Order_Status, Spec_Order_Status.code == Order.status)
     )
     if only_mine and user_id is not None:
         stmt = stmt.where(Order.user_id == user_id)
     if only_open:
         # Открытые = не завершены и не отменены.
-        stmt = stmt.where(Order.status.in_(["new", "in_progress"]))
+        stmt = stmt.where(Spec_Order_Status.code.in_(["new", "in_progress"]))
     stmt = stmt.order_by(Order.created_at.desc()).limit(limit)
 
     rows = (await session.execute(stmt)).mappings().all()
