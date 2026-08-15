@@ -26,6 +26,7 @@ from model.order import Order
 from model.report import Report
 from model.role import Role
 from model.spec_order import Spec_Order
+from model.spec_order_status import Spec_Order_Status
 from model.spec_priority import Spec_Priority
 from model.spec_status import Spec_Status
 from model.street import Street
@@ -189,14 +190,18 @@ async def get_orders_mobile_list(
     limit: int = 100,
 ) -> List[dict]:
     # Order.status — обычный строковый enum ('new', 'in_progress', 'completed',
-    # 'cancelled'), НЕ FK на Spec_Status. Возвращаем raw-значение, мобильный
-    # клиент решает, как показывать. Аналогично Order.user_id — это АВТОР
-    # заявки, а не «назначенный» (у order концепции assignee нет).
+    # 'cancelled'), НЕ FK на Spec_Status. Ру-имя тянем через soft-JOIN на
+    # spec_order_statuses по коду (справочник, сидится миграцией e8f9a0b1c2d3).
+    # LEFT JOIN — чтобы старая запись с редким/удалённым кодом не пропала из
+    # списка (status_name будет NULL — фронт покажет сырое `status`).
+    # User.user_id — это АВТОР заявки, а не «назначенный» (у order
+    # концепции assignee нет).
     stmt = (
         select(
             Order.id,
             Order.number,
-            Order.status.label("status_name"),
+            Order.status.label("status"),
+            Spec_Order_Status.name.label("status_name"),
             Order.period_start_date,
             Order.created_at,
             Spec_Order.name.label("order_type"),
@@ -206,6 +211,7 @@ async def get_orders_mobile_list(
         .join(Spec_Order, Spec_Order.id == Order.spec_order_id)
         .join(Object, Object.id == Order.object_id)
         .outerjoin(User, User.id == Order.user_id)
+        .outerjoin(Spec_Order_Status, Spec_Order_Status.code == Order.status)
     )
     if only_mine and user_id is not None:
         stmt = stmt.where(Order.user_id == user_id)

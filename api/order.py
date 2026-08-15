@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Query, Response
 from pydantic import BaseModel, Field
-from typing import Optional, List
+from typing import Literal, Optional, List
 from datetime import date
 
 from model.user import User
@@ -274,12 +274,16 @@ async def update_order(
 @router.patch("/{order_id}/status", response_model=OrderResponse)
 async def update_order_status(
     order_id: int,
-    status: str = Query(..., description="Новый статус (new, in_progress, completed, cancelled)"),
+    # Literal синхронизирован с сидом spec_order_statuses (миграция e8f9a0b1c2d3).
+    # Расширение — миграция + правка тут. FastAPI сам вернёт 422 на невалид.
+    status: Literal["new", "in_progress", "completed", "cancelled"] = Query(
+        ..., description="Новый статус"
+    ),
     current_user: User = Depends(get_current_active_user)
 ):
     """
     Обновить статус заявки
-    
+
     Требуется право: order_modify
     """
     order = await order_service.update_order_status(

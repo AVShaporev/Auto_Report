@@ -60,7 +60,8 @@ class MobileOrderListItem(BaseModel):
     """Плановая/аварийная заявка на ТО — то, с чем инженер работает на объекте."""
     id: int
     number: str
-    status_name: Optional[str] = None
+    status: Optional[str] = None       # системный код: new/in_progress/completed/cancelled
+    status_name: Optional[str] = None  # ру-имя из spec_order_statuses (может быть None если справочник рассинхронизирован)
     order_type: Optional[str] = None
     object_name: Optional[str] = None
     period_start_date: Optional[date] = None
