@@ -1,0 +1,92 @@
+Смок-чеклист: канон spec_order_statuses + CRUD + RBAC (Auto_Report)
+====================================================================
+
+Commit цепочки для этой фичи в этом репо:
+  2993e3d — Spec_Order_Status: модель + миграция сида 4 строк + /options
+  c717e69 — orders.status → status_id INT FK (через soft-JOIN на код)
+  d9022c3 — канон 4 поля (drop code/is_system/display_order + is_default)
+  3f9b256 — fix dashboard.pending_orders (JOIN на sos)
+  c82c828 — CRUD + RBAC (4 права spec_order_status_*)
+
+Парные коммиты в других репо:
+  Auto_report_front:   917d98e  (каталог + права + компоненты)
+                       37a4df4  (fix формы — status_id вместо status)
+  Auto_Report_Mobile:  dc31a2e  (status_id + status_name + мультиселект)
+
+DB / миграции (на 192-stage от юзера autoreport):
+------------------------------------------------
+[ ] sudo -u autoreport psql -d autoreport_stage -c "SELECT version_num FROM alembic_version;"
+    Ожидание: b1c2d3e4f5a6
+
+[ ] \d spec_order_statuses
+    Ожидание: колонки id / name / description / is_default / created_at / updated_at.
+    НЕТ code, is_system, display_order.
+
+[ ] \d orders
+    Ожидание: status_id INTEGER NOT NULL,
+              FOREIGN KEY (status_id) REFERENCES spec_order_statuses(id).
+    Колонки status быть НЕ должно.
+
+[ ] SELECT id, name, is_default FROM spec_order_statuses ORDER BY id;
+    Ожидание: 4 строки, is_default=t только у «Новая».
+
+[ ] SELECT sos.name, COUNT(*) FROM orders o
+    JOIN spec_order_statuses sos ON sos.id = o.status_id
+    GROUP BY sos.name;
+    Ожидание: распределение адекватное — данные не потерялись.
+
+[ ] SELECT spec_order_status_read, spec_order_status_create,
+           spec_order_status_modify, spec_order_status_delete
+    FROM roles WHERE is_superadmin = true;
+    Ожидание: все true.
+
+
+Backend API-контракт:
+---------------------
+TOK='<jwt-192-stage>'
+
+[ ] curl -s -H "Authorization: Bearer $TOK" http://127.0.0.1:8001/api/spec_order_status/options | jq
+    Ожидание: 4 объекта { id, name, description, is_default }. НЕТ code.
+
+[ ] curl -s -H "Authorization: Bearer $TOK" http://127.0.0.1:8001/api/order/list?per_page=2 | jq '.items[0]'
+    Ожидание: status_id: int + status_name: str. НЕТ status: str.
+
+[ ] curl -s -X PATCH -H "Authorization: Bearer $TOK" \
+    "http://127.0.0.1:8001/api/order/1/status?status_id=2"
+    Ожидание: 200, поля status_id/status_name обновились.
+
+[ ] curl -s -X PATCH -H "Authorization: Bearer $TOK" \
+    "http://127.0.0.1:8001/api/order/1/status?status_id=9999"
+    Ожидание: 500/422 (FK constraint violation).
+
+[ ] curl -s -H "Authorization: Bearer $TOK" \
+    http://127.0.0.1:8001/api/spec_order_status/list?per_page=10 | jq '.items[0]'
+    Ожидание: { id, name, description, is_default, orders_count }.
+
+[ ] curl -s -X POST -H "Authorization: Bearer $TOK" \
+    -H "Content-Type: application/json" \
+    -d '{"name":"На согласовании","description":"тест","is_default":false}' \
+    http://127.0.0.1:8001/api/spec_order_status/create
+    Ожидание: 200 с id новой строки.
+
+[ ] curl -s -X DELETE -H "Authorization: Bearer $TOK" \
+    http://127.0.0.1:8001/api/spec_order_status/1
+    Ожидание: 400 «нельзя удалить: помечен по умолчанию».
+
+
+Смок фронта (парный чеклист в Auto_report_front/chelists/37a4df4.txt):
+---------------------------------------------------------------------
+См. подробный чеклист для UI-части там.
+
+
+Смок мобилки (парный чеклист в Auto_Report_Mobile/chelists/dc31a2e.txt):
+-----------------------------------------------------------------------
+См. подробный чеклист для APK-части там.
+
+
+Если всё зелёное:
+-----------------
+[ ] merge stage → prod в Auto_Report + Auto_report_front
+[ ] sudo /opt/auto-report-master/Auto_Report_Master/scripts/redeploy-tenants.sh --pull
+    (миграции b1c2d3e4f5a6 добежат до ashaporev и dgkrylov)
+[ ] Смок hi-tech + SaaS-тенантов на prod
