@@ -5,6 +5,14 @@
 версионирование [SemVer](https://semver.org/lang/ru/) — bump на каждый
 фикс/фичу; см. правило в feedback_autoreport_versioning.md.
 
+## [1.0.3] — 2026-08-16
+
+### Fixed
+- RoleBase pydantic-схема не содержала 4 новых поля
+  `spec_order_status_read/create/modify/delete` — фронт слал их при
+  сохранении роли, Pydantic отбрасывал → PUT `/api/role/{id}` не
+  обновлял эти колонки, права спокойно не сохранялись. Дополнил.
+
 ## [1.0.2] — 2026-08-16
 
 ### Changed
