@@ -34,8 +34,13 @@ def _to_response(row: Spec_Order_Status, orders_count: int = 0) -> dict:
 # ========== ПОЛУЧЕНИЕ ==========
 
 async def get_spec_order_status_options(current_user: User) -> List[Spec_Order_Status]:
-    """Публичный options — нужен всем аутентифицированным юзерам для селектов
-    (даже без права spec_order_status_read). Иначе даже создать заявку нельзя."""
+    """Options — требует spec_order_status_read.
+
+    Юзеру без этого права список статусов не показываем нигде (ни в фильтре,
+    ни в форме создания). Создание заявки без выбранного статуса — бэк
+    подставит is_default автоматически (см. data.create_order)."""
+    await check_permission(current_user, "spec_order_status_read", "просмотра статусов заявок")
+
     async with new_session() as session:
         return await spec_order_status_data.get_spec_order_status_all(session)
 

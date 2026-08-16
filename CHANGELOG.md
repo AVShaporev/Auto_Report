@@ -5,6 +5,15 @@
 версионирование [SemVer](https://semver.org/lang/ru/) — bump на каждый
 фикс/фичу; см. правило в feedback_autoreport_versioning.md.
 
+## [1.0.2] — 2026-08-16
+
+### Changed
+- `GET /api/spec_order_status/options` теперь требует право
+  `spec_order_status_read` (было публичным). Юзеры без права
+  получают 403 → фронт скрывает бейджи/фильтры статусов заявок.
+  Create Order без status_id по-прежнему работает — бэк подставляет
+  is_default для рядовых юзеров.
+
 ## [1.0.1] — 2026-08-16
 
 ### Fixed
