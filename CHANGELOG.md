@@ -5,6 +5,17 @@
 версионирование [SemVer](https://semver.org/lang/ru/) — bump на каждый
 фикс/фичу; см. правило в feedback_autoreport_versioning.md.
 
+## [1.0.1] — 2026-08-16
+
+### Fixed
+- `PUT /api/spec_order_status/{id}` с `is_default=true` падал 500
+  (partial unique constraint violation 23505). SQLAlchemy отправлял
+  UPDATE'ы в непредсказуемом порядке — сначала SET true у новой строки,
+  потом SET false у старой, в промежутке два default=true.
+  `_unset_current_default` теперь делает явный `UPDATE ... SET
+  is_default=false` через SQL + `session.flush()` — старая гарантированно
+  сброшена в БД до последующего SET true.
+
 ## [1.0.0] — 2026-08-16
 
 Первая версия с формальным версионированием. Проект давно в prod у hi-tech,

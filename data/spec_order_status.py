@@ -1,7 +1,7 @@
 from typing import List, Optional, Tuple
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, or_
+from sqlalchemy import select, func, or_, update
 
 from model.spec_order_status import Spec_Order_Status
 from schema.spec_order_status import SpecOrderStatusCreate, SpecOrderStatusUpdate
@@ -101,12 +101,20 @@ async def _unset_current_default(session: AsyncSession, exclude_id: Optional[int
 
     Partial unique index требует чтобы только одна строка была default.
     Вызывается перед SET is_default = true у новой/обновляемой строки.
+
+    Через явный SQL UPDATE + flush — иначе SQLAlchemy может отправить
+    два UPDATE в непредсказуемом порядке (сначала SET true у новой,
+    потом SET false у старой), что нарушает partial unique в промежутке
+    и роняет 23505.
     """
-    query = select(Spec_Order_Status).where(Spec_Order_Status.is_default.is_(True))
+    stmt = update(Spec_Order_Status).where(
+        Spec_Order_Status.is_default.is_(True)
+    )
     if exclude_id is not None:
-        query = query.where(Spec_Order_Status.id != exclude_id)
-    for row in (await session.execute(query)).scalars().all():
-        row.is_default = False
+        stmt = stmt.where(Spec_Order_Status.id != exclude_id)
+    stmt = stmt.values(is_default=False)
+    await session.execute(stmt)
+    await session.flush()  # применить SQL в БД до последующего SET true
 
 
 # ========== CRUD ==========
