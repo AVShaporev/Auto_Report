@@ -35,7 +35,7 @@ async def get_order_list(
     contract_id: Optional[int] = Query(None, ge=1, description="Фильтр по контракту"),
     object_id: Optional[int] = Query(None, ge=1, description="Фильтр по объекту"),
     user_id: Optional[int] = Query(None, ge=1, description="Фильтр по пользователю"),
-    status: Optional[str] = Query(None, description="Фильтр по статусу"),
+    status_id: Optional[List[int]] = Query(None, description="Фильтр по статусам (мультиселект spec_order_statuses.id)"),
     date_from: Optional[date] = Query(None, description="Дата создания с"),
     date_to: Optional[date] = Query(None, description="Дата создания по"),
     region_id: Optional[List[int]] = Query(None, description="Фильтр по регионам объекта (можно несколько)"),
@@ -59,7 +59,7 @@ async def get_order_list(
         contract_id=contract_id,
         object_id=object_id,
         user_id=user_id,
-        status=status,
+        status_id=status_id,
         date_from=date_from,
         date_to=date_to,
         region_id=region_id,
@@ -69,9 +69,9 @@ async def get_order_list(
         sort_by=sort_by,
         sort_order=sort_order
     )
-    
+
     pages = (total + pagination.limit - 1) // pagination.limit
-    
+
     return PaginatedResponse(
         items=items,
         total=total,
@@ -83,20 +83,20 @@ async def get_order_list(
 @router.get("/my", response_model=PaginatedResponse[OrderListResponse])
 async def get_my_orders(
     pagination: PaginationParams = Depends(),
-    status: Optional[str] = Query(None, description="Фильтр по статусу"),
+    status_id: Optional[List[int]] = Query(None, description="Фильтр по статусам (мультиселект)"),
     current_user: User = Depends(get_current_active_user)
 ):
     """
     Получить список своих заявок с пагинацией
-    
+
     Требуется право: order_read
     """
     items, total = await order_service.get_orders_by_current_user(
         pagination=pagination,
         current_user=current_user,
-        status=status
+        status_id=status_id
     )
-    
+
     # Формируем результат для списка
     result_items = []
     for item in items:
@@ -104,16 +104,17 @@ async def get_my_orders(
             "id": item.id,
             "number": item.number,
             "created_at": item.created_at,
-            "status": item.status,
+            "status_id": item.status_id,
+            "status_name": item.spec_order_status.name if item.spec_order_status else None,
             "report_id": item.report_id,
             "spec_order_name": item.spec_order.name if item.spec_order else None,
             "object_name": item.object.name if item.object else None,
             "user_name": item.user.name if item.user else None,
             "contract_number": item.contract.number if item.contract else None
         })
-    
+
     pages = (total + pagination.limit - 1) // pagination.limit
-    
+
     return PaginatedResponse(
         items=result_items,
         total=total,
@@ -124,41 +125,42 @@ async def get_my_orders(
 
 @router.get("/options", response_model=List[OrderOptionResponse])
 async def get_order_options(
-    status: Optional[str] = Query(None, description="Фильтр по статусу"),
+    status_id: Optional[int] = Query(None, ge=1, description="Фильтр по статусу"),
     current_user: User = Depends(get_current_active_user)
 ):
     """
     Получить список заявок для выпадающих списков
-    
+
     Требуется право: order_read
     """
-    orders = await order_service.get_order_options(current_user, status=status)
-    
+    orders = await order_service.get_order_options(current_user, status_id=status_id)
+
     return [
         {
             "id": item.id,
             "number": item.number,
-            "status": item.status
+            "status_id": item.status_id,
+            "status_name": item.spec_order_status.name if item.spec_order_status else None,
         }
         for item in orders
     ]
 
-@router.get("/by-status/{status}", response_model=List[OrderListResponse])
+@router.get("/by-status/{status_id}", response_model=List[OrderListResponse])
 async def get_orders_by_status(
-    status: str,
+    status_id: int,
     current_user: User = Depends(get_current_active_user)
 ):
     """
-    Получить заявки по статусу
-    
+    Получить заявки по статусу (spec_order_statuses.id)
+
     Требуется право: order_read
     """
     items, _ = await order_service.get_orders_paginated_with_details(
         pagination=PaginationParams(page=1, per_page=100),
         current_user=current_user,
-        status=status
+        status_id=[status_id]
     )
-    
+
     return items
 
 @router.post("/render_zip")
@@ -274,20 +276,20 @@ async def update_order(
 @router.patch("/{order_id}/status", response_model=OrderResponse)
 async def update_order_status(
     order_id: int,
-    status: str = Query(..., description="Новый статус (new, in_progress, completed, cancelled)"),
+    status_id: int = Query(..., ge=1, description="ID нового статуса (spec_order_statuses.id)"),
     current_user: User = Depends(get_current_active_user)
 ):
     """
-    Обновить статус заявки
-    
+    Обновить статус заявки. Валидация — FK constraint на DB.
+
     Требуется право: order_modify
     """
     order = await order_service.update_order_status(
         order_id,
-        status,
+        status_id,
         current_user
     )
-    
+
     # Возвращаем полную информацию
     return await order_service.get_order_with_details(order.id, current_user)
 

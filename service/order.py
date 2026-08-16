@@ -77,7 +77,7 @@ async def get_orders_paginated(
     contract_id: Optional[int] = None,
     object_id: Optional[int] = None,
     user_id: Optional[int] = None,
-    status: Optional[str] = None,
+    status_id: Optional[List[int]] = None,
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
     region_id: Optional[List[int]] = None,
@@ -102,7 +102,7 @@ async def get_orders_paginated(
             contract_id=contract_id,
             object_id=object_id,
             user_id=user_id,
-            status=status,
+            status_id=status_id,
             date_from=date_from,
             date_to=date_to,
             region_id=region_id,
@@ -119,23 +119,23 @@ async def get_orders_paginated(
 async def get_orders_by_current_user(
     pagination: PaginationParams,
     current_user: User,
-    status: Optional[str] = None
+    status_id: Optional[List[int]] = None
 ) -> Tuple[List[Order], int]:
     """
     Получить заявки текущего пользователя с пагинацией
     """
     await check_permission(current_user, "order_read", "просмотра своих заявок")
-    
+
     async with new_session() as session:
         items, total = await order_data.get_order_paginated(
             session=session,
             skip=pagination.skip,
             limit=pagination.limit,
             user_id=current_user.id,
-            status=status,
+            status_id=status_id,
             load_relations=True
         )
-        
+
         return items, total
 
 async def get_all_orders(
@@ -152,15 +152,15 @@ async def get_all_orders(
 
 async def get_order_options(
     current_user: User,
-    status: Optional[str] = None
+    status_id: Optional[int] = None
 ) -> List[Order]:
     """
     Получить минимальную информацию о заявках для выпадающих списков
     """
     await check_permission(current_user, "order_read", "просмотра заявок")
-    
+
     async with new_session() as session:
-        return await order_data.get_order_options(session, status=status)
+        return await order_data.get_order_options(session, status_id=status_id)
 
 # ========== ПОЛУЧЕНИЕ С ДЕТАЛЬНОЙ ИНФОРМАЦИЕЙ ==========
 
@@ -200,7 +200,8 @@ async def get_order_with_details(
             "report_id": order.report_id,
             "created_at": order.created_at,
             "description": order.description,
-            "status": order.status,
+            "status_id": order.status_id,
+            "status_name": order.spec_order_status.name if order.spec_order_status else None,
             "spec_order_name": order.spec_order.name if order.spec_order else None,
             "contract_number": order.contract.number if order.contract else None,
             "object_name": order.object.name if order.object else None,
@@ -216,7 +217,7 @@ async def get_orders_paginated_with_details(
     contract_id: Optional[int] = None,
     object_id: Optional[int] = None,
     user_id: Optional[int] = None,
-    status: Optional[str] = None,
+    status_id: Optional[List[int]] = None,
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
     region_id: Optional[List[int]] = None,
@@ -242,7 +243,7 @@ async def get_orders_paginated_with_details(
             contract_id=contract_id,
             object_id=object_id,
             user_id=user_id,
-            status=status,
+            status_id=status_id,
             date_from=date_from,
             date_to=date_to,
             region_id=region_id,
@@ -253,7 +254,7 @@ async def get_orders_paginated_with_details(
             sort_order=sort_order,
             load_relations=True
         )
-        
+
         # Формируем результат
         result_items = []
         for item in items:
@@ -261,7 +262,8 @@ async def get_orders_paginated_with_details(
                 "id": item.id,
                 "number": item.number,
                 "created_at": item.created_at,
-                "status": item.status,
+                "status_id": item.status_id,
+                "status_name": item.spec_order_status.name if item.spec_order_status else None,
                 "report_id": item.report_id,
                 "spec_order_id": item.spec_order_id,
                 "contract_id": item.contract_id,
@@ -441,21 +443,14 @@ async def update_order(
 
 async def update_order_status(
     order_id: int,
-    status: str,
+    status_id: int,
     current_user: User
 ) -> Order:
     """
-    Обновить статус заявки
+    Обновить статус заявки — принимает FK id из spec_order_statuses.
     """
     await check_permission(current_user, "order_modify", "изменения статуса заявок")
-    
-    valid_statuses = ["new", "in_progress", "completed", "cancelled"]
-    if status not in valid_statuses:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Недопустимый статус. Допустимые значения: {', '.join(valid_statuses)}"
-        )
-    
+
     async with new_session() as session:
         # Проверяем существование и права
         existing = await order_data.get_order_by_id(session, order_id)
@@ -464,16 +459,16 @@ async def update_order_status(
                 status_code=404,
                 detail=f"Заявка с id {order_id} не найдена"
             )
-        
+
         # Проверка прав (может менять только автор или админ)
         if existing.user_id != current_user.id and not current_user.role.is_admin:
             raise HTTPException(
                 status_code=403,
                 detail="Вы можете изменять статус только своих заявок"
             )
-        
-        order = await order_data.update_order_status(session, order_id, status)
-        
+
+        order = await order_data.update_order_status(session, order_id, status_id)
+
         return order
 
 # ========== УДАЛЕНИЕ ==========

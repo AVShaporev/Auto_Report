@@ -28,6 +28,7 @@ from api import spec_equipment as api_spec_equipment
 from api import equipment as api_equipment
 from api import operation as api_operation
 from api import spec_order as api_spec_order
+from api import spec_order_status as api_spec_order_status
 from api import spec_status as api_spec_status
 from api import spec_priority as api_spec_priority
 from api import spec_journal as api_spec_journal
@@ -99,6 +100,15 @@ logger.add(
 )
 
 logger.info("🚀 Логирование Loguru настроено")
+
+# Версия приложения — читается из корневого VERSION файла при старте.
+# Bump'ится руками при релизах, SemVer (MAJOR.MINOR.PATCH).
+try:
+    _VERSION_PATH = Path(__file__).resolve().parent / "VERSION"
+    APP_VERSION = _VERSION_PATH.read_text(encoding="utf-8").strip()
+except Exception:
+    APP_VERSION = "unknown"
+logger.info(f"📦 Auto_Report v{APP_VERSION} starting…")
 
 async def _autogen_tick_job() -> None:
     """Cron-обёртка для tick_planned_orders. Сама не падает — нужно ОЧЕНЬ
@@ -273,6 +283,7 @@ app.include_router(api_spec_equipment.router)
 app.include_router(api_equipment.router)
 app.include_router(api_operation.router)
 app.include_router(api_spec_order.router)
+app.include_router(api_spec_order_status.router)
 app.include_router(api_spec_status.router)
 app.include_router(api_spec_priority.router)
 app.include_router(api_spec_journal.router)

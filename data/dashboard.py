@@ -21,7 +21,14 @@ async def get_dashboard_stats(session: AsyncSession) -> Dict[str, Any]:
             (SELECT COUNT(*) FROM issues) as issues,
             (SELECT COUNT(*) FROM reports) as reports,
             
-            (SELECT COUNT(*) FROM orders WHERE status = 'pending') as pending_orders,
+            -- pending_orders исторически означал «активные». После
+            -- рефакторинга spec_order_statuses к канону (без code, без
+            -- is_terminal) семантика «активные» непонятна на уровне БД —
+            -- заявки в дефолтном статусе (is_default=true) считаем pending,
+            -- остальные — обработанные пользователем.
+            (SELECT COUNT(*) FROM orders o
+             JOIN spec_order_statuses sos ON sos.id = o.status_id
+             WHERE sos.is_default = true) as pending_orders,
             (SELECT COUNT(*) FROM issues WHERE is_resolved = false) as unresolved_issues,
             (SELECT COUNT(*) FROM issues WHERE is_critical = true AND is_resolved = false) as critical_issues
     """)

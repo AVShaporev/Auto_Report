@@ -221,6 +221,8 @@ async def _create_order(
 ) -> Order:
     """Низкоуровневое создание Order. flush'ит, чтобы вытащить id и поймать
     UNIQUE-конфликт в пределах транзакции caller'а."""
+    from data.spec_order_status import get_default_status_id
+
     number = await next_planned_order_number(session, obj, spec_order, today)
     order = Order(
         number=number,
@@ -230,7 +232,7 @@ async def _create_order(
         user_id=system_user_id,
         created_at=today,
         description=description,
-        status="new",
+        status_id=await get_default_status_id(session),
         period_start_date=period_start_date,
     )
     session.add(order)

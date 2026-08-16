@@ -26,6 +26,7 @@ from model.order import Order
 from model.report import Report
 from model.role import Role
 from model.spec_order import Spec_Order
+from model.spec_order_status import Spec_Order_Status
 from model.spec_priority import Spec_Priority
 from model.spec_status import Spec_Status
 from model.street import Street
@@ -185,33 +186,34 @@ async def get_orders_mobile_list(
     *,
     user_id: Optional[int] = None,
     only_mine: bool = True,
-    only_open: bool = True,
+    status_ids: Optional[List[int]] = None,
     limit: int = 100,
 ) -> List[dict]:
-    # Order.status — обычный строковый enum ('new', 'in_progress', 'completed',
-    # 'cancelled'), НЕ FK на Spec_Status. Возвращаем raw-значение, мобильный
-    # клиент решает, как показывать. Аналогично Order.user_id — это АВТОР
-    # заявки, а не «назначенный» (у order концепции assignee нет).
+    # Order.status_id → spec_order_statuses.id. status_name — ру-имя из
+    # справочника через inner JOIN (FK NOT NULL, справочник всегда есть).
+    # status_ids — мультиселект фильтра статусов; None → показываем все.
+    # User.user_id — это АВТОР заявки (концепции assignee нет).
     stmt = (
         select(
             Order.id,
             Order.number,
-            Order.status.label("status_name"),
+            Order.status_id,
+            Spec_Order_Status.name.label("status_name"),
             Order.period_start_date,
             Order.created_at,
             Spec_Order.name.label("order_type"),
             Object.name.label("object_name"),
-            User.full_name.label("assigned_to_name"),  # фактически автор
+            User.full_name.label("assigned_to_name"),
         )
         .join(Spec_Order, Spec_Order.id == Order.spec_order_id)
         .join(Object, Object.id == Order.object_id)
+        .join(Spec_Order_Status, Spec_Order_Status.id == Order.status_id)
         .outerjoin(User, User.id == Order.user_id)
     )
     if only_mine and user_id is not None:
         stmt = stmt.where(Order.user_id == user_id)
-    if only_open:
-        # Открытые = не завершены и не отменены.
-        stmt = stmt.where(Order.status.in_(["new", "in_progress"]))
+    if status_ids:
+        stmt = stmt.where(Order.status_id.in_(status_ids))
     stmt = stmt.order_by(Order.created_at.desc()).limit(limit)
 
     rows = (await session.execute(stmt)).mappings().all()

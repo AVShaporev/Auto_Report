@@ -173,7 +173,7 @@ async def mobile_upload_status(
 @router.get("/orders", response_model=List[MobileOrderListItem])
 async def mobile_orders(
     only_mine: bool = Query(True),
-    only_open: bool = Query(True),
+    status_id: Optional[List[int]] = Query(None, description="Мультиселект по spec_order_statuses.id"),
     limit: int = Query(100, ge=1, le=500),
     current_user: User = Depends(get_current_user),
 ) -> List[MobileOrderListItem]:
@@ -182,7 +182,7 @@ async def mobile_orders(
             session,
             user_id=current_user.id,
             only_mine=only_mine,
-            only_open=only_open,
+            status_ids=status_id,
             limit=limit,
         )
     return [MobileOrderListItem(**r) for r in rows]

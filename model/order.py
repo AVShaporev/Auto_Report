@@ -27,7 +27,13 @@ class Order(Base):
     )
     created_at: Mapped[date] = mapped_column(default=date.today)  # Добавил дату создания
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # Добавил описание
-    status: Mapped[str] = mapped_column(default="new")  # Добавил статус заявки
+    # FK на справочник статусов заявок. Ранее было `status: Mapped[str]` без FK
+    # (миграция f9a0b1c2d3e4). Ру-имя доступно через relationship —
+    # spec_order_status.name; @property status/status_name ниже дают
+    # API-совместимость (Response'ы по-прежнему возвращают string-код).
+    status_id: Mapped[int] = mapped_column(
+        ForeignKey("spec_order_statuses.id"), nullable=False
+    )
     # Начало периода обслуживания — заполняется только для авто-сгенерированных
     # «плановых» заявок. UNIQUE(object_id, spec_order_id, period_start_date)
     # WHERE period_start_date IS NOT NULL — защита от дублей при tick'ах.
@@ -71,6 +77,13 @@ class Order(Base):
         back_populates="order",  # Должно быть в Report
         lazy="selectin",
         uselist=False  # Важно для один-к-одному
+    )
+
+    # Справочник статуса. lazy="joined" — читатели получают ру-имя без
+    # отдельного SELECT'а.
+    spec_order_status: Mapped["Spec_Order_Status"] = relationship(
+        "Spec_Order_Status",
+        lazy="joined",
     )
 
     def __str__(self):

@@ -7,6 +7,7 @@ from datetime import date
 from model.order import Order
 from model.object import Object
 from schema.order import OrderCreate, OrderUpdate
+from data import spec_order_status as spec_order_status_data
 
 from utils.timer import timer
 from utils.loading import shallow_load
@@ -38,7 +39,8 @@ async def get_order_by_id(
             selectinload(Order.contract),
             selectinload(Order.object),
             selectinload(Order.user),
-            selectinload(Order.report)
+            selectinload(Order.report),
+            selectinload(Order.spec_order_status),
         )
 
     result = await session.execute(query)
@@ -97,7 +99,7 @@ async def get_order_paginated(
     contract_id: Optional[int] = None,
     object_id: Optional[int] = None,
     user_id: Optional[int] = None,
-    status: Optional[str] = None,
+    status_id: Optional[List[int]] = None,
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
     region_id: Optional[List[int]] = None,
@@ -143,9 +145,10 @@ async def get_order_paginated(
         query = query.where(Order.user_id == user_id)
         count_query = count_query.where(Order.user_id == user_id)
 
-    if status:
-        query = query.where(Order.status == status)
-        count_query = count_query.where(Order.status == status)
+    if status_id:
+        # Мультиселект по id справочника — фильтруем по FK напрямую, без JOIN.
+        query = query.where(Order.status_id.in_(status_id))
+        count_query = count_query.where(Order.status_id.in_(status_id))
 
     if date_from:
         query = query.where(Order.created_at >= date_from)
@@ -217,15 +220,15 @@ async def get_order_paginated(
 @timer
 async def get_order_options(
     session: AsyncSession,
-    status: Optional[str] = None
+    status_id: Optional[int] = None
 ) -> List[Order]:
     """
     Получить минимальную информацию о заявках для выпадающих списков
     """
     query = select(Order).order_by(Order.created_at.desc())
 
-    if status:
-        query = query.where(Order.status == status)
+    if status_id:
+        query = query.where(Order.status_id == status_id)
 
     result = await session.execute(query)
     return result.scalars().all()
@@ -329,14 +332,19 @@ async def count_reports_by_order(
 async def update_order_status(
     session: AsyncSession,
     order_id: int,
-    status: str
+    status_id: int
 ) -> Optional[Order]:
-    """Обновить статус заявки"""
+    """Обновить статус заявки. Принимает FK id из spec_order_statuses.
+
+    Валидация «есть ли такой id» — на уровне DB (FK constraint), 400 сюда
+    не долетит; при попытке несуществующего id INSERT/UPDATE упадёт с
+    ForeignKeyViolation.
+    """
     order = await get_order_by_id(session, order_id, load_relations=False)
     if not order:
         return None
 
-    order.status = status
+    order.status_id = status_id
     await session.commit()
     await session.refresh(order)
     return order
@@ -351,10 +359,17 @@ async def create_order(
     *,
     number: str,
 ) -> Order:
-    """Создать новую заявку. number и user_id приходят из сервиса."""
+    """Создать новую заявку. number и user_id приходят из сервиса.
+
+    Если OrderCreate.status_id не задан — берём дефолтный
+    (spec_order_statuses.is_default=true).
+    """
     order_data = order_create.model_dump()
     order_data['user_id'] = user_id
     order_data['number'] = number
+
+    if not order_data.get('status_id'):
+        order_data['status_id'] = await spec_order_status_data.get_default_status_id(session)
 
     order = Order(**order_data)
     session.add(order)
@@ -370,7 +385,10 @@ async def update_order(
     order_id: int,
     order_update: OrderUpdate
 ) -> Optional[Order]:
-    """Обновить заявку"""
+    """Обновить заявку.
+
+    OrderUpdate.status_id — если передан, обновляется как обычное FK-поле.
+    """
     order = await get_order_by_id(session, order_id, load_relations=False)
     if not order:
         return None
