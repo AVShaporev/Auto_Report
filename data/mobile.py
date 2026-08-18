@@ -66,6 +66,7 @@ async def get_issues_mobile_list(
             Issue.resolved_date,
             Spec_Status.name.label("status_name"),
             Spec_Priority.code.label("priority_code"),
+            Object.id.label("object_id"),
             Object.name.label("object_name"),
             Equipment.name.label("equipment_name"),
             User.full_name.label("assigned_to_name"),
@@ -168,6 +169,7 @@ async def get_reports_mobile_list(
             Report.number,
             Report.created_at,
             Spec_Status.name.label("status_name"),
+            Object.id.label("object_id"),
             Object.name.label("object_name"),
             User.full_name.label("author_name"),
         )
@@ -212,6 +214,7 @@ async def get_orders_mobile_list(
             Order.period_start_date,
             Order.created_at,
             Spec_Order.name.label("order_type"),
+            Object.id.label("object_id"),
             Object.name.label("object_name"),
             User.full_name.label("assigned_to_name"),
         )
