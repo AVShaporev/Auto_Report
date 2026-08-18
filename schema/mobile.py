@@ -69,3 +69,16 @@ class MobileOrderListItem(BaseModel):
     assigned_to_name: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class MobileObjectEquipmentItem(BaseModel):
+    """Единица оборудования на объекте (drill-down из ObjectDetailView)."""
+    object_equipment_id: int
+    equipment_id: int
+    equipment_name: str
+    count: int
+    inventory_number: Optional[str] = None
+    serial_number: Optional[str] = None
+    open_issues_count: int = 0
+
+    model_config = ConfigDict(from_attributes=True)
