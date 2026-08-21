@@ -5,6 +5,38 @@
 версионирование [SemVer](https://semver.org/lang/ru/) — bump на каждый
 фикс/фичу; см. правило в feedback_autoreport_versioning.md.
 
+## [1.0.6] — 2026-08-19
+
+### Changed (Ops)
+- `deploy-vds.yml` после успешного hi-tech healthcheck теперь дополнительно
+  запускает fan-out `redeploy-tenants.sh --skip-caddy-reload` для всех
+  SaaS-тенантов (`/opt/auto-report/tenants/<slug>/`), затем `caddy reload`
+  один раз. Раньше это была ручная операция после каждого merge в prod
+  (`sudo redeploy-tenants.sh --pull`), теперь автомат.
+- Параллельный запуск с front-fan-out'ом сериализуется через `flock -w 900
+  /tmp/redeploy-tenants.lock` — иначе `docker compose up -d --force-recreate`
+  из двух workflow'ов гонятся за один контейнер.
+
+### One-time VDS setup (нужно до первого merge в prod с этими workflow):
+```
+# 1. Симлинк на короткий путь — иначе длинная sudoers-строка рвётся
+#    в некоторых терминалах (paste-instability) и файл невалиден.
+SRC=/opt/auto-report-master/Auto_Report_Master/scripts/redeploy-tenants.sh
+sudo ln -sf "$SRC" /usr/local/sbin/tenants-redeploy
+
+# 2. sudoers — редактируй через `sudo visudo -f ...` или nano,
+#    ВРУЧНУЮ напечатай одну строку:
+#      deploy ALL=(root) NOPASSWD: /usr/local/sbin/tenants-redeploy, /usr/local/sbin/tenants-redeploy *
+sudo nano /etc/sudoers.d/deploy-redeploy-tenants
+sudo chmod 440 /etc/sudoers.d/deploy-redeploy-tenants
+sudo visudo -c        # должно быть три "parsed OK"
+
+# 3. Проверка что sudo без пароля работает
+sudo -n /usr/local/sbin/tenants-redeploy --help
+```
+Без этой настройки GHA-step SSH-ится под `deploy`, `sudo tenants-redeploy`
+запрашивает пароль, ssh-action висит до command_timeout.
+
 ## [1.0.5] — 2026-08-19
 
 ### Security
