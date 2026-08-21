@@ -19,13 +19,22 @@
 
 ### One-time VDS setup (нужно до первого merge в prod с этими workflow):
 ```
-sudo tee /etc/sudoers.d/deploy-redeploy-tenants <<'EOF'
-deploy ALL=(root) NOPASSWD: /opt/auto-report-master/Auto_Report_Master/scripts/redeploy-tenants.sh, /opt/auto-report-master/Auto_Report_Master/scripts/redeploy-tenants.sh *
-EOF
+# 1. Симлинк на короткий путь — иначе длинная sudoers-строка рвётся
+#    в некоторых терминалах (paste-instability) и файл невалиден.
+SRC=/opt/auto-report-master/Auto_Report_Master/scripts/redeploy-tenants.sh
+sudo ln -sf "$SRC" /usr/local/sbin/tenants-redeploy
+
+# 2. sudoers — редактируй через `sudo visudo -f ...` или nano,
+#    ВРУЧНУЮ напечатай одну строку:
+#      deploy ALL=(root) NOPASSWD: /usr/local/sbin/tenants-redeploy, /usr/local/sbin/tenants-redeploy *
+sudo nano /etc/sudoers.d/deploy-redeploy-tenants
 sudo chmod 440 /etc/sudoers.d/deploy-redeploy-tenants
-sudo visudo -c
+sudo visudo -c        # должно быть три "parsed OK"
+
+# 3. Проверка что sudo без пароля работает
+sudo -n /usr/local/sbin/tenants-redeploy --help
 ```
-Без этой строки GHA-step SSH-ится под `deploy`, `sudo redeploy-tenants.sh`
+Без этой настройки GHA-step SSH-ится под `deploy`, `sudo tenants-redeploy`
 запрашивает пароль, ssh-action висит до command_timeout.
 
 ## [1.0.5] — 2026-08-19

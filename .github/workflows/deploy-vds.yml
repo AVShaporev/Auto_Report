@@ -94,10 +94,14 @@ jobs:
       # образ.
       #
       # Требование к VDS (одноразово):
-      #   /etc/sudoers.d/deploy-redeploy-tenants:
-      #     deploy ALL=(root) NOPASSWD: /opt/auto-report-master/Auto_Report_Master/scripts/redeploy-tenants.sh
+      #   ln -sf /opt/auto-report-master/Auto_Report_Master/scripts/redeploy-tenants.sh \
+      #          /usr/local/sbin/tenants-redeploy
+      #   /etc/sudoers.d/deploy-redeploy-tenants (mode 0440):
+      #     deploy ALL=(root) NOPASSWD: /usr/local/sbin/tenants-redeploy, /usr/local/sbin/tenants-redeploy *
       # SOPS-ключ /etc/sops/age/keys.txt (mode 640 root:github-runner) для deploy'я
       # недоступен без sudo — поэтому запускаем через sudo NOPASSWD.
+      # Симлинк нужен чтобы длинный path'а к скрипту не разлетался при paste в
+      # sudoers/чат-терминал.
       #
       # Fail-mode: скрипт не fail-fast (see redeploy-tenants.sh comment), один
       # упавший tenant не блокирует остальных, но exit non-zero → GHA красный.
@@ -116,5 +120,5 @@ jobs:
             # ждём его до 15 мин, чтобы не запустить два docker compose up на
             # одном контейнере (race → один из recreate падает).
             flock -w 900 /tmp/redeploy-tenants.lock -c \
-              'sudo /opt/auto-report-master/Auto_Report_Master/scripts/redeploy-tenants.sh --skip-caddy-reload'
+              'sudo /usr/local/sbin/tenants-redeploy --skip-caddy-reload'
             docker exec caddy caddy reload --config /etc/caddy/Caddyfile || echo "⚠️  caddy reload failed"
