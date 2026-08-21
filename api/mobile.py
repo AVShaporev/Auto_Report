@@ -13,6 +13,7 @@ from data import mobile as mobile_data
 from model.user import User
 from schema.mobile import (
     MobileIssueListItem,
+    MobileObjectEquipmentItem,
     MobileObjectSummaryItem,
     MobileOrderListItem,
     MobileReportListItem,
@@ -28,6 +29,7 @@ router = APIRouter(prefix="/api/mobile", tags=["mobile"])
 async def mobile_issues(
     only_open: bool = Query(True, description="Только неустранённые"),
     only_mine: bool = Query(True, description="Только назначенные на меня"),
+    object_id: Optional[int] = Query(None, description="Drill-down: неисправности по объекту"),
     limit: int = Query(100, ge=1, le=500),
     current_user: User = Depends(get_current_user),
 ) -> List[MobileIssueListItem]:
@@ -37,6 +39,7 @@ async def mobile_issues(
             user_id=current_user.id,
             only_open=only_open,
             only_mine=only_mine,
+            object_id=object_id,
             limit=limit,
         )
     return [MobileIssueListItem(**r) for r in rows]
@@ -58,6 +61,7 @@ async def mobile_objects(
 @router.get("/reports", response_model=List[MobileReportListItem])
 async def mobile_reports(
     only_mine: bool = Query(True),
+    object_id: Optional[int] = Query(None, description="Drill-down: отчёты по объекту"),
     limit: int = Query(100, ge=1, le=500),
     current_user: User = Depends(get_current_user),
 ) -> List[MobileReportListItem]:
@@ -66,6 +70,7 @@ async def mobile_reports(
             session,
             user_id=current_user.id,
             only_mine=only_mine,
+            object_id=object_id,
             limit=limit,
         )
     return [MobileReportListItem(**r) for r in rows]
@@ -174,6 +179,7 @@ async def mobile_upload_status(
 async def mobile_orders(
     only_mine: bool = Query(True),
     status_id: Optional[List[int]] = Query(None, description="Мультиселект по spec_order_statuses.id"),
+    object_id: Optional[int] = Query(None, description="Drill-down: заявки по объекту"),
     limit: int = Query(100, ge=1, le=500),
     current_user: User = Depends(get_current_user),
 ) -> List[MobileOrderListItem]:
@@ -183,6 +189,21 @@ async def mobile_orders(
             user_id=current_user.id,
             only_mine=only_mine,
             status_ids=status_id,
+            object_id=object_id,
             limit=limit,
         )
     return [MobileOrderListItem(**r) for r in rows]
+
+
+@router.get("/object-equipment", response_model=List[MobileObjectEquipmentItem])
+async def mobile_object_equipment(
+    object_id: int = Query(..., ge=1, description="ID объекта, чьё оборудование запрашиваем"),
+    limit: int = Query(200, ge=1, le=500),
+    current_user: User = Depends(get_current_user),
+) -> List[MobileObjectEquipmentItem]:
+    """Список единиц оборудования на объекте (drill-down из ObjectDetailView)."""
+    async with new_session() as session:
+        rows = await mobile_data.get_object_equipment_mobile_list(
+            session, object_id=object_id, limit=limit,
+        )
+    return [MobileObjectEquipmentItem(**r) for r in rows]

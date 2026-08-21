@@ -5,6 +5,33 @@
 версионирование [SemVer](https://semver.org/lang/ru/) — bump на каждый
 фикс/фичу; см. правило в feedback_autoreport_versioning.md.
 
+## [1.0.5] — 2026-08-19
+
+### Security
+- `POST /api/user/create` и `PUT /api/user/{id}` теперь запрещают
+  назначать роль с `is_superadmin=True`, если вызывающий сам не
+  суперадмин (было: любой юзер с `user_create` / `user_modify` мог
+  выдать себе или коллеге полный superadmin). Возвращает 403 «Роль
+  superadmin может назначить только суперадминистратор.». Общая
+  проверка вынесена в `_assert_can_assign_role()` в `api/user.py`.
+- Юзеры с `is_superadmin`-ролью на bootstrap создаются напрямую в БД
+  (`bootstrap_admin.py`) — этот путь по-прежнему разрешён.
+
+## [1.0.4] — 2026-08-18
+
+### Added (mobile drill-down с ObjectDetailView)
+- `GET /api/mobile/orders`, `/mobile/reports`, `/mobile/issues` — новый
+  query-параметр `object_id` (drill-down: только по указанному объекту).
+- `GET /api/mobile/object-equipment?object_id=X` — новый endpoint,
+  compact-список единиц оборудования на объекте
+  (`object_equipment_id`, equipment name/id/count, инв.номер,
+  серийный номер, счётчик открытых неисправностей).
+- `schema.mobile.MobileObjectEquipmentItem` — соответствующая схема.
+
+Мобилка использует эти endpoint'ы чтобы дать инженеру провалиться из
+карточки объекта в списки «оборудование / заявки / отчёты / неисправности».
+Web-фронт не затрагивается.
+
 ## [1.0.3] — 2026-08-16
 
 ### Fixed

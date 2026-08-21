@@ -43,12 +43,15 @@ async def get_issues_mobile_list(
     user_id: int,
     only_open: bool = True,
     only_mine: bool = True,
+    object_id: Optional[int] = None,
     limit: int = 100,
 ) -> List[dict]:
     """Список неисправностей для mobile-инженера.
 
     По умолчанию — открытые, назначенные на меня. `only_mine=False` даёт
-    все открытые (для прораба/руководителя).
+    все открытые (для прораба/руководителя). `object_id` — drill-down из
+    ObjectDetailView (в этом случае обычно только `only_open=False` тоже
+    имеет смысл — но контроль на клиенте).
 
     Возвращает dict'ы (не ORM-объекты) — сразу под MobileIssueListItem.
     """
@@ -63,6 +66,7 @@ async def get_issues_mobile_list(
             Issue.resolved_date,
             Spec_Status.name.label("status_name"),
             Spec_Priority.code.label("priority_code"),
+            Object.id.label("object_id"),
             Object.name.label("object_name"),
             Equipment.name.label("equipment_name"),
             User.full_name.label("assigned_to_name"),
@@ -78,6 +82,8 @@ async def get_issues_mobile_list(
         stmt = stmt.where(Issue.assigned_to_id == user_id)
     if only_open:
         stmt = stmt.where(Issue.is_resolved.is_(False))
+    if object_id is not None:
+        stmt = stmt.where(Objects_Equipment.object_id == object_id)
     stmt = stmt.order_by(
         Issue.is_critical.desc(),
         Issue.detected_date.desc(),
@@ -153,15 +159,17 @@ async def get_reports_mobile_list(
     *,
     user_id: Optional[int] = None,
     only_mine: bool = True,
+    object_id: Optional[int] = None,
     limit: int = 100,
 ) -> List[dict]:
-    """Список отчётов — мои (по умолчанию) или все."""
+    """Список отчётов — мои (по умолчанию) или все. `object_id` — drill-down."""
     stmt = (
         select(
             Report.id,
             Report.number,
             Report.created_at,
             Spec_Status.name.label("status_name"),
+            Object.id.label("object_id"),
             Object.name.label("object_name"),
             User.full_name.label("author_name"),
         )
@@ -171,6 +179,8 @@ async def get_reports_mobile_list(
     )
     if only_mine and user_id is not None:
         stmt = stmt.where(Report.user_id == user_id)
+    if object_id is not None:
+        stmt = stmt.where(Report.object_id == object_id)
     stmt = stmt.order_by(Report.created_at.desc()).limit(limit)
 
     rows = (await session.execute(stmt)).mappings().all()
@@ -187,11 +197,13 @@ async def get_orders_mobile_list(
     user_id: Optional[int] = None,
     only_mine: bool = True,
     status_ids: Optional[List[int]] = None,
+    object_id: Optional[int] = None,
     limit: int = 100,
 ) -> List[dict]:
     # Order.status_id → spec_order_statuses.id. status_name — ру-имя из
     # справочника через inner JOIN (FK NOT NULL, справочник всегда есть).
     # status_ids — мультиселект фильтра статусов; None → показываем все.
+    # object_id — drill-down с ObjectDetailView.
     # User.user_id — это АВТОР заявки (концепции assignee нет).
     stmt = (
         select(
@@ -202,6 +214,7 @@ async def get_orders_mobile_list(
             Order.period_start_date,
             Order.created_at,
             Spec_Order.name.label("order_type"),
+            Object.id.label("object_id"),
             Object.name.label("object_name"),
             User.full_name.label("assigned_to_name"),
         )
@@ -214,7 +227,52 @@ async def get_orders_mobile_list(
         stmt = stmt.where(Order.user_id == user_id)
     if status_ids:
         stmt = stmt.where(Order.status_id.in_(status_ids))
+    if object_id is not None:
+        stmt = stmt.where(Order.object_id == object_id)
     stmt = stmt.order_by(Order.created_at.desc()).limit(limit)
 
+    rows = (await session.execute(stmt)).mappings().all()
+    return [dict(r) for r in rows]
+
+
+# ============================================================================
+# Object equipment (drill-down с ObjectDetailView)
+# ============================================================================
+
+async def get_object_equipment_mobile_list(
+    session: AsyncSession,
+    *,
+    object_id: int,
+    limit: int = 200,
+) -> List[dict]:
+    """Compact-список единиц оборудования, установленных на объекте.
+
+    Одна строка = один Objects_Equipment (то, что в web зовётся «оборудование
+    на объекте»). Возвращаем object_equipment_id (нужен для будущей формы
+    создания неисправности), название и инвентарный номер оборудования, +
+    сколько по нему открытых неисправностей.
+    """
+    open_issues_count = (
+        select(func.count(Issue.id))
+        .where(Issue.object_equipment_id == Objects_Equipment.id)
+        .where(Issue.is_resolved.is_(False))
+        .correlate(Objects_Equipment)
+        .scalar_subquery()
+    )
+    stmt = (
+        select(
+            Objects_Equipment.id.label("object_equipment_id"),
+            Equipment.id.label("equipment_id"),
+            Equipment.name.label("equipment_name"),
+            Objects_Equipment.count,
+            Objects_Equipment.inventory_number,
+            Objects_Equipment.serial_number,
+            open_issues_count.label("open_issues_count"),
+        )
+        .join(Equipment, Equipment.id == Objects_Equipment.equipment_id)
+        .where(Objects_Equipment.object_id == object_id)
+        .order_by(Equipment.name)
+        .limit(limit)
+    )
     rows = (await session.execute(stmt)).mappings().all()
     return [dict(r) for r in rows]

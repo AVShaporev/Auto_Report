@@ -24,6 +24,7 @@ class MobileIssueListItem(BaseModel):
     is_resolved: bool = False
     detected_date: date
     resolved_date: Optional[date] = None
+    object_id: Optional[int] = None
     object_name: Optional[str] = None
     equipment_name: Optional[str] = None
     assigned_to_name: Optional[str] = None
@@ -48,6 +49,7 @@ class MobileObjectSummaryItem(BaseModel):
 class MobileReportListItem(BaseModel):
     id: int
     number: str
+    object_id: Optional[int] = None
     object_name: Optional[str] = None
     status_name: Optional[str] = None
     created_at: date
@@ -63,9 +65,23 @@ class MobileOrderListItem(BaseModel):
     status_id: int
     status_name: Optional[str] = None  # ру-имя из spec_order_statuses
     order_type: Optional[str] = None
+    object_id: Optional[int] = None
     object_name: Optional[str] = None
     period_start_date: Optional[date] = None
     created_at: Optional[datetime] = None
     assigned_to_name: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class MobileObjectEquipmentItem(BaseModel):
+    """Единица оборудования на объекте (drill-down из ObjectDetailView)."""
+    object_equipment_id: int
+    equipment_id: int
+    equipment_name: str
+    count: int
+    inventory_number: Optional[str] = None
+    serial_number: Optional[str] = None
+    open_issues_count: int = 0
 
     model_config = ConfigDict(from_attributes=True)
