@@ -5,6 +5,18 @@
 версионирование [SemVer](https://semver.org/lang/ru/) — bump на каждый
 фикс/фичу; см. правило в feedback_autoreport_versioning.md.
 
+## [1.0.5] — 2026-08-19
+
+### Security
+- `POST /api/user/create` и `PUT /api/user/{id}` теперь запрещают
+  назначать роль с `is_superadmin=True`, если вызывающий сам не
+  суперадмин (было: любой юзер с `user_create` / `user_modify` мог
+  выдать себе или коллеге полный superadmin). Возвращает 403 «Роль
+  superadmin может назначить только суперадминистратор.». Общая
+  проверка вынесена в `_assert_can_assign_role()` в `api/user.py`.
+- Юзеры с `is_superadmin`-ролью на bootstrap создаются напрямую в БД
+  (`bootstrap_admin.py`) — этот путь по-прежнему разрешён.
+
 ## [1.0.4] — 2026-08-18
 
 ### Added (mobile drill-down с ObjectDetailView)

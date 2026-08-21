@@ -39,6 +39,27 @@ from model.role import Role
 from errors import Duplicate, Missing, BaseLocking
 
 
+async def _assert_can_assign_role(role_id: Optional[int], caller: User) -> None:
+    """Разрешаем назначить superadmin-роль только другому superadmin'у.
+
+    Обычный админ (user_create/user_modify + is_admin) может создавать/менять
+    юзеров, но НЕ имеет права выставить им role_id, ссылающийся на роль с
+    is_superadmin=True. Без этой проверки любой админ мог бы поднять права
+    себе или коллеге до полного superadmin.
+    """
+    if role_id is None:
+        return
+    if caller and getattr(caller.role, "is_superadmin", False):
+        return
+    async with new_session() as session:
+        target_role = await session.get(Role, role_id)
+    if target_role is not None and target_role.is_superadmin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Роль «superadmin» может назначить только суперадминистратор.",
+        )
+
+
 _ALLOWED_PLATFORMS = {"ios", "android", "web"}
 
 
@@ -163,6 +184,7 @@ async def post_create_user(
     error_msg = None
     if user_auth:
         if user_auth.role.user_create:
+            await _assert_can_assign_role(user.role_id, user_auth)
             try:
                 user = await create(user_create = user)
                 create_ok = True
@@ -233,6 +255,7 @@ async def put_modify_user(
         # Раньше тут стояло `role.role_modify` — копипаста из эндпоинтов ролей.
         # Для user-эндпоинта корректный флаг — `role.user_modify`.
         if user_auth.role.user_modify:
+            await _assert_can_assign_role(user.role_id, user_auth)
             try:
                 user = await modify(user_id = user_id, user = user)
                 modify_ok = True
