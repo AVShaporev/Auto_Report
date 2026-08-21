@@ -5,6 +5,29 @@
 версионирование [SemVer](https://semver.org/lang/ru/) — bump на каждый
 фикс/фичу; см. правило в feedback_autoreport_versioning.md.
 
+## [1.0.6] — 2026-08-19
+
+### Changed (Ops)
+- `deploy-vds.yml` после успешного hi-tech healthcheck теперь дополнительно
+  запускает fan-out `redeploy-tenants.sh --skip-caddy-reload` для всех
+  SaaS-тенантов (`/opt/auto-report/tenants/<slug>/`), затем `caddy reload`
+  один раз. Раньше это была ручная операция после каждого merge в prod
+  (`sudo redeploy-tenants.sh --pull`), теперь автомат.
+- Параллельный запуск с front-fan-out'ом сериализуется через `flock -w 900
+  /tmp/redeploy-tenants.lock` — иначе `docker compose up -d --force-recreate`
+  из двух workflow'ов гонятся за один контейнер.
+
+### One-time VDS setup (нужно до первого merge в prod с этими workflow):
+```
+sudo tee /etc/sudoers.d/deploy-redeploy-tenants <<'EOF'
+deploy ALL=(root) NOPASSWD: /opt/auto-report-master/Auto_Report_Master/scripts/redeploy-tenants.sh, /opt/auto-report-master/Auto_Report_Master/scripts/redeploy-tenants.sh *
+EOF
+sudo chmod 440 /etc/sudoers.d/deploy-redeploy-tenants
+sudo visudo -c
+```
+Без этой строки GHA-step SSH-ится под `deploy`, `sudo redeploy-tenants.sh`
+запрашивает пароль, ssh-action висит до command_timeout.
+
 ## [1.0.5] — 2026-08-19
 
 ### Security

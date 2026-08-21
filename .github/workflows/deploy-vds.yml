@@ -66,6 +66,7 @@ jobs:
             /opt/auto-report/scripts/deploy.sh backend
 
       - name: Healthcheck https://hi-tech.cool-doc.ru/api/health
+        id: health_hi_tech
         run: |
           # Compose recreate + alembic upgrade + tini → uvicorn ~15-40s.
           # 45 итераций × 4s = 180s суммарного таймаута.
@@ -81,3 +82,39 @@ jobs:
           done
           echo "❌ Healthcheck failed после 180s — последний код $code"
           exit 1
+
+      # ================================================================
+      # Fan-out: раскатить свежий tenant-image на всех SaaS-tenant'ов.
+      # ================================================================
+      # hi-tech — legacy монолит, обновляется через /opt/auto-report/scripts/deploy.sh.
+      # SaaS-тенанты (/opt/auto-report/tenants/<slug>/) сидят на pre-built образе
+      # auto-report-tenant:latest, который build-tenant-image workflow только что
+      # retag'нул на VDS. redeploy-tenants.sh без --pull делает `docker compose up
+      # -d --force-recreate` для каждого тенанта — контейнер подхватывает свежий
+      # образ.
+      #
+      # Требование к VDS (одноразово):
+      #   /etc/sudoers.d/deploy-redeploy-tenants:
+      #     deploy ALL=(root) NOPASSWD: /opt/auto-report-master/Auto_Report_Master/scripts/redeploy-tenants.sh
+      # SOPS-ключ /etc/sops/age/keys.txt (mode 640 root:github-runner) для deploy'я
+      # недоступен без sudo — поэтому запускаем через sudo NOPASSWD.
+      #
+      # Fail-mode: скрипт не fail-fast (see redeploy-tenants.sh comment), один
+      # упавший tenant не блокирует остальных, но exit non-zero → GHA красный.
+      - name: Fan-out redeploy SaaS tenants
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          port: 48461
+          username: deploy
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script_stop: true
+          command_timeout: 15m
+          script: |
+            # flock: если parallel Auto_report_front/deploy-vds уже держит lock
+            # (при синхронном merge в оба репо оба workflow бегут одновременно),
+            # ждём его до 15 мин, чтобы не запустить два docker compose up на
+            # одном контейнере (race → один из recreate падает).
+            flock -w 900 /tmp/redeploy-tenants.lock -c \
+              'sudo /opt/auto-report-master/Auto_Report_Master/scripts/redeploy-tenants.sh --skip-caddy-reload'
+            docker exec caddy caddy reload --config /etc/caddy/Caddyfile || echo "⚠️  caddy reload failed"
