@@ -6,7 +6,7 @@ get_current_user из service/auth.py).
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from database.database import new_session
 from data import mobile as mobile_data
@@ -18,8 +18,14 @@ from schema.mobile import (
     MobileOrderListItem,
     MobileReportListItem,
 )
+from schema.object import ObjectResponse
+from schema.order import OrderResponse
+from schema.report import ReportResponse
 from service.auth import get_current_user
 from service import mobile_upload as upload_service
+from service import object as object_service
+from service import order as order_service
+from service import report as report_service
 
 
 router = APIRouter(prefix="/api/mobile", tags=["mobile"])
@@ -193,6 +199,81 @@ async def mobile_orders(
             limit=limit,
         )
     return [MobileOrderListItem(**r) for r in rows]
+
+
+# ============================================================================
+# Bulk-details endpoints для mobile-prefetch (Phase 3 шаг 3+)
+# ============================================================================
+# При sync мобилка тянет ПОЛНЫЕ детали всех заявок/связанных объектов/своих
+# отчётов одним запросом на сущность — чтобы в offline инженер мог открыть
+# любую заявку/объект/отчёт, даже те что до выезда не открывал вручную.
+#
+# Форма запроса: POST c body {ids: [1,2,3]} — GET с ids в URL режется по
+# длине URL при 200+ элементах, POST безопаснее. Пустой список → пустой
+# ответ. Один не найденный/без прав элемент — тихо пропускаем (лишний
+# «404» не рушит sync остальных).
+#
+# Внутри — цикл по существующим сервисам (get_order_with_details, etc.);
+# каждый вызов открывает свою async-сессию. Overhead на 100 ID — секунды,
+# приемлемо для sync (юзер жмёт «Обновить» и ждёт прогресс-бар).
+
+
+class _BulkIdsRequest(BaseModel):
+    ids: List[int] = Field(default_factory=list, description="ID сущностей для bulk-details")
+
+
+@router.post("/orders/bulk-details", response_model=List[OrderResponse])
+async def mobile_orders_bulk_details(
+    body: _BulkIdsRequest,
+    current_user: User = Depends(get_current_user),
+) -> List[OrderResponse]:
+    if not body.ids:
+        return []
+    results: List[OrderResponse] = []
+    for order_id in body.ids:
+        try:
+            item = await order_service.get_order_with_details(order_id, current_user)
+            results.append(item)
+        except HTTPException:
+            # 404 / 403 по одному ID — не рушим sync остальных.
+            continue
+    return results
+
+
+@router.post("/objects/bulk-details", response_model=List[ObjectResponse])
+async def mobile_objects_bulk_details(
+    body: _BulkIdsRequest,
+    current_user: User = Depends(get_current_user),
+) -> List[ObjectResponse]:
+    if not body.ids:
+        return []
+    results: List[ObjectResponse] = []
+    for object_id in body.ids:
+        try:
+            item = await object_service.get_object_with_stats(object_id, current_user)
+            results.append(item)
+        except HTTPException:
+            continue
+    return results
+
+
+@router.post("/reports/bulk-details", response_model=List[ReportResponse])
+async def mobile_reports_bulk_details(
+    body: _BulkIdsRequest,
+    current_user: User = Depends(get_current_user),
+) -> List[ReportResponse]:
+    if not body.ids:
+        return []
+    results: List[ReportResponse] = []
+    for report_id in body.ids:
+        try:
+            item = await report_service.get_report_by_id(
+                report_id, current_user, load_relations=True,
+            )
+            results.append(item)
+        except HTTPException:
+            continue
+    return results
 
 
 @router.get("/object-equipment", response_model=List[MobileObjectEquipmentItem])
