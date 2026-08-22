@@ -5,6 +5,21 @@
 версионирование [SemVer](https://semver.org/lang/ru/) — bump на каждый
 фикс/фичу; см. правило в feedback_autoreport_versioning.md.
 
+## [1.0.8] — 2026-08-23
+
+### Added
+- Три bulk-endpoint'а для mobile-prefetch:
+  - `POST /api/mobile/orders/bulk-details` body `{ids: [1,2,...]}` →
+    `List[OrderResponse]` (полные детали заявок).
+  - `POST /api/mobile/objects/bulk-details` → `List[ObjectResponse]`.
+  - `POST /api/mobile/reports/bulk-details` → `List[ReportResponse]`.
+- Все требуют Bearer JWT (`get_current_user`); внутри цикл по
+  существующим `get_*_with_details` сервисам с check_permission,
+  так что RBAC сохраняется. Один HTTPException (404/403) по конкретному
+  ID тихо пропускается — sync остальных не рушится.
+- Заменяют N+1 GET-запросов в `Auto_Report_Mobile/prefetch.js` (было
+  50 заявок → 50 отдельных GET'ов) одним POST на сущность.
+
 ## [1.0.7] — 2026-08-23
 
 ### Fixed
