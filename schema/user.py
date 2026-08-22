@@ -50,7 +50,12 @@ class UserCreate(UserBase):
 class UserUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=3, max_length=50)
     full_name: Optional[str] = None
-    email: Optional[EmailStr] = None
+    # str, а не EmailStr: во всех остальных схемах (UserBase/Response/List)
+    # email = str, и в БД встречаются dev-адреса без валидного TLD
+    # (admin@local, ivan@company). Pydantic v2 EmailStr валидатор TLD режет
+    # такие → PUT /api/user/{id} падал «not a valid email» просто при смене
+    # пароля (фронт отправляет весь объект, старый email проходит валидацию).
+    email: Optional[str] = None
     phone: Optional[str] = None
     telegram_id: Optional[str] = None
     role_id: Optional[int] = Field(None, ge=1)

@@ -5,6 +5,19 @@
 версионирование [SemVer](https://semver.org/lang/ru/) — bump на каждый
 фикс/фичу; см. правило в feedback_autoreport_versioning.md.
 
+## [1.0.7] — 2026-08-23
+
+### Fixed
+- `UserUpdate.email` был `Optional[EmailStr]`, но во всех остальных
+  схемах (`UserBase/Response/List`) email — просто `str`. В БД
+  встречаются dev-адреса без валидного TLD (`admin@local`,
+  `ivan@company`), которые Pydantic v2 `EmailStr` режет как
+  «not a valid email address». Симптом: PUT `/api/user/{id}` падал
+  «Ошибка валидации E-mail: value is not a valid email address:
+  The part after the @-sign is not valid» при обычной смене пароля
+  (фронт отправляет весь объект, старый email проходит валидацию).
+  Заменил на `Optional[str]` — consistency + fix regression.
+
 ## [1.0.6] — 2026-08-19
 
 ### Changed (Ops)
