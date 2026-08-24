@@ -5,6 +5,20 @@
 версионирование [SemVer](https://semver.org/lang/ru/) — bump на каждый
 фикс/фичу; см. правило в feedback_autoreport_versioning.md.
 
+## [1.0.12] — 2026-08-24
+
+### Added
+- В конце PDF/DOCX-акта по заявке (`render_order_document`) теперь
+  вставляется QR-код с URL `https://<TENANT_SLUG>.cool-doc.ru/orders/<id>`
+  + подпись «📱 Сканируйте QR-код в мобильном приложении…».
+  Инженер сканирует его в mobile-приложении (v1.6.0+) и попадает
+  напрямую в OrderDetailView этой заявки. Работает и для bulk-zip
+  (тот же путь через `render_order_document`).
+- Dependency: `qrcode[pil] ^8.0` в main deps (не dev — Dockerfile
+  ставит без dev-группы, см. httpx-инцидент 2026-08-09).
+
+Если `TENANT_SLUG` не задан — QR не добавляется, акт рендерится как раньше.
+
 ## [1.0.11] — 2026-08-24
 
 ### Added

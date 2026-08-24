@@ -36,10 +36,15 @@ apscheduler = "^3.10.4"
 # и на 192-stage systemd unit тоже без dev-группы — оба падали с
 # ModuleNotFoundError. Перенесено 2026-08-09.
 httpx = "^0.27.2"
+# QR-код в конце PDF-акта — mobile сканит и открывает заявку (v1.0.12).
+qrcode = {extras = ["pil"], version = "^8.0"}
+# python-docx нужен в runtime для _append_qr_to_docx (docx.shared.Mm +
+# Document.add_picture). Перенесено из dev-группы в main deps в v1.0.12 —
+# Dockerfile ставит `poetry export --without dev`, иначе ModuleNotFoundError.
+python-docx = "^1.2.0"
 
 
 [tool.poetry.group.dev.dependencies]
-python-docx = "^1.2.0"
 pytest-asyncio = "^0.25.0"
 
 [tool.pytest.ini_options]

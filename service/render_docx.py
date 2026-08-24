@@ -36,8 +36,55 @@ from model.locality import Locality
 from model.street import Street
 from model.spec_journal import Spec_Journal
 from model.objects_equipment import Objects_Equipment
-from config import MEDIA_PATH
+from config import MEDIA_PATH, settings
 from service.order import check_permission
+
+
+# ---------------------------------------------------------------------------
+# QR-код с ссылкой на mobile-приложение (Auto_Report v1.0.12)
+# ---------------------------------------------------------------------------
+# Инженер печатает акт → внизу PDF есть QR с URL заявки. Тап в mobile app
+# «📷 Сканировать акт» → камера → распознаёт URL → приложение открывает
+# OrderDetailView для этой заявки. Оттуда уже видно есть отчёт или нет.
+#
+# URL: https://<tenant_slug>.cool-doc.ru/orders/<order_id>. Тот же URL
+# работает в веб-версии (fallback если сканировали браузером).
+
+def _build_qr_url(order_id: int) -> Optional[str]:
+    """Собрать URL для QR-кода. None если TENANT_SLUG не задан."""
+    slug = getattr(settings, "TENANT_SLUG", None)
+    if not slug:
+        return None
+    return f"https://{slug}.cool-doc.ru/orders/{order_id}"
+
+
+def _append_qr_to_docx(doc_obj, url: str) -> None:
+    """Добавить QR + подпись в конец документа. Модифицирует underlying docx.
+
+    doc_obj — python-docx Document (у DocxTemplate это .docx после render).
+    """
+    try:
+        import qrcode  # локальный импорт — не грузить если QR не нужен
+        from docx.shared import Mm
+    except ImportError:
+        # qrcode/python-docx не установлены — пропускаем, акт всё равно рендерится.
+        return
+
+    img = qrcode.make(url, box_size=4, border=2)
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    buf.seek(0)
+
+    doc_obj.add_paragraph()  # пустая строка-разделитель
+    p = doc_obj.add_paragraph()
+    run = p.add_run()
+    run.add_picture(buf, width=Mm(30))
+    caption = doc_obj.add_paragraph()
+    caption_run = caption.add_run(
+        "📱 Сканируйте QR-код в мобильном приложении для быстрого "
+        "открытия этой заявки."
+    )
+    caption_run.italic = True
 
 
 _RUSSIAN_MONTHS_GEN = [
@@ -392,6 +439,12 @@ async def render_order_document(
     # Рендер в .docx через docxtpl.
     doc = _open_docx_template(template_abs)
     doc.render(context)
+
+    # QR внизу документа: сканирование из mobile app откроет OrderDetailView.
+    # doc.docx — underlying python-docx.Document после render (см. DocxTemplate).
+    qr_url = _build_qr_url(order_id)
+    if qr_url and getattr(doc, "docx", None) is not None:
+        _append_qr_to_docx(doc.docx, qr_url)
 
     with tempfile.TemporaryDirectory() as tmp_dir_str:
         tmp_dir = Path(tmp_dir_str)
