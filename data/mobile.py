@@ -21,6 +21,7 @@ from model.equipment import Equipment
 from model.issue import Issue
 from model.locality import Locality
 from model.object import Object
+from model.region import Region
 from model.objects_equipment import Objects_Equipment
 from model.order import Order
 from model.report import Report
@@ -137,10 +138,15 @@ async def get_objects_mobile_summary(
             func.concat(
                 Locality.name, ", ", Street.name,
             ).label("address_short"),
+            Region.name.label("region_name"),
+            Arial.name.label("arial_name"),
+            Locality.name.label("locality_name"),
             equipment_count.label("equipment_count"),
             open_issues_count.label("open_issues_count"),
         )
         .join(Contract, Contract.id == Object.contract_id)
+        .outerjoin(Region, Region.id == Object.region_id)
+        .outerjoin(Arial, Arial.id == Object.arial_id)
         .outerjoin(Locality, Locality.id == Object.locality_id)
         .outerjoin(Street, Street.id == Object.street_id)
     )
