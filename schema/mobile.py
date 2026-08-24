@@ -42,6 +42,10 @@ class MobileObjectSummaryItem(BaseModel):
     number_in_contract: int
     equipment_count: int = 0
     open_issues_count: int = 0
+    # v1.0.10 — фильтры в ObjectsListView mobile (регион/район/нас.пункт).
+    region_name: Optional[str] = None
+    arial_name: Optional[str] = None
+    locality_name: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 

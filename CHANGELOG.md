@@ -5,6 +5,14 @@
 версионирование [SemVer](https://semver.org/lang/ru/) — bump на каждый
 фикс/фичу; см. правило в feedback_autoreport_versioning.md.
 
+## [1.0.10] — 2026-08-24
+
+### Added
+- `MobileObjectSummaryItem`/`GET /api/mobile/objects` теперь возвращает
+  `region_name`, `arial_name`, `locality_name` — для фильтров в mobile
+  `ObjectsListView` (по региону / району / нас. пункту, вместо фильтра
+  по договорам). Backend-side JOIN на Region/Arial/Locality.
+
 ## [1.0.9] — 2026-08-24
 
 ### Added
