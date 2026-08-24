@@ -22,7 +22,7 @@ from typing import Optional, Tuple
 from urllib.parse import quote
 
 from fastapi import HTTPException
-from docxtpl import DocxTemplate
+from docxtpl import DocxTemplate, InlineImage
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
@@ -41,14 +41,16 @@ from service.order import check_permission
 
 
 # ---------------------------------------------------------------------------
-# QR-код с ссылкой на mobile-приложение (Auto_Report v1.0.12)
+# QR-код со ссылкой на mobile-приложение (Auto_Report v1.0.13)
 # ---------------------------------------------------------------------------
-# Инженер печатает акт → внизу PDF есть QR с URL заявки. Тап в mobile app
-# «📷 Сканировать акт» → камера → распознаёт URL → приложение открывает
-# OrderDetailView для этой заявки. Оттуда уже видно есть отчёт или нет.
+# URL: https://<tenant_slug>.cool-doc.ru/orders/<order_id>. Mobile-app
+# сканирует QR → парсит URL → открывает OrderDetailView этой заявки.
 #
-# URL: https://<tenant_slug>.cool-doc.ru/orders/<order_id>. Тот же URL
-# работает в веб-версии (fallback если сканировали браузером).
+# Раньше (v1.0.12) QR + подпись автоматически втыкались в конец каждого
+# акта — по фидбеку юзера убрано. Теперь QR = docxtpl-переменная {{ qr }},
+# автор шаблона сам решает вставлять её и где именно, подпись пишет тоже
+# сам. Если TENANT_SLUG не задан или {{ qr }} не использован — ничего
+# не отображается.
 
 def _build_qr_url(order_id: int) -> Optional[str]:
     """Собрать URL для QR-кода. None если TENANT_SLUG не задан."""
@@ -58,33 +60,17 @@ def _build_qr_url(order_id: int) -> Optional[str]:
     return f"https://{slug}.cool-doc.ru/orders/{order_id}"
 
 
-def _append_qr_to_docx(doc_obj, url: str) -> None:
-    """Добавить QR + подпись в конец документа. Модифицирует underlying docx.
-
-    doc_obj — python-docx Document (у DocxTemplate это .docx после render).
-    """
+def _make_qr_bytes(url: str) -> Optional[io.BytesIO]:
+    """Сгенерить PNG QR-кода в память. None если qrcode не установлен."""
     try:
-        import qrcode  # локальный импорт — не грузить если QR не нужен
-        from docx.shared import Mm
+        import qrcode
     except ImportError:
-        # qrcode/python-docx не установлены — пропускаем, акт всё равно рендерится.
-        return
-
+        return None
     img = qrcode.make(url, box_size=4, border=2)
     buf = io.BytesIO()
     img.save(buf, format="PNG")
     buf.seek(0)
-
-    doc_obj.add_paragraph()  # пустая строка-разделитель
-    p = doc_obj.add_paragraph()
-    run = p.add_run()
-    run.add_picture(buf, width=Mm(30))
-    caption = doc_obj.add_paragraph()
-    caption_run = caption.add_run(
-        "📱 Сканируйте QR-код в мобильном приложении для быстрого "
-        "открытия этой заявки."
-    )
-    caption_run.italic = True
+    return buf
 
 
 _RUSSIAN_MONTHS_GEN = [
@@ -436,15 +422,22 @@ async def render_order_document(
     # Чистим символы, которые ОС не любит в именах файлов.
     suggested_stem = "".join(ch if ch.isalnum() or ch in "._-" else "_" for ch in suggested_stem)
 
-    # Рендер в .docx через docxtpl.
+    # Рендер в .docx через docxtpl. QR — как переменная {{ qr }} в шаблоне
+    # (InlineImage требует doc-инстанс, поэтому добавляется в context ЗДЕСЬ,
+    # а не в _build_context). Автор шаблона сам решает, вставлять {{ qr }}
+    # и где именно; если {{ qr }} в шаблоне отсутствует — QR не появится.
     doc = _open_docx_template(template_abs)
-    doc.render(context)
-
-    # QR внизу документа: сканирование из mobile app откроет OrderDetailView.
-    # doc.docx — underlying python-docx.Document после render (см. DocxTemplate).
     qr_url = _build_qr_url(order_id)
-    if qr_url and getattr(doc, "docx", None) is not None:
-        _append_qr_to_docx(doc.docx, qr_url)
+    qr_buf = _make_qr_bytes(qr_url) if qr_url else None
+    if qr_buf is not None:
+        try:
+            from docx.shared import Mm
+            context["qr"] = InlineImage(doc, qr_buf, width=Mm(30))
+        except ImportError:
+            context["qr"] = ""
+    else:
+        context["qr"] = ""
+    doc.render(context)
 
     with tempfile.TemporaryDirectory() as tmp_dir_str:
         tmp_dir = Path(tmp_dir_str)
