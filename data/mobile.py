@@ -21,6 +21,7 @@ from model.equipment import Equipment
 from model.issue import Issue
 from model.locality import Locality
 from model.object import Object
+from model.organization import Organization
 from model.region import Region
 from model.objects_equipment import Objects_Equipment
 from model.order import Order
@@ -134,6 +135,7 @@ async def get_objects_mobile_summary(
             Object.room_number,
             Object.number_in_contract,
             Contract.number.label("contract_number"),
+            Organization.short_name.label("customer_short_name"),
             # Собираем короткий адрес прямо в SQL: locality + street.
             func.concat(
                 Locality.name, ", ", Street.name,
@@ -141,10 +143,12 @@ async def get_objects_mobile_summary(
             Region.name.label("region_name"),
             Arial.name.label("arial_name"),
             Locality.name.label("locality_name"),
+            Street.name.label("street_name"),
             equipment_count.label("equipment_count"),
             open_issues_count.label("open_issues_count"),
         )
         .join(Contract, Contract.id == Object.contract_id)
+        .outerjoin(Organization, Organization.id == Contract.customer_id)
         .outerjoin(Region, Region.id == Object.region_id)
         .outerjoin(Arial, Arial.id == Object.arial_id)
         .outerjoin(Locality, Locality.id == Object.locality_id)
@@ -155,7 +159,21 @@ async def get_objects_mobile_summary(
     stmt = stmt.order_by(Object.name).limit(limit)
 
     rows = (await session.execute(stmt)).mappings().all()
-    return [dict(r) for r in rows]
+    # Полный адрес собираем в Python — так проще пропустить NULL-компоненты
+    # без громоздкого regexp_replace вокруг concat_ws.
+    result = []
+    for r in rows:
+        d = dict(r)
+        parts = [d.get(k) for k in
+                 ("region_name", "arial_name", "locality_name", "street_name")]
+        parts = [p for p in parts if p]
+        if d.get("build_number"):
+            parts.append(f"д. {d['build_number']}")
+        if d.get("room_number"):
+            parts.append(f"пом. {d['room_number']}")
+        d["address_full"] = ", ".join(parts) if parts else None
+        result.append(d)
+    return result
 
 
 # ============================================================================
@@ -224,11 +242,17 @@ async def get_orders_mobile_list(
             Spec_Order.name.label("order_type"),
             Object.id.label("object_id"),
             Object.name.label("object_name"),
+            Region.name.label("region_name"),
+            Arial.name.label("arial_name"),
+            Locality.name.label("locality_name"),
             User.full_name.label("assigned_to_name"),
         )
         .join(Spec_Order, Spec_Order.id == Order.spec_order_id)
         .join(Object, Object.id == Order.object_id)
         .join(Spec_Order_Status, Spec_Order_Status.id == Order.status_id)
+        .outerjoin(Region, Region.id == Object.region_id)
+        .outerjoin(Arial, Arial.id == Object.arial_id)
+        .outerjoin(Locality, Locality.id == Object.locality_id)
         .outerjoin(User, User.id == Order.user_id)
     )
     if only_mine and user_id is not None:

@@ -5,6 +5,19 @@
 версионирование [SemVer](https://semver.org/lang/ru/) — bump на каждый
 фикс/фичу; см. правило в feedback_autoreport_versioning.md.
 
+## [1.0.11] — 2026-08-24
+
+### Added
+- `MobileObjectSummaryItem` / `/api/mobile/objects` — новые поля:
+  - `street_name`, `address_full` (полный: регион + район + нас.пункт +
+    улица + дом + помещение; собирается в Python из компонентов чтобы
+    пропускать NULL) — для карточки списка объектов в mobile.
+  - `customer_short_name` (JOIN Contract → Organization.short_name) —
+    для фильтра «Заказчик» в mobile ObjectsListView.
+- `MobileOrderListItem` / `/api/mobile/orders` — новые поля
+  `region_name`, `arial_name`, `locality_name` (JOIN Object → Region/
+  Arial/Locality) — для каскадных фильтров в mobile OrdersListView.
+
 ## [1.0.10] — 2026-08-24
 
 ### Added

@@ -46,6 +46,10 @@ class MobileObjectSummaryItem(BaseModel):
     region_name: Optional[str] = None
     arial_name: Optional[str] = None
     locality_name: Optional[str] = None
+    # v1.0.11 — полный адрес для карточки + фильтр по заказчику.
+    street_name: Optional[str] = None
+    address_full: Optional[str] = None
+    customer_short_name: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -74,6 +78,10 @@ class MobileOrderListItem(BaseModel):
     period_start_date: Optional[date] = None
     created_at: Optional[datetime] = None
     assigned_to_name: Optional[str] = None
+    # v1.0.11 — для каскадных фильтров в mobile OrdersListView.
+    region_name: Optional[str] = None
+    arial_name: Optional[str] = None
+    locality_name: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
