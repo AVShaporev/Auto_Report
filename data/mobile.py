@@ -25,10 +25,12 @@ from model.objects_equipment import Objects_Equipment
 from model.order import Order
 from model.report import Report
 from model.role import Role
+from model.spec_equipment import Spec_Equipment
 from model.spec_order import Spec_Order
 from model.spec_order_status import Spec_Order_Status
 from model.spec_priority import Spec_Priority
 from model.spec_status import Spec_Status
+from model.spec_system import Spec_System
 from model.street import Street
 from model.user import User
 
@@ -276,3 +278,50 @@ async def get_object_equipment_mobile_list(
     )
     rows = (await session.execute(stmt)).mappings().all()
     return [dict(r) for r in rows]
+
+
+async def get_object_equipment_mobile_detail(
+    session: AsyncSession,
+    *,
+    object_equipment_id: int,
+) -> Optional[dict]:
+    """Деталь одной единицы оборудования по object_equipment_id (mobile).
+
+    Без RBAC-проверки (endpoint под общей mobile-Bearer JWT). Возвращает
+    dict под MobileObjectEquipmentDetail или None если запись не найдена.
+    """
+    open_issues_count = (
+        select(func.count(Issue.id))
+        .where(Issue.object_equipment_id == Objects_Equipment.id)
+        .where(Issue.is_resolved.is_(False))
+        .correlate(Objects_Equipment)
+        .scalar_subquery()
+    )
+    stmt = (
+        select(
+            Objects_Equipment.id.label("object_equipment_id"),
+            Equipment.id.label("equipment_id"),
+            Equipment.name.label("equipment_name"),
+            Spec_Equipment.name.label("equipment_type_name"),
+            Spec_System.name.label("system_name"),
+            Objects_Equipment.count,
+            Objects_Equipment.inventory_number,
+            Objects_Equipment.serial_number,
+            Objects_Equipment.installation_date,
+            Object.id.label("object_id"),
+            Object.name.label("object_name"),
+            open_issues_count.label("open_issues_count"),
+        )
+        .join(Equipment, Equipment.id == Objects_Equipment.equipment_id)
+        .join(Object, Object.id == Objects_Equipment.object_id)
+        .outerjoin(Spec_Equipment, Spec_Equipment.id == Equipment.spec_equipment_id)
+        .outerjoin(Spec_System, Spec_System.id == Objects_Equipment.spec_system_id)
+        .where(Objects_Equipment.id == object_equipment_id)
+    )
+    row = (await session.execute(stmt)).mappings().first()
+    if not row:
+        return None
+    d = dict(row)
+    if d.get("installation_date"):
+        d["installation_date"] = d["installation_date"].isoformat()
+    return d

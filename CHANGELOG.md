@@ -5,6 +5,19 @@
 версионирование [SemVer](https://semver.org/lang/ru/) — bump на каждый
 фикс/фичу; см. правило в feedback_autoreport_versioning.md.
 
+## [1.0.9] — 2026-08-24
+
+### Added
+- `GET /api/mobile/object-equipment/{oe_id}` → `MobileObjectEquipmentDetail`
+  — compact-детали одной единицы оборудования для drill-down в mobile
+  APK (`ObjectEquipmentDetailView`). Без RBAC-проверки: у роли
+  инженера часто нет `object_equipment_read`, а тап на карточку должен
+  открывать детали. Общий Bearer JWT достаточно (аналогично остальным
+  `/api/mobile/*` endpoint'ам).
+- Схема `MobileObjectEquipmentDetail`: object_equipment_id, equipment_id,
+  equipment_name, equipment_type_name, system_name, count, inventory_number,
+  serial_number, installation_date, object_id, object_name, open_issues_count.
+
 ## [1.0.8] — 2026-08-23
 
 ### Added

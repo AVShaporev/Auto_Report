@@ -85,3 +85,27 @@ class MobileObjectEquipmentItem(BaseModel):
     open_issues_count: int = 0
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class MobileObjectEquipmentDetail(BaseModel):
+    """Деталь одной единицы оборудования (drill-down mobile — v1.0.9).
+
+    Отдельная от MobileObjectEquipmentItem: добавлены equipment_type_name,
+    system_name, installation_date, object_id/object_name. Инженерский
+    endpoint без RBAC (`object_equipment_read` часто отсутствует у роли
+    инженера, а деталь на mobile нужна).
+    """
+    object_equipment_id: int
+    equipment_id: int
+    equipment_name: str
+    equipment_type_name: Optional[str] = None
+    system_name: Optional[str] = None
+    count: int
+    inventory_number: Optional[str] = None
+    serial_number: Optional[str] = None
+    installation_date: Optional[str] = None
+    object_id: int
+    object_name: Optional[str] = None
+    open_issues_count: int = 0
+
+    model_config = ConfigDict(from_attributes=True)
