@@ -13,6 +13,7 @@ from data import mobile as mobile_data
 from model.user import User
 from schema.mobile import (
     MobileIssueListItem,
+    MobileObjectEquipmentDetail,
     MobileObjectEquipmentItem,
     MobileObjectSummaryItem,
     MobileOrderListItem,
@@ -274,6 +275,26 @@ async def mobile_reports_bulk_details(
         except HTTPException:
             continue
     return results
+
+
+@router.get("/object-equipment/{oe_id}", response_model=MobileObjectEquipmentDetail)
+async def mobile_object_equipment_detail(
+    oe_id: int,
+    current_user: User = Depends(get_current_user),
+) -> MobileObjectEquipmentDetail:
+    """Деталь единицы оборудования для mobile-drill-down.
+
+    Без RBAC-проверки: у инженерской роли часто нет `object_equipment_read`,
+    а тап на карточку в списке оборудования на объекте должен открывать
+    детали. Общий Bearer JWT достаточно.
+    """
+    async with new_session() as session:
+        row = await mobile_data.get_object_equipment_mobile_detail(
+            session, object_equipment_id=oe_id,
+        )
+    if not row:
+        raise HTTPException(status_code=404, detail="Единица оборудования не найдена")
+    return MobileObjectEquipmentDetail(**row)
 
 
 @router.get("/object-equipment", response_model=List[MobileObjectEquipmentItem])
