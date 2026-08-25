@@ -5,6 +5,18 @@
 версионирование [SemVer](https://semver.org/lang/ru/) — bump на каждый
 фикс/фичу; см. правило в feedback_autoreport_versioning.md.
 
+## [1.0.16] — 2026-08-25
+
+### Fixed
+- `activity_log` записи не сохранялись: `create_activity_log` в
+  data-слое делал только `session.flush()`. По паттерну проекта
+  data-функции сами коммитят (`await session.commit()` в конце). К
+  моменту вызова `log_activity` из service после мутации основная
+  транзакция уже была closed, наш INSERT попадал в новую auto-tx и
+  откатывался при `async with new_session()` __aexit__ (`session.close()`
+  без commit).
+- Заменил `flush()` → `commit()` в `data/activity_log.py::create_activity_log`.
+
 ## [1.0.15] — 2026-08-25
 
 ### Fixed

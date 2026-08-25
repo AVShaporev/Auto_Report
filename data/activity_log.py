@@ -24,7 +24,13 @@ async def create_activity_log(
     summary: str,
     details: Optional[dict[str, Any]] = None,
 ) -> ActivityLog:
-    """Внутри уже открытой сессии. Commit — на стороне caller."""
+    """Пишет ActivityLog и коммитит сразу.
+
+    Каллер (service/*.py) уже сделал `session.commit()` для основной
+    мутации к этому моменту (см. паттерн в data/order.py и т.д.). Наш
+    INSERT попадает в НОВУЮ транзакцию, поэтому нужен свой commit —
+    иначе закрытие сессии в `async with new_session()` откатит запись.
+    """
     row = ActivityLog(
         user_id=user_id,
         user_name=user_name,
@@ -35,7 +41,7 @@ async def create_activity_log(
         details=details,
     )
     session.add(row)
-    await session.flush()
+    await session.commit()
     return row
 
 
