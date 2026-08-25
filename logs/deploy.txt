@@ -1,0 +1,32 @@
+sudo ln -sf
+  /opt/auto-report-master/Auto_Report_Master/scripts/redeploy-tenants.sh
+  /usr/local/sbin/tenants-redeploy
+ln: missing file operand
+Try 'ln --help' for more information.
+[redeploy] tenant'ов в очереди: 2 (ashaporev dgkrylov)
+
+=== [redeploy] ashaporev ===
+[+] up 3/3
+ ✔ Container postgres-ashaporev Healthy                                                   7.7s
+ ✔ Container backend-ashaporev  Started                                                   7.4s
+ ✔ Container frontend-ashaporev Started                                                   7.7s
+[redeploy] [ashaporev] OK
+
+=== [redeploy] dgkrylov ===
+[+] up 3/3
+ ✔ Container postgres-dgkrylov Healthy                                                    9.0s
+ ✔ Container backend-dgkrylov  Started                                                    8.7s
+ ✔ Container frontend-dgkrylov Started                                                    8.2s
+[redeploy] [dgkrylov] OK
+
+[redeploy] caddy reload
+{"level":"info","ts":1787341825.9709077,"msg":"using config from file","file":"/etc/caddy/Caddyfile"}
+{"level":"info","ts":1787341825.99614,"msg":"adapted config to JSON","adapter":"caddyfile"}
+{"level":"warn","ts":1787341825.9992847,"msg":"Caddyfile input is not formatted; run 'caddy fmt --overwrite' to fix inconsistencies","adapter":"caddyfile","file":"/etc/caddy/Caddyfile","line":17}
+
+[redeploy] ✅ Все 2 tenant'ов обновлены.
+-bash: /usr/local/sbin/tenants-redeploy: No such file or directory
+
+
+ls -la /usr/local/sbin/tenants-redeploy
+ls: cannot access '/usr/local/sbin/tenants-redeploy': No such file or directory

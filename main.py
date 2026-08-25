@@ -59,6 +59,7 @@ from api import issue_attachment as api_issue_attachment
 from api import objects_equipment as api_objects_equipment
 from api import dashboard  as api_dashboard
 from api import log as api_log
+from api import activity_log as api_activity_log
 from api import autogen as api_autogen
 from api import tenant as api_tenant
 
@@ -313,6 +314,7 @@ app.include_router(api_issue_attachment.router)
 app.include_router(api_objects_equipment.router)
 app.include_router(api_dashboard.router)
 app.include_router(api_log.router)
+app.include_router(api_activity_log.router)
 app.include_router(api_autogen.router)
 app.include_router(api_tenant.router)
 app.include_router(api_mobile.router)

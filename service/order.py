@@ -10,6 +10,7 @@ from model.contract import Contract
 from model.object import Object
 from model.spec_order import Spec_Order
 from data import order as order_data
+from service.activity_log import log_activity
 from schema.order import OrderCreate, OrderUpdate
 from schema.pagination import PaginationParams
 from database.database import new_session
@@ -372,6 +373,11 @@ async def create_order(
             number=generated_number,
         )
 
+        await log_activity(
+            session, current_user,
+            action='create', entity='order', entity_id=order.id,
+            summary=f'Создал заявку №{order.number}',
+        )
         return order
 
 # ========== ОБНОВЛЕНИЕ ==========
@@ -436,7 +442,14 @@ async def update_order(
 
         # Обновление
         order = await order_data.update_order(session, order_id, order_update)
-        
+
+        changed_keys = ', '.join(sorted(update_data.keys())) or 'нет полей'
+        await log_activity(
+            session, current_user,
+            action='update', entity='order', entity_id=order.id,
+            summary=f'Изменил заявку №{order.number}: {changed_keys}',
+            details=update_data,
+        )
         return order
 
 # ========== ОБНОВЛЕНИЕ СТАТУСА ==========
@@ -467,8 +480,23 @@ async def update_order_status(
                 detail="Вы можете изменять статус только своих заявок"
             )
 
+        old_status_id = existing.status_id
         order = await order_data.update_order_status(session, order_id, status_id)
 
+        # status_name из свежего снапшота (JOIN Spec_Order_Status),
+        # но property `status_name` может лениться — берём через relation.
+        new_status_name = None
+        try:
+            new_status_name = order.spec_order_status.name if order.spec_order_status else None
+        except Exception:
+            pass
+        await log_activity(
+            session, current_user,
+            action='change_status', entity='order', entity_id=order.id,
+            summary=f'Сменил статус заявки №{order.number} → '
+                    f'{new_status_name or f"id={status_id}"}',
+            details={'old_status_id': old_status_id, 'new_status_id': status_id},
+        )
         return order
 
 # ========== УДАЛЕНИЕ ==========
@@ -511,6 +539,13 @@ async def delete_order(
             )
         
         # Удаление
+        order_number = order.number  # снапшот до удаления — для лога
         success = await order_data.delete_order(session, order_id)
-        
+
+        if success:
+            await log_activity(
+                session, current_user,
+                action='delete', entity='order', entity_id=order_id,
+                summary=f'Удалил заявку №{order_number}',
+            )
         return success

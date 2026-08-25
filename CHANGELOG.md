@@ -5,6 +5,35 @@
 версионирование [SemVer](https://semver.org/lang/ru/) — bump на каждый
 фикс/фичу; см. правило в feedback_autoreport_versioning.md.
 
+## [1.0.14] — 2026-08-25 (Фаза 1 из #312)
+
+### Added — журнал пользовательских действий (activity_log)
+- Alembic-миграция `c2f5b8a3d941`: таблица `activity_logs`
+  (id, user_id NULL→users, user_name-снапшот, action, entity, entity_id,
+  summary, details JSONB, created_at, updated_at + 3 индекса).
+- Модель `model/activity_log.py`, DAO `data/activity_log.py`,
+  service `service/activity_log.py` с helper'ом `log_activity(session,
+  user, action, entity, entity_id, summary, details=None)`. Пишется
+  в той же сессии что и основная мутация (rollback синхронный).
+  Ошибки логирования не пробрасываются (loguru.warning).
+- `GET /api/activity_log/list` — фильтры по user_id/entity/action/дате
+  + ILIKE-поиск в summary/user_name + пагинация. Только для админов.
+- Схема `schema/activity_log.py` — `ActivityLogResponse`.
+
+### Wired-in log_activity()
+Все ключевые мутации инженерского пути:
+- `service/order.py` — create, update, change_status, delete.
+- `service/report.py` — create, update, change_status, delete.
+- `service/issue.py` — create, update, change_status, delete.
+- `api/auth.py` — login, logout.
+
+### Notes
+- Фаза 2 (технические JSONL-логи в admin.cool-doc.ru) — отдельным
+  релизом. Текущий `/api/log/list` остаётся живым, но пункт «Логи»
+  во фронте тенанта заменён на «Действия» (activity_log).
+- События до внедрения (2026-08-25) в новом журнале не появятся —
+  история начинается с момента миграции.
+
 ## [1.0.13] — 2026-08-24
 
 ### Changed
