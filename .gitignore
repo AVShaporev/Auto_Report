@@ -27,4 +27,8 @@ db/
 logs/*.log
 logs/*.json
 logs/*.zip
+logs/*.txt
+
+# Локальные тестовые шаблоны, попадают в коммит по ошибке
+templates/blanks/example_two_level.docx
 
