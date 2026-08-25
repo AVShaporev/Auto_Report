@@ -3,6 +3,7 @@ from fastapi import HTTPException
 from model.user import User
 from model.equipment import Equipment
 from data import equipment as equipment_data
+from service.activity_log import log_activity
 from schema.equipment import EquipmentCreate, EquipmentUpdate
 from schema.pagination import PaginationParams
 from database.database import new_session
@@ -221,6 +222,11 @@ async def create_equipment(
             )
 
         equipment = await equipment_data.create_equipment(session, equipment_create)
+        await log_activity(
+            session, current_user,
+            action='create', entity='equipment', entity_id=equipment.id,
+            summary=f'Создал оборудование «{equipment.name}»',
+        )
         return equipment
 
 # ========== ОБНОВЛЕНИЕ ==========
@@ -261,6 +267,13 @@ async def update_equipment(
                 )
 
         equipment = await equipment_data.update_equipment(session, equipment_id, equipment_update)
+        changed_keys = ', '.join(sorted(update_data.keys())) or 'нет полей'
+        await log_activity(
+            session, current_user,
+            action='update', entity='equipment', entity_id=equipment.id,
+            summary=f'Изменил оборудование «{equipment.name}»: {changed_keys}',
+            details=update_data,
+        )
         return equipment
 
 # ========== УДАЛЕНИЕ ==========
@@ -290,5 +303,12 @@ async def delete_equipment(
                 detail=f"Невозможно удалить оборудование '{equipment.name}': есть связанные объекты"
             )
 
+        equipment_name = equipment.name
         success = await equipment_data.delete_equipment(session, equipment_id)
+        if success:
+            await log_activity(
+                session, current_user,
+                action='delete', entity='equipment', entity_id=equipment_id,
+                summary=f'Удалил оборудование «{equipment_name}»',
+            )
         return success

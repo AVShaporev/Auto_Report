@@ -9,6 +9,7 @@ from model.contract import Contract
 from model.object import Object
 from model.user import User
 from data import object as object_data
+from service.activity_log import log_activity
 from schema.object import ObjectCreate, ObjectUpdate
 from service.render_docx import build_address
 from schema.pagination import PaginationParams
@@ -382,6 +383,11 @@ async def create_object(
             # MissingGreenlet при доступе к obj.id / obj.name после async-with.
             await session.refresh(obj)
 
+        await log_activity(
+            session, current_user,
+            action='create', entity='object', entity_id=obj.id,
+            summary=f'Создал объект «{obj.name}»',
+        )
         return obj
 
 # ========== ОБНОВЛЕНИЕ ==========
@@ -433,7 +439,14 @@ async def update_object(
         
         # Обновление
         obj = await object_data.update_object(session, object_id, object_update)
-        
+
+        changed_keys = ', '.join(sorted(update_data.keys())) or 'нет полей'
+        await log_activity(
+            session, current_user,
+            action='update', entity='object', entity_id=obj.id,
+            summary=f'Изменил объект «{obj.name}»: {changed_keys}',
+            details=update_data,
+        )
         return obj
 
 # ========== УДАЛЕНИЕ ==========
@@ -481,6 +494,13 @@ async def delete_object(
             )
         
         # Удаление
+        obj_name = obj.name
         success = await object_data.delete_object(session, object_id)
-        
+
+        if success:
+            await log_activity(
+                session, current_user,
+                action='delete', entity='object', entity_id=object_id,
+                summary=f'Удалил объект «{obj_name}»',
+            )
         return success

@@ -112,16 +112,25 @@ async def create_role(
         )
     
     role = await role_service.create_role(role_data)
-    
+
+    from service.activity_log import log_activity
+    from database.database import new_session
+    async with new_session() as _s:
+        await log_activity(
+            _s, current_user,
+            action='create', entity='role', entity_id=role.id,
+            summary=f'Создал роль «{role.name}»',
+        )
+
     # Формируем ответ
     role_dict = {"id": role.id, "name": role.name}
     for field in dir(role):
         if not field.startswith('_') and field not in ['id', 'name', 'users', 'metadata']:
             if isinstance(getattr(role, field, None), bool):
                 role_dict[field] = getattr(role, field)
-    
+
     role_dict["users_count"] = 0
-    
+
     return role_dict
 
 @router.put("/{role_id}", response_model=RoleResponse)
@@ -155,7 +164,17 @@ async def update_role(
         )
     
     role = await role_service.update_role(role_id, role_data)
-    
+
+    from service.activity_log import log_activity
+    from database.database import new_session
+    async with new_session() as _s:
+        await log_activity(
+            _s, current_user,
+            action='update', entity='role', entity_id=role.id,
+            summary=f'Изменил роль «{role.name}»',
+            details=role_data.model_dump(exclude_unset=True),
+        )
+
     # Формируем ответ
     role_dict = {"id": role.id, "name": role.name}
     for field in dir(role):
@@ -199,8 +218,18 @@ async def delete_role(
         )
     
     success = await role_service.delete_role(role_id)
-    
+
+    if success:
+        from service.activity_log import log_activity
+        from database.database import new_session
+        async with new_session() as _s:
+            await log_activity(
+                _s, current_user,
+                action='delete', entity='role', entity_id=role_id,
+                summary=f'Удалил роль «{role.name}»',
+            )
+
     return {
-        "status": "success", 
+        "status": "success",
         "message": f"Роль '{role.name}' (id: {role_id}) успешно удалена"
     }

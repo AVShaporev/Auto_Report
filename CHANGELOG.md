@@ -5,6 +5,23 @@
 версионирование [SemVer](https://semver.org/lang/ru/) — bump на каждый
 фикс/фичу; см. правило в feedback_autoreport_versioning.md.
 
+## [1.0.17] — 2026-08-25
+
+### Added
+Расширил `log_activity()` на все ключевые CRUD-сущности (в дополнение
+к order/report/issue/auth из v1.0.14):
+- `service/object.py` — create/update/delete.
+- `service/contract.py` — create/update/delete.
+- `service/equipment.py` — create/update/delete.
+- `service/organization.py` — create/update/delete.
+- `service/objects_equipment.py` — add/update/delete.
+- `api/role.py` — create/update/delete (пишется на API-уровне через
+  отдельную `new_session`, т.к. role_service не принимает current_user).
+- `api/user.py` — create/update/delete (тот же паттерн).
+
+Справочники `spec_*` не покрыты сознательно (шум, справочники правятся
+редко). При необходимости — добавим в next-cycle.
+
 ## [1.0.16] — 2026-08-25
 
 ### Fixed

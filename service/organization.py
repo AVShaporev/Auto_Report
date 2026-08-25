@@ -3,6 +3,7 @@ from fastapi import HTTPException
 from model.user import User
 from model.organization import Organization
 from data import organization as org_data
+from service.activity_log import log_activity
 from schema.organization import OrganizationCreate, OrganizationUpdate
 from schema.pagination import PaginationParams
 from database.database import new_session
@@ -222,7 +223,12 @@ async def create_organization(
                                                                 session,
                                                                 organization.id,
                                                                 load_relations=True)
-        
+
+        await log_activity(
+            session, current_user,
+            action='create', entity='organization', entity_id=organization.id,
+            summary=f'Создал организацию «{organization.short_name or organization.name}»',
+        )
         return organization
 
 # ========== ОБНОВЛЕНИЕ ==========
@@ -293,7 +299,15 @@ async def update_organization(
                                                                 org_id,
                                                                 load_relations=True
                                                                 )
-        
+
+        update_data = org_update.model_dump(exclude_unset=True)
+        changed_keys = ', '.join(sorted(update_data.keys())) or 'нет полей'
+        await log_activity(
+            session, current_user,
+            action='update', entity='organization', entity_id=organization.id,
+            summary=f'Изменил организацию «{organization.short_name or organization.name}»: {changed_keys}',
+            details=update_data,
+        )
         return organization
 
 # ========== УДАЛЕНИЕ ==========
@@ -325,6 +339,13 @@ async def delete_organization(
         # (например, контрактов, отчетов и т.д.)
         
         # Удаление
+        org_display_name = organization.short_name or organization.name
         success = await org_data.delete_organization(session, org_id)
-        
+
+        if success:
+            await log_activity(
+                session, current_user,
+                action='delete', entity='organization', entity_id=org_id,
+                summary=f'Удалил организацию «{org_display_name}»',
+            )
         return success
