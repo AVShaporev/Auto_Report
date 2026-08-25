@@ -5,6 +5,19 @@
 версионирование [SemVer](https://semver.org/lang/ru/) — bump на каждый
 фикс/фичу; см. правило в feedback_autoreport_versioning.md.
 
+## [1.0.15] — 2026-08-25
+
+### Fixed
+- `GET /api/activity_log/list` → 500 `column activity_logs.description
+  does not exist`. Родная миграция `c2f5b8a3d941` упустила Base-cols
+  `description` (у нас все модели наследуют его от `Base`). SQLAlchemy
+  всё равно включает эту колонку в SELECT — таблица без неё падает.
+- Новая миграция `c8a4d3e2f9b7` — `ALTER TABLE activity_logs ADD
+  COLUMN description VARCHAR NULL`.
+- Тот же паттерн уже пойман раньше: idempotency_keys (v1.0.4-ish,
+  `c5e6f7a8b9c0`) и media_upload_sessions (`d7f8a9b0c1e2`). Пора
+  зафиксировать правило в auto-memory.
+
 ## [1.0.14] — 2026-08-25 (Фаза 1 из #312)
 
 ### Added — журнал пользовательских действий (activity_log)
