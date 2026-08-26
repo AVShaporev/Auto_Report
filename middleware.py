@@ -29,6 +29,12 @@ def _extract_username(request: Request) -> Optional[str]:
     return sub if isinstance(sub, str) else None
 
 
+# Path'ы, для которых пропускаем JSONL-запись (не текстовый лог).
+# Здоровье-чекa master-monitoring'а и внешних uptime-мониторов забивают
+# логи и не несут диагностической ценности.
+_JSONL_SKIP_PATHS = {"/api/health"}
+
+
 class LogRequestsMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         username = _extract_username(request)
@@ -68,22 +74,23 @@ class LogRequestsMiddleware(BaseHTTPMiddleware):
                 for q, n in top_queries:
                     logger.warning(f"   {n}× {q}")
 
-            try:
-                json_logger.write({
-                    "kind": "http",
-                    "method": request.method,
-                    "path": request.url.path,
-                    "status_code": status_code,
-                    "user": username,
-                    "started_at": started_at.isoformat(),
-                    "ended_at": ended_at.isoformat(),
-                    "duration_sec": round(duration, 4),
-                    "sql_count": sql_count,
-                    "sql_time_sec": round(sql_time, 4),
-                    "sql_top": [{"sql": q, "count": n} for q, n in (top_queries or [])] or None,
-                })
-            except Exception as e:
-                logger.warning(f"JSON-лог HTTP не записан: {e!r}")
+            if request.url.path not in _JSONL_SKIP_PATHS:
+                try:
+                    json_logger.write({
+                        "kind": "http",
+                        "method": request.method,
+                        "path": request.url.path,
+                        "status_code": status_code,
+                        "user": username,
+                        "started_at": started_at.isoformat(),
+                        "ended_at": ended_at.isoformat(),
+                        "duration_sec": round(duration, 4),
+                        "sql_count": sql_count,
+                        "sql_time_sec": round(sql_time, 4),
+                        "sql_top": [{"sql": q, "count": n} for q, n in (top_queries or [])] or None,
+                    })
+                except Exception as e:
+                    logger.warning(f"JSON-лог HTTP не записан: {e!r}")
             current_user_var.reset(marker)
 
 
