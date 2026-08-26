@@ -186,7 +186,15 @@ async def post_create_user(
         if user_auth.role.user_create:
             await _assert_can_assign_role(user.role_id, user_auth)
             try:
+                user_name_for_log = user.name
                 user = await create(user_create = user)
+                from service.activity_log import log_activity
+                async with new_session() as _s:
+                    await log_activity(
+                        _s, user_auth,
+                        action='create', entity='user', entity_id=None,
+                        summary=f'Создал пользователя «{user_name_for_log}»',
+                    )
                 create_ok = True
                 return create_ok
 
@@ -207,6 +215,14 @@ async def delete(request: Request, user: User = Depends(get_current_user), user_
         if user.role.user_delete:
             try:
                 res = await delete_by_id(user_id)
+                if res:
+                    from service.activity_log import log_activity
+                    async with new_session() as _s:
+                        await log_activity(
+                            _s, user,
+                            action='delete', entity='user', entity_id=user_id,
+                            summary=f'Удалил пользователя (id={user_id})',
+                        )
                 return res
             except BaseLocking:
                 error_msg = "База данных недоступна для записи!"
@@ -257,7 +273,16 @@ async def put_modify_user(
         if user_auth.role.user_modify:
             await _assert_can_assign_role(user.role_id, user_auth)
             try:
+                update_data_dump = user.model_dump(exclude_unset=True)
                 user = await modify(user_id = user_id, user = user)
+                from service.activity_log import log_activity
+                async with new_session() as _s:
+                    await log_activity(
+                        _s, user_auth,
+                        action='update', entity='user', entity_id=user.id,
+                        summary=f'Изменил пользователя «{user.name}»',
+                        details=update_data_dump,
+                    )
                 modify_ok = True
                 return JSONResponse({"id": user.id,
                                     "name": user.name})

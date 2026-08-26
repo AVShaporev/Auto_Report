@@ -5,6 +5,77 @@
 версионирование [SemVer](https://semver.org/lang/ru/) — bump на каждый
 фикс/фичу; см. правило в feedback_autoreport_versioning.md.
 
+## [1.0.17] — 2026-08-25
+
+### Added
+Расширил `log_activity()` на все ключевые CRUD-сущности (в дополнение
+к order/report/issue/auth из v1.0.14):
+- `service/object.py` — create/update/delete.
+- `service/contract.py` — create/update/delete.
+- `service/equipment.py` — create/update/delete.
+- `service/organization.py` — create/update/delete.
+- `service/objects_equipment.py` — add/update/delete.
+- `api/role.py` — create/update/delete (пишется на API-уровне через
+  отдельную `new_session`, т.к. role_service не принимает current_user).
+- `api/user.py` — create/update/delete (тот же паттерн).
+
+Справочники `spec_*` не покрыты сознательно (шум, справочники правятся
+редко). При необходимости — добавим в next-cycle.
+
+## [1.0.16] — 2026-08-25
+
+### Fixed
+- `activity_log` записи не сохранялись: `create_activity_log` в
+  data-слое делал только `session.flush()`. По паттерну проекта
+  data-функции сами коммитят (`await session.commit()` в конце). К
+  моменту вызова `log_activity` из service после мутации основная
+  транзакция уже была closed, наш INSERT попадал в новую auto-tx и
+  откатывался при `async with new_session()` __aexit__ (`session.close()`
+  без commit).
+- Заменил `flush()` → `commit()` в `data/activity_log.py::create_activity_log`.
+
+## [1.0.15] — 2026-08-25
+
+### Fixed
+- `GET /api/activity_log/list` → 500 `column activity_logs.description
+  does not exist`. Родная миграция `c2f5b8a3d941` упустила Base-cols
+  `description` (у нас все модели наследуют его от `Base`). SQLAlchemy
+  всё равно включает эту колонку в SELECT — таблица без неё падает.
+- Новая миграция `c8a4d3e2f9b7` — `ALTER TABLE activity_logs ADD
+  COLUMN description VARCHAR NULL`.
+- Тот же паттерн уже пойман раньше: idempotency_keys (v1.0.4-ish,
+  `c5e6f7a8b9c0`) и media_upload_sessions (`d7f8a9b0c1e2`). Пора
+  зафиксировать правило в auto-memory.
+
+## [1.0.14] — 2026-08-25 (Фаза 1 из #312)
+
+### Added — журнал пользовательских действий (activity_log)
+- Alembic-миграция `c2f5b8a3d941`: таблица `activity_logs`
+  (id, user_id NULL→users, user_name-снапшот, action, entity, entity_id,
+  summary, details JSONB, created_at, updated_at + 3 индекса).
+- Модель `model/activity_log.py`, DAO `data/activity_log.py`,
+  service `service/activity_log.py` с helper'ом `log_activity(session,
+  user, action, entity, entity_id, summary, details=None)`. Пишется
+  в той же сессии что и основная мутация (rollback синхронный).
+  Ошибки логирования не пробрасываются (loguru.warning).
+- `GET /api/activity_log/list` — фильтры по user_id/entity/action/дате
+  + ILIKE-поиск в summary/user_name + пагинация. Только для админов.
+- Схема `schema/activity_log.py` — `ActivityLogResponse`.
+
+### Wired-in log_activity()
+Все ключевые мутации инженерского пути:
+- `service/order.py` — create, update, change_status, delete.
+- `service/report.py` — create, update, change_status, delete.
+- `service/issue.py` — create, update, change_status, delete.
+- `api/auth.py` — login, logout.
+
+### Notes
+- Фаза 2 (технические JSONL-логи в admin.cool-doc.ru) — отдельным
+  релизом. Текущий `/api/log/list` остаётся живым, но пункт «Логи»
+  во фронте тенанта заменён на «Действия» (activity_log).
+- События до внедрения (2026-08-25) в новом журнале не появятся —
+  история начинается с момента миграции.
+
 ## [1.0.13] — 2026-08-24
 
 ### Changed

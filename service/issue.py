@@ -11,6 +11,7 @@ from model.contract import Contract
 from model.organization import Organization
 from model.spec_status import Spec_Status
 from data import issue as issue_data
+from service.activity_log import log_activity
 from schema.issue import IssueCreate, IssueUpdate, IssueStatusUpdate
 from schema.pagination import PaginationParams
 from database.database import new_session  # 👈 используем new_session вместо new_session
@@ -457,6 +458,11 @@ async def create_issue(
             number=generated_number,
         )
 
+        await log_activity(
+            session, current_user,
+            action='create', entity='issue', entity_id=issue.id,
+            summary=f'Создал неисправность №{issue.number}: {issue.title[:100]}',
+        )
         return issue
 
 # ========== ОБНОВЛЕНИЕ ==========
@@ -523,7 +529,14 @@ async def update_issue(
         
         # Обновление
         issue = await issue_data.update_issue(session, issue_id, issue_update)
-        
+
+        changed_keys = ', '.join(sorted(update_data.keys())) or 'нет полей'
+        await log_activity(
+            session, current_user,
+            action='update', entity='issue', entity_id=issue.id,
+            summary=f'Изменил неисправность №{issue.number}: {changed_keys}',
+            details=update_data,
+        )
         return issue
 
 # ========== ОБНОВЛЕНИЕ СТАТУСА ==========
@@ -570,6 +583,18 @@ async def update_issue_status(
             status_update.resolved_date
         )
 
+        await log_activity(
+            session, current_user,
+            action='change_status', entity='issue', entity_id=issue.id,
+            summary=f'Сменил статус неисправности №{issue.number} → {new_status.name}',
+            details={
+                'new_status_id': status_update.status_id,
+                'resolved_date': (
+                    status_update.resolved_date.isoformat()
+                    if status_update.resolved_date else None
+                ),
+            },
+        )
         return issue
 
 # ========== НАЗНАЧЕНИЕ ОТВЕТСТВЕННОГО ==========
@@ -634,10 +659,17 @@ async def delete_issue(
             )
         
         # Удаление
+        issue_number = issue.number
+        issue_title = issue.title
         success = await issue_data.delete_issue(session, issue_id)
         if success:
             # CASCADE удалит записи issue_attachments в БД, файлы — отдельно с диска.
             from service.issue_attachment import cleanup_issue_directory
             cleanup_issue_directory(issue_id)
+            await log_activity(
+                session, current_user,
+                action='delete', entity='issue', entity_id=issue_id,
+                summary=f'Удалил неисправность №{issue_number}: {issue_title[:100]}',
+            )
 
         return success

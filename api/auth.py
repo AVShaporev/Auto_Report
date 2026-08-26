@@ -69,6 +69,12 @@ async def login(
         access_token, refresh_token = await issue_session_pair(
             session, user, request=request
         )
+        from service.activity_log import log_activity
+        await log_activity(
+            session, user,
+            action='login', entity='auth', entity_id=user.id,
+            summary=f'{user.name} вошёл в систему',
+        )
 
     user_out = UserLogin.model_validate(user)
     return LoginResponse(
@@ -160,6 +166,12 @@ async def logout(
         row = await user_session_dao.get_user_session_by_jti(session, jti)
         if row and row.user_id == current_user.id:
             await user_session_dao.revoke_user_session(session, row)
+            from service.activity_log import log_activity
+            await log_activity(
+                session, current_user,
+                action='logout', entity='auth', entity_id=current_user.id,
+                summary=f'{current_user.name} вышел из системы',
+            )
 
 
 @router.get("/sessions", response_model=List[SessionResponse])

@@ -5,6 +5,7 @@ from fastapi import HTTPException
 from model.user import User
 from model.objects_equipment import Objects_Equipment
 from data import objects_equipment as link_data
+from service.activity_log import log_activity
 from data import object as object_data
 from data import equipment as equipment_data
 from schema.objects_equipment import (
@@ -296,6 +297,11 @@ async def add_equipment_to_object(
         )
 
         link = await link_data.create_objects_equipment(session, link_create)
+        await log_activity(
+            session, current_user,
+            action='create', entity='objects_equipment', entity_id=link.id,
+            summary=f'Добавил на объект #{object_id} оборудование «{equipment.name}» ({add_data.count} шт)',
+        )
         return link
 
 # ========== ОБНОВЛЕНИЕ ==========
@@ -348,6 +354,13 @@ async def update_equipment_on_object(
         
         # Обновление
         link = await link_data.update_objects_equipment(session, link_id, update_data)
+        upd = update_data.model_dump(exclude_unset=True)
+        await log_activity(
+            session, current_user,
+            action='update', entity='objects_equipment', entity_id=link.id,
+            summary=f'Изменил связь оборудования #{link_id}: {", ".join(sorted(upd.keys())) or "нет полей"}',
+            details=upd,
+        )
         return link
 
 async def update_equipment_count(
@@ -398,6 +411,12 @@ async def remove_equipment_from_object(
             )
         
         success = await link_data.delete_objects_equipment(session, link_id)
+        if success:
+            await log_activity(
+                session, current_user,
+                action='delete', entity='objects_equipment', entity_id=link_id,
+                summary=f'Удалил связь оборудования #{link_id} с объекта',
+            )
         return success
 
 async def remove_specific_equipment(

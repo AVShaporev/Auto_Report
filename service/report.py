@@ -8,6 +8,7 @@ from model.contract import Contract
 from model.object import Object
 from model.spec_status import Spec_Status
 from data import report as report_data
+from service.activity_log import log_activity
 from schema.report import ReportCreate, ReportUpdate, ReportStatusUpdate
 from schema.pagination import PaginationParams
 from database.database import new_session
@@ -310,6 +311,11 @@ async def create_report(
             status_id=default_status.id,
         )
 
+        await log_activity(
+            session, current_user,
+            action='create', entity='report', entity_id=report.id,
+            summary=f'Создал отчёт №{report.number}',
+        )
         return report
 
 # ========== ОБНОВЛЕНИЕ ==========
@@ -366,7 +372,14 @@ async def update_report(
         
         # Обновление (user_id нельзя изменить через update)
         report = await report_data.update_report(session, report_id, report_update)
-        
+
+        changed_keys = ', '.join(sorted(update_data.keys())) or 'нет полей'
+        await log_activity(
+            session, current_user,
+            action='update', entity='report', entity_id=report.id,
+            summary=f'Изменил отчёт №{report.number}: {changed_keys}',
+            details=update_data,
+        )
         return report
 
 # ========== СМЕНА СТАТУСА ОТЧЁТА ==========
@@ -399,6 +412,12 @@ async def update_report_status(
                 detail=f"Отчет с id {report_id} не найден"
             )
 
+        await log_activity(
+            session, current_user,
+            action='change_status', entity='report', entity_id=report.id,
+            summary=f'Сменил статус отчёта №{report.number} → {status.name}',
+            details={'new_status_id': status_update.status_id},
+        )
         return report
 
 # ========== УДАЛЕНИЕ ==========
@@ -434,9 +453,15 @@ async def delete_report(
 
         # При удалении отчёта связанная заявка освобождается
         # (order.report_id → NULL через ON DELETE SET NULL)
+        report_number = report.number
         success = await report_data.delete_report(session, report_id)
         if success:
             # CASCADE удалит записи report_attachments в БД, файлы — отдельно с диска.
             from service.report_attachment import cleanup_report_directory
             cleanup_report_directory(report_id)
+            await log_activity(
+                session, current_user,
+                action='delete', entity='report', entity_id=report_id,
+                summary=f'Удалил отчёт №{report_number}',
+            )
         return success

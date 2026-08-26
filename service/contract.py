@@ -3,6 +3,7 @@ from fastapi import HTTPException
 from model.user import User
 from model.contract import Contract
 from data import contract as contract_data
+from service.activity_log import log_activity
 from data import spec_contract as spec_contract_data
 from data import organization as organization_data
 from schema.contract import ContractCreate, ContractUpdate
@@ -292,7 +293,12 @@ async def create_contract(
         
         # Создание
         contract = await contract_data.create_contract(session, contract_create)
-        
+
+        await log_activity(
+            session, current_user,
+            action='create', entity='contract', entity_id=contract.id,
+            summary=f'Создал договор №{contract.number}',
+        )
         return contract
 
 # ========== ОБНОВЛЕНИЕ ==========
@@ -358,8 +364,16 @@ async def update_contract(
             )
         
         # Обновление
+        update_data = contract_update.dict(exclude_unset=True)
         contract = await contract_data.update_contract(session, contract_id, contract_update)
-        
+
+        changed_keys = ', '.join(sorted(update_data.keys())) or 'нет полей'
+        await log_activity(
+            session, current_user,
+            action='update', entity='contract', entity_id=contract.id,
+            summary=f'Изменил договор №{contract.number}: {changed_keys}',
+            details=update_data,
+        )
         return contract
 
 # ========== УДАЛЕНИЕ ==========
@@ -413,6 +427,13 @@ async def delete_contract(
             )
         
         # Удаление
+        contract_number = contract.number
         success = await contract_data.delete_contract(session, contract_id)
-        
+
+        if success:
+            await log_activity(
+                session, current_user,
+                action='delete', entity='contract', entity_id=contract_id,
+                summary=f'Удалил договор №{contract_number}',
+            )
         return success
