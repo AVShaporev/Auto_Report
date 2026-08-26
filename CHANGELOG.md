@@ -5,6 +5,15 @@
 версионирование [SemVer](https://semver.org/lang/ru/) — bump на каждый
 фикс/фичу; см. правило в feedback_autoreport_versioning.md.
 
+## [1.0.19] — 2026-08-26
+
+### Changed
+- `LogRequestsMiddleware` больше не пишет `/api/health` в JSONL-лог —
+  master-monitoring дёргает health каждые пару минут, шум забивал
+  «Технические логи» в master-UI (`TechLogsView` из #312 Фаза 2).
+  Текстовый loguru-лог `/api/health` продолжает писаться в stdout
+  контейнера — контейнер-логи ротируются отдельно.
+
 ## [1.0.18] — 2026-08-27 (Фаза 2 из #312 — тенант-часть)
 
 ### Added
