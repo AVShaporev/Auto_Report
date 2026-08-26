@@ -5,6 +5,28 @@
 версионирование [SemVer](https://semver.org/lang/ru/) — bump на каждый
 фикс/фичу; см. правило в feedback_autoreport_versioning.md.
 
+## [1.0.18] — 2026-08-27 (Фаза 2 из #312 — тенант-часть)
+
+### Added
+- `GET /api/tenant/tech-logs` — тот же JSONL что старый
+  `/api/log/list`, но auth через `MASTER_API_TENANT_TOKEN` (shared
+  secret между master и тенантом — тот же токен тенант шлёт в master
+  для `/api/lifecycle/{slug}`, используем в обе стороны). Master
+  ходит сюда с `https://<slug>.cool-doc.ru/api/tenant/tech-logs` и
+  рендерит в своей master-UI `TechLogsView` (в разработке).
+- `service/log.py`: рефакторинг — общая логика вынесена в
+  `_list_logs_core`, новая функция `list_logs_for_master()` для
+  master-inbound без RBAC-проверки.
+- `_require_master_token` guard в `api/tenant.py` — проверяет
+  `Authorization: Bearer <token>` против `MASTER_API_TENANT_TOKEN`.
+
+### Notes
+- Работает автоматом на любом новом SaaS-тенанте: endpoint в общем
+  образе, `MASTER_API_TENANT_TOKEN` пробрасывается provision-tenant.sh.
+- Старый `/api/log/list` пока живой — используется никак (LogsView
+  переехал на `/api/activity_log/list` в v1.0.14), но оставляю до
+  завершения Фазы 2.
+
 ## [1.0.17] — 2026-08-25
 
 ### Added

@@ -139,13 +139,18 @@ def _sort_key(entry: dict, key: str):
     return v
 
 
-async def list_logs(
+async def _list_logs_core(
     pagination: PaginationParams,
     filters: LogFilters,
-    current_user: User,
 ) -> Tuple[List[LogEntry], int]:
-    _check_admin(current_user)
+    """Общая логика чтения JSONL без RBAC-проверки.
 
+    Используется двумя entry-point'ами:
+      - `list_logs()` — с админской проверкой (тенант UI /api/log/list).
+      - `list_logs_for_master()` — без проверки, авторизация уже
+        сделана через MASTER_API_TENANT_TOKEN на уровне endpoint'а
+        (master.cool-doc.ru проксирует сюда через /api/tenant/tech-logs).
+    """
     df_naive = _to_local_naive(filters.date_from)
     dt_naive = _to_local_naive(filters.date_to)
     if df_naive is not filters.date_from or dt_naive is not filters.date_to:
@@ -178,3 +183,21 @@ async def list_logs(
     total = len(matched)
     page_slice = matched[pagination.skip : pagination.skip + pagination.limit]
     return [LogEntry(**e) for e in page_slice], total
+
+
+async def list_logs(
+    pagination: PaginationParams,
+    filters: LogFilters,
+    current_user: User,
+) -> Tuple[List[LogEntry], int]:
+    _check_admin(current_user)
+    return await _list_logs_core(pagination, filters)
+
+
+async def list_logs_for_master(
+    pagination: PaginationParams,
+    filters: LogFilters,
+) -> Tuple[List[LogEntry], int]:
+    """То же что list_logs(), но без проверки role — вызывается из
+    endpoint'а под MASTER_API_TENANT_TOKEN gate."""
+    return await _list_logs_core(pagination, filters)
