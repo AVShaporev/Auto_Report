@@ -20,6 +20,14 @@ class Order(Base):
     contract_id: Mapped[int] = mapped_column(ForeignKey("contracts.id"), nullable=False)
     object_id: Mapped[int] = mapped_column(ForeignKey("objects.id"), nullable=False)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    # Ответственный за исполнение (nullable — при создании может не быть
+    # назначен, mobile "Мои" фильтрует по этому полю). Отдельно от user_id
+    # (автор): один создал, другой ведёт. См. миграцию d1a2b3c4e5f6.
+    assigned_to_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     report_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("reports.id", ondelete="SET NULL"),
         nullable=True,
@@ -68,9 +76,18 @@ class Order(Base):
     user: Mapped["User"] = relationship(
         "User",
         back_populates="orders",  # Должно быть в User
-        lazy="joined"
+        lazy="joined",
+        foreign_keys="Order.user_id",
     )
-    
+
+    # Ответственный (может отсутствовать). lazy="joined" — нужен рядом с
+    # user (автор) в основном SELECT'е.
+    assigned_to: Mapped[Optional["User"]] = relationship(
+        "User",
+        lazy="joined",
+        foreign_keys="Order.assigned_to_id",
+    )
+
     # Отчёт (один к одному)
     report: Mapped[Optional["Report"]] = relationship(
         "Report",

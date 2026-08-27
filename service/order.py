@@ -1,6 +1,6 @@
 from typing import Optional, List, Tuple
 from fastapi import HTTPException
-from sqlalchemy import select, func, extract
+from sqlalchemy import select, func, extract, update as sa_update
 from sqlalchemy.orm import selectinload
 from datetime import date
 
@@ -207,6 +207,8 @@ async def get_order_with_details(
             "contract_number": order.contract.number if order.contract else None,
             "object_name": order.object.name if order.object else None,
             "user_name": order.user.name if order.user else None,
+            "assigned_to_id": order.assigned_to_id,
+            "assigned_to_name": order.assigned_to.name if order.assigned_to else None,
             "report_number": order.report.number if order.report else None
         }
 
@@ -218,6 +220,7 @@ async def get_orders_paginated_with_details(
     contract_id: Optional[int] = None,
     object_id: Optional[int] = None,
     user_id: Optional[int] = None,
+    assigned_to_id: Optional[int] = None,
     status_id: Optional[List[int]] = None,
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
@@ -244,6 +247,7 @@ async def get_orders_paginated_with_details(
             contract_id=contract_id,
             object_id=object_id,
             user_id=user_id,
+            assigned_to_id=assigned_to_id,
             status_id=status_id,
             date_from=date_from,
             date_to=date_to,
@@ -273,6 +277,8 @@ async def get_orders_paginated_with_details(
                 "spec_order_name": item.spec_order.name if item.spec_order else None,
                 "object_name": item.object.name if item.object else None,
                 "user_name": item.user.name if item.user else None,
+                "assigned_to_id": item.assigned_to_id,
+                "assigned_to_name": item.assigned_to.name if item.assigned_to else None,
                 "contract_number": item.contract.number if item.contract else None
             })
 
@@ -311,6 +317,14 @@ async def create_order(
             raise HTTPException(
                 status_code=400,
                 detail=f"Объект с id {order_create.object_id} не существует"
+            )
+
+        if order_create.assigned_to_id and not await order_data.check_user_exists(
+            session, order_create.assigned_to_id
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Пользователь с id {order_create.assigned_to_id} не существует",
             )
 
         # Подгружаем контракт с заказчиком и тип заявки — нужно для маски номера.
@@ -401,13 +415,12 @@ async def update_order(
                 detail=f"Заявка с id {order_id} не найдена"
             )
         
-        # Проверка прав на изменение (может менять только автор или админ)
-        if existing.user_id != current_user.id and not current_user.role.is_admin:
-            raise HTTPException(
-                status_code=403,
-                detail="Вы можете изменять только свои заявки"
-            )
-        
+        # Ограничение «менять только свои заявки» снято 2026-08-27:
+        # у роли уже есть отдельный флаг order_modify, проверенный выше
+        # через check_permission — этого достаточно. Параллельный
+        # /api/order/bulk_assign с тем же RBAC работает по всем заявкам,
+        # так что одиночный PATCH был единственным местом с рудиментом.
+
         # Проверка уникальности номера, если он меняется
         if order_update.number and order_update.number != existing.number:
             if await order_data.check_order_number_exists(session, order_update.number, order_id):
@@ -440,6 +453,18 @@ async def update_order(
                     detail=f"Объект с id {update_data['object_id']} не существует"
                 )
 
+        # Ответственный: 0 → NULL (снять), > 0 → проверить что юзер существует.
+        if 'assigned_to_id' in update_data:
+            aid = update_data['assigned_to_id']
+            if aid == 0 or aid is None:
+                update_data['assigned_to_id'] = None
+                order_update = order_update.model_copy(update={"assigned_to_id": None})
+            elif not await order_data.check_user_exists(session, aid):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Пользователь с id {aid} не существует",
+                )
+
         # Обновление
         order = await order_data.update_order(session, order_id, order_update)
 
@@ -451,6 +476,68 @@ async def update_order(
             details=update_data,
         )
         return order
+
+# ========== МАССОВОЕ НАЗНАЧЕНИЕ ОТВЕТСТВЕННОГО ==========
+
+async def bulk_assign_responsible(
+    *,
+    order_ids: List[int],
+    assigned_to_id: Optional[int],
+    current_user: User,
+) -> int:
+    """Массово проставить (или снять) ответственного у заявок.
+
+    - `assigned_to_id=None` или `0` → снять ответственного (SET NULL).
+    - Иначе — проверяем что юзер существует, ставим FK.
+    Один activity_log — «Массово назначил <name> на N заявок» (или «снял
+    ответственного с N заявок»), с полным списком id в details.
+    """
+    await check_permission(current_user, "order_modify", "изменения заявок")
+
+    target_id = None if not assigned_to_id else assigned_to_id
+
+    async with new_session() as session:
+        target_name = None
+        if target_id is not None:
+            if not await order_data.check_user_exists(session, target_id):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Пользователь с id {target_id} не существует",
+                )
+            target_user = await session.get(User, target_id)
+            target_name = (
+                getattr(target_user, "full_name", None)
+                or getattr(target_user, "name", None)
+                or f"ID {target_id}"
+            )
+
+        stmt = (
+            sa_update(Order)
+            .where(Order.id.in_(order_ids))
+            .values(assigned_to_id=target_id)
+        )
+        result = await session.execute(stmt)
+        updated = int(result.rowcount or 0)
+
+        if updated:
+            summary = (
+                f'Массово назначил ответственного «{target_name}» на {updated} заявок'
+                if target_id is not None
+                else f'Массово снял ответственного с {updated} заявок'
+            )
+            await log_activity(
+                session, current_user,
+                action='update', entity='order', entity_id=None,
+                summary=summary,
+                details={
+                    'order_ids': order_ids,
+                    'assigned_to_id': target_id,
+                },
+            )
+
+        await session.commit()
+        return updated
+
 
 # ========== ОБНОВЛЕНИЕ СТАТУСА ==========
 

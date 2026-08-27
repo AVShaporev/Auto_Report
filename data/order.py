@@ -99,6 +99,7 @@ async def get_order_paginated(
     contract_id: Optional[int] = None,
     object_id: Optional[int] = None,
     user_id: Optional[int] = None,
+    assigned_to_id: Optional[int] = None,
     status_id: Optional[List[int]] = None,
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
@@ -144,6 +145,15 @@ async def get_order_paginated(
     if user_id:
         query = query.where(Order.user_id == user_id)
         count_query = count_query.where(Order.user_id == user_id)
+
+    if assigned_to_id is not None:
+        # 0 → «без ответственного» (NULL), иначе точное совпадение.
+        if assigned_to_id == 0:
+            query = query.where(Order.assigned_to_id.is_(None))
+            count_query = count_query.where(Order.assigned_to_id.is_(None))
+        else:
+            query = query.where(Order.assigned_to_id == assigned_to_id)
+            count_query = count_query.where(Order.assigned_to_id == assigned_to_id)
 
     if status_id:
         # Мультиселект по id справочника — фильтруем по FK напрямую, без JOIN.

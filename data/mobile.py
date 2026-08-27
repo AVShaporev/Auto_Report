@@ -230,7 +230,9 @@ async def get_orders_mobile_list(
     # справочника через inner JOIN (FK NOT NULL, справочник всегда есть).
     # status_ids — мультиселект фильтра статусов; None → показываем все.
     # object_id — drill-down с ObjectDetailView.
-    # User.user_id — это АВТОР заявки (концепции assignee нет).
+    # User join — на assigned_to_id (ОТВЕТСТВЕННЫЙ). only_mine фильтрует
+    # по этому же полю: инженер видит заявки, которые ему назначили, а не
+    # те что он сам создал.
     stmt = (
         select(
             Order.id,
@@ -253,10 +255,10 @@ async def get_orders_mobile_list(
         .outerjoin(Region, Region.id == Object.region_id)
         .outerjoin(Arial, Arial.id == Object.arial_id)
         .outerjoin(Locality, Locality.id == Object.locality_id)
-        .outerjoin(User, User.id == Order.user_id)
+        .outerjoin(User, User.id == Order.assigned_to_id)
     )
     if only_mine and user_id is not None:
-        stmt = stmt.where(Order.user_id == user_id)
+        stmt = stmt.where(Order.assigned_to_id == user_id)
     if status_ids:
         stmt = stmt.where(Order.status_id.in_(status_ids))
     if object_id is not None:

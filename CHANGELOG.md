@@ -5,6 +5,69 @@
 версионирование [SemVer](https://semver.org/lang/ru/) — bump на каждый
 фикс/фичу; см. правило в feedback_autoreport_versioning.md.
 
+## [1.0.23] — 2026-08-27
+
+### Changed
+- **`PUT /api/order/{id}`**: снято ограничение «менять только свои
+  заявки» (403 если `existing.user_id != current_user.id and not
+  is_admin`). Роль всё ещё проверяется через `order_modify`
+  (`check_permission` выше). Причина: параллельный
+  `POST /api/order/bulk_assign` (v1.0.21) с тем же RBAC уже работает
+  по всем заявкам без учёта авторства, одиночный PATCH был единственным
+  местом с рудиментом «только автор». Менеджер теперь может менять
+  ответственного/статус в любой заявке через веб-форму как и через
+  массовое назначение.
+
+  `update_order_status` и `delete_order` — сохранили «только свои»,
+  это отдельная семантика (статус двигает исполнитель, удаляет
+  автор/админ).
+
+## [1.0.22] — 2026-08-27
+
+### Fixed
+- **Hotfix v1.0.20 → падал на старте:**
+  `sqlalchemy.exc.AmbiguousForeignKeysError: … relationship User.orders —
+  there are multiple foreign key paths linking the tables`. Причина:
+  у `Order` две FK на `users.id` (`user_id` — автор, `assigned_to_id` —
+  ответственный), а обратная связь `User.orders` не указывала
+  `foreign_keys=` и SQLAlchemy не мог понять по какой FK'ой матчить.
+  Добавлен `foreign_keys="Order.user_id"` в `User.orders`.
+
+## [1.0.21] — 2026-08-27
+
+### Added
+- **`POST /api/order/bulk_assign`** — массовое проставление
+  ответственного за N заявок за один запрос. Body:
+  `{order_ids: [1,2,3], assigned_to_id: 42}` или
+  `{order_ids: [...], assigned_to_id: null}` (снять). Ответ:
+  `{updated: <int>}`. RBAC: `order_modify`. Один агрегированный
+  activity_log с полным списком id в details.
+
+## [1.0.20] — 2026-08-27
+
+### Added
+- **`orders.assigned_to_id`** — новое поле «ответственный» (nullable FK на
+  `users.id`, ondelete=SET NULL). Отдельно от `user_id` (АВТОР создания).
+  Миграция `d1a2b3c4e5f6`. Проставляется через веб-UI при create/PATCH
+  Order; у существующих заявок = NULL, backfill не делается.
+- `model.Order.assigned_to` relationship (`lazy="joined"`, отдельные
+  `foreign_keys` для обоих User-relationship'ов).
+- `schema.OrderCreate/OrderUpdate` — поле `assigned_to_id`. В PATCH `0`
+  или `null` = «снять ответственного» (service нормализует в NULL).
+- `schema.OrderResponse/OrderListResponse` — `assigned_to_id` +
+  `assigned_to_name` в ответах.
+- Фильтр `assigned_to_id` в `/api/order/list` (0 = «без ответственного»).
+
+### Changed
+- **`/api/mobile/orders?only_mine=true`** теперь фильтрует по
+  `Order.assigned_to_id == current_user.id`, а не по `Order.user_id`
+  (там был АВТОР). Инженер видит «Мои» как заявки, которые ему
+  назначили. `MobileOrderListItem.assigned_to_name` теперь честно
+  берёт имя ответственного (join на User через assigned_to_id) — ранее
+  колонка называлась «assigned_to_name», но join был через user_id
+  (АВТОР), значение лгало. **Смок:** пока у Order.assigned_to_id везде
+  NULL, «Мои» в mobile будет пустой → веб-CRUD должен проставить.
+
 ## [1.0.19] — 2026-08-26
 
 ### Changed
