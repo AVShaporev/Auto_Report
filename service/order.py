@@ -415,13 +415,12 @@ async def update_order(
                 detail=f"Заявка с id {order_id} не найдена"
             )
         
-        # Проверка прав на изменение (может менять только автор или админ)
-        if existing.user_id != current_user.id and not current_user.role.is_admin:
-            raise HTTPException(
-                status_code=403,
-                detail="Вы можете изменять только свои заявки"
-            )
-        
+        # Ограничение «менять только свои заявки» снято 2026-08-27:
+        # у роли уже есть отдельный флаг order_modify, проверенный выше
+        # через check_permission — этого достаточно. Параллельный
+        # /api/order/bulk_assign с тем же RBAC работает по всем заявкам,
+        # так что одиночный PATCH был единственным местом с рудиментом.
+
         # Проверка уникальности номера, если он меняется
         if order_update.number and order_update.number != existing.number:
             if await order_data.check_order_number_exists(session, order_update.number, order_id):
