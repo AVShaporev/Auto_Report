@@ -1,6 +1,6 @@
 from typing import Optional, List, Tuple
 from fastapi import HTTPException
-from sqlalchemy import select, func, extract
+from sqlalchemy import select, func, extract, update as sa_update
 from sqlalchemy.orm import selectinload
 from datetime import date
 
@@ -477,6 +477,68 @@ async def update_order(
             details=update_data,
         )
         return order
+
+# ========== МАССОВОЕ НАЗНАЧЕНИЕ ОТВЕТСТВЕННОГО ==========
+
+async def bulk_assign_responsible(
+    *,
+    order_ids: List[int],
+    assigned_to_id: Optional[int],
+    current_user: User,
+) -> int:
+    """Массово проставить (или снять) ответственного у заявок.
+
+    - `assigned_to_id=None` или `0` → снять ответственного (SET NULL).
+    - Иначе — проверяем что юзер существует, ставим FK.
+    Один activity_log — «Массово назначил <name> на N заявок» (или «снял
+    ответственного с N заявок»), с полным списком id в details.
+    """
+    await check_permission(current_user, "order_modify", "изменения заявок")
+
+    target_id = None if not assigned_to_id else assigned_to_id
+
+    async with new_session() as session:
+        target_name = None
+        if target_id is not None:
+            if not await order_data.check_user_exists(session, target_id):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Пользователь с id {target_id} не существует",
+                )
+            target_user = await session.get(User, target_id)
+            target_name = (
+                getattr(target_user, "full_name", None)
+                or getattr(target_user, "name", None)
+                or f"ID {target_id}"
+            )
+
+        stmt = (
+            sa_update(Order)
+            .where(Order.id.in_(order_ids))
+            .values(assigned_to_id=target_id)
+        )
+        result = await session.execute(stmt)
+        updated = int(result.rowcount or 0)
+
+        if updated:
+            summary = (
+                f'Массово назначил ответственного «{target_name}» на {updated} заявок'
+                if target_id is not None
+                else f'Массово снял ответственного с {updated} заявок'
+            )
+            await log_activity(
+                session, current_user,
+                action='update', entity='order', entity_id=None,
+                summary=summary,
+                details={
+                    'order_ids': order_ids,
+                    'assigned_to_id': target_id,
+                },
+            )
+
+        await session.commit()
+        return updated
+
 
 # ========== ОБНОВЛЕНИЕ СТАТУСА ==========
 

@@ -25,6 +25,16 @@ class BulkRenderRequest(BaseModel):
                         description="Формат: 'docx' (быстро) или 'pdf' (медленнее, soffice)")
 
 
+class BulkAssignRequest(BaseModel):
+    """Тело запроса для массового назначения ответственного."""
+    order_ids: List[int] = Field(..., min_length=1, max_length=500,
+                                  description="ID заявок (1..500 за раз)")
+    assigned_to_id: Optional[int] = Field(
+        None, ge=0,
+        description="ID нового ответственного; null или 0 → снять ответственного",
+    )
+
+
 router = APIRouter(prefix="/api/order", tags=["order"])
 
 @router.get("/list", response_model=PaginatedResponse[OrderListResponse])
@@ -164,6 +174,31 @@ async def get_orders_by_status(
     )
 
     return items
+
+@router.post("/bulk_assign")
+async def bulk_assign_responsible(
+    payload: BulkAssignRequest,
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    Массово проставить (или снять) ответственного у списка заявок.
+
+    Body: `{order_ids: [1,2,3], assigned_to_id: 42}` или
+          `{order_ids: [1,2,3], assigned_to_id: null}` (снять).
+
+    Требуется право: order_modify. Кандидатов на роль ответственного
+    фронт выбирает сам (без админов/суперадминов) — бэк принимает любого
+    существующего юзера.
+
+    Возвращает `{updated: <int>}` — сколько заявок реально изменено.
+    """
+    updated = await order_service.bulk_assign_responsible(
+        order_ids=payload.order_ids,
+        assigned_to_id=payload.assigned_to_id,
+        current_user=current_user,
+    )
+    return {"updated": updated}
+
 
 @router.post("/render_zip")
 async def render_orders_zip(

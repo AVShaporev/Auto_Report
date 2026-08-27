@@ -5,6 +5,16 @@
 версионирование [SemVer](https://semver.org/lang/ru/) — bump на каждый
 фикс/фичу; см. правило в feedback_autoreport_versioning.md.
 
+## [1.0.21] — 2026-08-27
+
+### Added
+- **`POST /api/order/bulk_assign`** — массовое проставление
+  ответственного за N заявок за один запрос. Body:
+  `{order_ids: [1,2,3], assigned_to_id: 42}` или
+  `{order_ids: [...], assigned_to_id: null}` (снять). Ответ:
+  `{updated: <int>}`. RBAC: `order_modify`. Один агрегированный
+  activity_log с полным списком id в details.
+
 ## [1.0.20] — 2026-08-27
 
 ### Added
