@@ -5,6 +5,31 @@
 версионирование [SemVer](https://semver.org/lang/ru/) — bump на каждый
 фикс/фичу; см. правило в feedback_autoreport_versioning.md.
 
+## [1.0.20] — 2026-08-27
+
+### Added
+- **`orders.assigned_to_id`** — новое поле «ответственный» (nullable FK на
+  `users.id`, ondelete=SET NULL). Отдельно от `user_id` (АВТОР создания).
+  Миграция `d1a2b3c4e5f6`. Проставляется через веб-UI при create/PATCH
+  Order; у существующих заявок = NULL, backfill не делается.
+- `model.Order.assigned_to` relationship (`lazy="joined"`, отдельные
+  `foreign_keys` для обоих User-relationship'ов).
+- `schema.OrderCreate/OrderUpdate` — поле `assigned_to_id`. В PATCH `0`
+  или `null` = «снять ответственного» (service нормализует в NULL).
+- `schema.OrderResponse/OrderListResponse` — `assigned_to_id` +
+  `assigned_to_name` в ответах.
+- Фильтр `assigned_to_id` в `/api/order/list` (0 = «без ответственного»).
+
+### Changed
+- **`/api/mobile/orders?only_mine=true`** теперь фильтрует по
+  `Order.assigned_to_id == current_user.id`, а не по `Order.user_id`
+  (там был АВТОР). Инженер видит «Мои» как заявки, которые ему
+  назначили. `MobileOrderListItem.assigned_to_name` теперь честно
+  берёт имя ответственного (join на User через assigned_to_id) — ранее
+  колонка называлась «assigned_to_name», но join был через user_id
+  (АВТОР), значение лгало. **Смок:** пока у Order.assigned_to_id везде
+  NULL, «Мои» в mobile будет пустой → веб-CRUD должен проставить.
+
 ## [1.0.19] — 2026-08-26
 
 ### Changed

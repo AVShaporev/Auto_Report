@@ -28,6 +28,9 @@ class OrderCreate(BaseModel):
     object_id: int = Field(..., ge=1, description="ID объекта")
     description: Optional[str] = Field(None, max_length=1000, description="Описание заявки")
     status_id: Optional[int] = Field(None, ge=1, description="ID статуса (spec_order_statuses.id); None → дефолт")
+    assigned_to_id: Optional[int] = Field(
+        None, ge=1, description="ID ответственного (users.id); может быть не назначен"
+    )
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -40,6 +43,12 @@ class OrderUpdate(BaseModel):
     object_id: Optional[int] = Field(None, ge=1)
     description: Optional[str] = Field(None, max_length=1000)
     status_id: Optional[int] = Field(None, ge=1, description="ID статуса (spec_order_statuses.id)")
+    # ge=0 (не ge=1!) — 0 (или явный null) в PATCH означает «снять
+    # ответственного». `exclude_unset=True` в service отличает «не
+    # передано» от «сброс в null».
+    assigned_to_id: Optional[int] = Field(
+        None, ge=0, description="ID ответственного; 0/null → снять"
+    )
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -66,7 +75,9 @@ class OrderResponse(BaseModel):
     spec_order_name: Optional[str] = Field(None, description="Название типа заявки")
     contract_number: Optional[str] = Field(None, description="Номер контракта")
     object_name: Optional[str] = Field(None, description="Название объекта")
-    user_name: Optional[str] = Field(None, description="Имя пользователя")
+    user_name: Optional[str] = Field(None, description="Имя пользователя (автор)")
+    assigned_to_id: Optional[int] = Field(None, description="ID ответственного")
+    assigned_to_name: Optional[str] = Field(None, description="Имя ответственного")
     report_number: Optional[str] = Field(None, description="Номер отчета")
 
     model_config = ConfigDict(from_attributes=True)
@@ -92,6 +103,8 @@ class OrderListResponse(BaseModel):
     object_name: Optional[str] = None
     user_name: Optional[str] = None
     contract_number: Optional[str] = None
+    assigned_to_id: Optional[int] = None
+    assigned_to_name: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 

@@ -207,6 +207,8 @@ async def get_order_with_details(
             "contract_number": order.contract.number if order.contract else None,
             "object_name": order.object.name if order.object else None,
             "user_name": order.user.name if order.user else None,
+            "assigned_to_id": order.assigned_to_id,
+            "assigned_to_name": order.assigned_to.name if order.assigned_to else None,
             "report_number": order.report.number if order.report else None
         }
 
@@ -218,6 +220,7 @@ async def get_orders_paginated_with_details(
     contract_id: Optional[int] = None,
     object_id: Optional[int] = None,
     user_id: Optional[int] = None,
+    assigned_to_id: Optional[int] = None,
     status_id: Optional[List[int]] = None,
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
@@ -244,6 +247,7 @@ async def get_orders_paginated_with_details(
             contract_id=contract_id,
             object_id=object_id,
             user_id=user_id,
+            assigned_to_id=assigned_to_id,
             status_id=status_id,
             date_from=date_from,
             date_to=date_to,
@@ -273,6 +277,8 @@ async def get_orders_paginated_with_details(
                 "spec_order_name": item.spec_order.name if item.spec_order else None,
                 "object_name": item.object.name if item.object else None,
                 "user_name": item.user.name if item.user else None,
+                "assigned_to_id": item.assigned_to_id,
+                "assigned_to_name": item.assigned_to.name if item.assigned_to else None,
                 "contract_number": item.contract.number if item.contract else None
             })
 
@@ -311,6 +317,14 @@ async def create_order(
             raise HTTPException(
                 status_code=400,
                 detail=f"Объект с id {order_create.object_id} не существует"
+            )
+
+        if order_create.assigned_to_id and not await order_data.check_user_exists(
+            session, order_create.assigned_to_id
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Пользователь с id {order_create.assigned_to_id} не существует",
             )
 
         # Подгружаем контракт с заказчиком и тип заявки — нужно для маски номера.
@@ -438,6 +452,18 @@ async def update_order(
                 raise HTTPException(
                     status_code=400,
                     detail=f"Объект с id {update_data['object_id']} не существует"
+                )
+
+        # Ответственный: 0 → NULL (снять), > 0 → проверить что юзер существует.
+        if 'assigned_to_id' in update_data:
+            aid = update_data['assigned_to_id']
+            if aid == 0 or aid is None:
+                update_data['assigned_to_id'] = None
+                order_update = order_update.model_copy(update={"assigned_to_id": None})
+            elif not await order_data.check_user_exists(session, aid):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Пользователь с id {aid} не существует",
                 )
 
         # Обновление
