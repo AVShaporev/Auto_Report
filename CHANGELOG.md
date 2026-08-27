@@ -5,6 +5,17 @@
 версионирование [SemVer](https://semver.org/lang/ru/) — bump на каждый
 фикс/фичу; см. правило в feedback_autoreport_versioning.md.
 
+## [1.0.22] — 2026-08-27
+
+### Fixed
+- **Hotfix v1.0.20 → падал на старте:**
+  `sqlalchemy.exc.AmbiguousForeignKeysError: … relationship User.orders —
+  there are multiple foreign key paths linking the tables`. Причина:
+  у `Order` две FK на `users.id` (`user_id` — автор, `assigned_to_id` —
+  ответственный), а обратная связь `User.orders` не указывала
+  `foreign_keys=` и SQLAlchemy не мог понять по какой FK'ой матчить.
+  Добавлен `foreign_keys="Order.user_id"` в `User.orders`.
+
 ## [1.0.21] — 2026-08-27
 
 ### Added

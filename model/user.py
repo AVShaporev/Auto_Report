@@ -38,6 +38,7 @@ class User(Base):
 
     orders: Mapped[List["Order"]] = relationship(
                                                 "Order",
+                                                foreign_keys="Order.user_id",
                                                 back_populates="user"
                                                 )
 
