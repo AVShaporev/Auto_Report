@@ -137,6 +137,67 @@ async def list_my_push_tokens(
         )
     return [PushTokenResponse.model_validate(r) for r in rows]
 
+
+# ============================================================================
+# Mobile QR-onboarding — админ выдаёт QR инженеру, инженер выдаёт себе.
+# Перенос функции из master в tenant-web-UI (см. saas-roadmap Backlog).
+# ============================================================================
+
+class MobileOnboardTokenRequest(BaseModel):
+    ttl_minutes: Optional[int] = Field(
+        None, ge=1, le=120, description="Срок жизни токена (1..120 мин, default 30)"
+    )
+
+
+class MobileOnboardTokenResponse(BaseModel):
+    token: str
+    qr_url: str
+    qr_png_base64: str  # data:image/png;base64,...
+    expires_at: str
+    username: str
+    slug: str
+
+
+@router.post("/me/mobile-onboard-token", response_model=MobileOnboardTokenResponse)
+async def mint_my_mobile_onboard_token(
+    body: MobileOnboardTokenRequest = MobileOnboardTokenRequest(),
+    current_user: User = Depends(get_current_user),
+):
+    """Self-service: юзер сам выпускает себе QR-код (например, поменял телефон).
+
+    Без дополнительных прав — активный юзер имеет право на mobile-вход
+    как минимум для своего же аккаунта.
+    """
+    from service.mobile_onboard import mint_token
+    result = await mint_token(target_user_id=current_user.id, ttl_minutes=body.ttl_minutes)
+    return MobileOnboardTokenResponse(**result)
+
+
+@router.post("/{user_id}/mobile-onboard-token", response_model=MobileOnboardTokenResponse)
+async def mint_mobile_onboard_token_for_user(
+    user_id: int,
+    body: MobileOnboardTokenRequest = MobileOnboardTokenRequest(),
+    current_user: User = Depends(get_current_user),
+):
+    """Админ выдаёт QR-код для указанного юзера.
+
+    Требуется право `user_onboard_mobile` в роли current_user'а (либо
+    is_admin/is_superadmin — они получают флаг backfill'ом в миграции
+    e2b3c4d5f6a7).
+    """
+    role = current_user.role
+    allowed = getattr(role, "user_onboard_mobile", False) \
+        or getattr(role, "is_admin", False) \
+        or getattr(role, "is_superadmin", False)
+    if not allowed:
+        raise HTTPException(
+            status_code=403,
+            detail="Нет права выдавать QR для мобильного приложения",
+        )
+    from service.mobile_onboard import mint_token
+    result = await mint_token(target_user_id=user_id, ttl_minutes=body.ttl_minutes)
+    return MobileOnboardTokenResponse(**result)
+
 @router.get("/list", response_model=PaginatedResponse[UserResponse])
 async def get_users(
     pagination: PaginationParams = Depends(),
