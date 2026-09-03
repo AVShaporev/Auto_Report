@@ -19,6 +19,9 @@ class RoleBase(BaseModel):
     user_modify: bool = Field(False, description="Право на изменение пользователей")
     user_create: bool = Field(False, description="Право на создание пользователей")
     user_delete: bool = Field(False, description="Право на удаление пользователей")
+    user_onboard_mobile: bool = Field(
+        False, description="Право выдавать QR/ссылку для входа в мобильное приложение"
+    )
 
     # Права на роли
     role_read: bool = Field(False, description="Право на чтение ролей")

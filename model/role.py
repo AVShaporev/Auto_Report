@@ -23,6 +23,12 @@ class Role(Base):
     user_modify: Mapped[bool] = mapped_column(default=False)
     user_create: Mapped[bool] = mapped_column(default=False)
     user_delete: Mapped[bool] = mapped_column(default=False)
+    # Право выдавать QR / ссылку для входа в mobile-приложение
+    # (POST /api/user/{id}/mobile-onboard-token). Мигр. e2b3c4d5f6a7,
+    # backfill TRUE для is_admin/is_superadmin.
+    user_onboard_mobile: Mapped[bool] = mapped_column(
+        default=False, server_default='false'
+    )
 
     # права на роли
     role_read: Mapped[bool] = mapped_column(default=False)

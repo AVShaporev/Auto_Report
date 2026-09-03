@@ -5,6 +5,44 @@
 версионирование [SemVer](https://semver.org/lang/ru/) — bump на каждый
 фикс/фичу; см. правило в feedback_autoreport_versioning.md.
 
+## [1.0.26] — 2026-08-28
+
+### Changed
+- `UserResponse.role` теперь `RoleResponse` вместо `RoleSimpleResponse` —
+  в него отдаются ВСЕ флаги прав (user_read/user_modify/…/spec_*).
+  Нужно для UserDetailView во фронте, который рисует раскладку прав
+  по группам PERMISSION_GROUPS. `RoleSimpleResponse` содержит только
+  id/name/is_admin/is_superadmin/is_protected — не хватало.
+
+## [1.0.25] — 2026-08-28
+
+### Fixed
+- **`GET /api/user/{user_id}`** — эндпоинт не существовал (были только
+  `/list`, `/create`, `PUT/DELETE/{id}`, `/{id}/revoke-all-sessions`).
+  Новый UserDetailView во фронте v1.0.16 падал с 405 Method Not
+  Allowed при вызове `userStore.fetchById(id)`. Добавлен GET-обработчик
+  с RBAC-проверкой `user_read | is_admin | is_superadmin`. Через
+  `data.get_user_by_id`.
+
+## [1.0.24] — 2026-08-28
+
+### Added — Mobile QR-onboarding на стороне tenant'а (Этап 1 из плана)
+- **`POST /api/user/{id}/mobile-onboard-token`** — админ выдаёт QR/ссылку
+  для входа юзера в мобильное приложение. Требует новое право
+  `Role.user_onboard_mobile` (см. миграцию), либо `is_admin`/`is_superadmin`.
+- **`POST /api/user/me/mobile-onboard-token`** — self-service: юзер сам
+  выпускает себе QR (например, поменял телефон). Без дополнительных прав.
+- `service/mobile_onboard.py` — порт логики из
+  `Auto_Report_Master/api/tenant.py::mint_mobile_onboard_token`.
+  Подпись HS256 `MOBILE_ONBOARD_SECRET` (уже прописан в `.env` каждого
+  tenant'а через `provision-tenant.sh`), PNG QR через `qrcode`.
+  Валидатор — юзер существует, активен, не superadmin.
+- `schema/role.py` + `model/role.py`: новый флаг `user_onboard_mobile`
+  (default False). Миграция `e2b3c4d5f6a7` — backfill `TRUE` для
+  `is_admin=True` и `is_superadmin=True` ролей.
+- Master-эндпоинт `POST /api/tenants/{slug}/mobile-onboard-token`
+  остаётся временно как fallback (будет удалён Этапом 4 плана).
+
 ## [1.0.23] — 2026-08-27
 
 ### Changed
