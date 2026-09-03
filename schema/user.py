@@ -75,7 +75,9 @@ class UserResponse(UserBase):
     is_active: bool
     is_protected: bool = False
     description: Optional[str] = None
-    role: Optional[RoleSimpleResponse] = None
+    # Отдаём ПОЛНУЮ роль (со всеми флагами прав) — UserDetailView во
+    # фронте показывает раскладку permissions по группам.
+    role: Optional[RoleResponse] = None
 
     model_config = ConfigDict(from_attributes=True)
 

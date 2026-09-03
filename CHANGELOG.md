@@ -5,6 +5,15 @@
 версионирование [SemVer](https://semver.org/lang/ru/) — bump на каждый
 фикс/фичу; см. правило в feedback_autoreport_versioning.md.
 
+## [1.0.26] — 2026-08-28
+
+### Changed
+- `UserResponse.role` теперь `RoleResponse` вместо `RoleSimpleResponse` —
+  в него отдаются ВСЕ флаги прав (user_read/user_modify/…/spec_*).
+  Нужно для UserDetailView во фронте, который рисует раскладку прав
+  по группам PERMISSION_GROUPS. `RoleSimpleResponse` содержит только
+  id/name/is_admin/is_superadmin/is_protected — не хватало.
+
 ## [1.0.25] — 2026-08-28
 
 ### Fixed
