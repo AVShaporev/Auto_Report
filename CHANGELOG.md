@@ -5,6 +5,16 @@
 версионирование [SemVer](https://semver.org/lang/ru/) — bump на каждый
 фикс/фичу; см. правило в feedback_autoreport_versioning.md.
 
+## [1.0.25] — 2026-08-28
+
+### Fixed
+- **`GET /api/user/{user_id}`** — эндпоинт не существовал (были только
+  `/list`, `/create`, `PUT/DELETE/{id}`, `/{id}/revoke-all-sessions`).
+  Новый UserDetailView во фронте v1.0.16 падал с 405 Method Not
+  Allowed при вызове `userStore.fetchById(id)`. Добавлен GET-обработчик
+  с RBAC-проверкой `user_read | is_admin | is_superadmin`. Через
+  `data.get_user_by_id`.
+
 ## [1.0.24] — 2026-08-28
 
 ### Added — Mobile QR-onboarding на стороне tenant'а (Этап 1 из плана)

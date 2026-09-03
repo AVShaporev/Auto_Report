@@ -270,6 +270,29 @@ async def post_create_user(
                 return False
         return None
 # 
+@router.get('/{user_id}', response_model=UserResponse)
+async def get_user_by_id(
+    user_id: int,
+    current_user: User = Depends(get_current_user),
+):
+    """Детали одного пользователя (для UserDetailView).
+
+    Требуется право user_read (либо is_admin/is_superadmin — читают всё).
+    """
+    role = current_user.role
+    allowed = getattr(role, "user_read", False) \
+        or getattr(role, "is_admin", False) \
+        or getattr(role, "is_superadmin", False)
+    if not allowed:
+        raise HTTPException(status_code=403, detail="Нет права на чтение пользователей")
+    from data import user as user_data
+    async with new_session() as session:
+        user = await user_data.get_user_by_id(session, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail=f"Пользователь #{user_id} не найден")
+    return UserResponse.model_validate(user)
+
+
 @router.delete('/{user_id}')
 async def delete(request: Request, user: User = Depends(get_current_user), user_id: int = None):
     if user:
