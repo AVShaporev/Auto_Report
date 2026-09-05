@@ -5,6 +5,28 @@
 версионирование [SemVer](https://semver.org/lang/ru/) — bump на каждый
 фикс/фичу; см. правило в feedback_autoreport_versioning.md.
 
+## [1.0.28] — 2026-09-05
+
+### Fixed
+- Отчёты — hotfix после v1.0.27: 500 на GET /api/report/list. Причина:
+  много мест в service/data/api/schema ссылались на Spec_Status.code
+  (у Report был FK на общий spec_statuss), но после переезда FK на
+  spec_report_statuses (канонная схема без code) — `.status.code`
+  выдавал AttributeError.
+  - `schema/report.py` — убрал `status_code` из `ReportListResponse` и
+    `ReportOptionResponse` (у нового справочника нет code, только name).
+  - `data/report.py` — `get_spec_status_by_code(code)` заменён на
+    `get_default_spec_report_status()` + `get_spec_report_status_by_name(name)`.
+  - `service/report.py` — при создании отчёта берём is_default статус
+    из spec_report_statuses (было — искали по code 'not_approved' и
+    создавали Spec_Status на лету).
+  - `service/report_attachment.py` — 3 места блокировки редактирования
+    для approved отчёта (`report.status.code == 'approved'`) переведены
+    на `report.status.name == 'Утверждён'`.
+  - `api/report.py` — endpoint `/unapproved` теперь возвращает отчёты
+    в статусе «На утверждении» (актуальная семантика для нового
+    workflow «В работе → На утверждении → Утверждён/Отклонён»).
+
 ## [1.0.27] — 2026-09-05
 
 ### Added
