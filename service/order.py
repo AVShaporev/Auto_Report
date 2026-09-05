@@ -8,9 +8,11 @@ from model.user import User
 from model.order import Order
 from model.contract import Contract
 from model.object import Object
+from model.period import Period
 from model.spec_order import Spec_Order
 from data import order as order_data
 from service.activity_log import log_activity
+from service.due_date import compute_due_date
 from schema.order import OrderCreate, OrderUpdate
 from schema.pagination import PaginationParams
 from database.database import new_session
@@ -203,13 +205,19 @@ async def get_order_with_details(
             "description": order.description,
             "status_id": order.status_id,
             "status_name": order.spec_order_status.name if order.spec_order_status else None,
+            "period_start_date": order.period_start_date,
+            "due_date": order.due_date,
             "spec_order_name": order.spec_order.name if order.spec_order else None,
             "contract_number": order.contract.number if order.contract else None,
             "object_name": order.object.name if order.object else None,
             "user_name": order.user.name if order.user else None,
             "assigned_to_id": order.assigned_to_id,
             "assigned_to_name": order.assigned_to.name if order.assigned_to else None,
-            "report_number": order.report.number if order.report else None
+            "report_number": order.report.number if order.report else None,
+            "report_status_name": (
+                order.report.status.name
+                if (order.report and order.report.status) else None
+            ),
         }
 
 async def get_orders_paginated_with_details(
@@ -267,9 +275,14 @@ async def get_orders_paginated_with_details(
                 "id": item.id,
                 "number": item.number,
                 "created_at": item.created_at,
+                "due_date": item.due_date,
                 "status_id": item.status_id,
                 "status_name": item.spec_order_status.name if item.spec_order_status else None,
                 "report_id": item.report_id,
+                "report_status_name": (
+                    item.report.status.name
+                    if (item.report and item.report.status) else None
+                ),
                 "spec_order_id": item.spec_order_id,
                 "contract_id": item.contract_id,
                 "object_id": item.object_id,
@@ -344,9 +357,26 @@ async def create_order(
 
         # number_in_contract — порядковый номер объекта в рамках своего
         # контракта; используется в номере заявки вместо глобального object_id.
-        obj = await session.get(Object, order_create.object_id)
+        # Подгружаем Period сразу — нужен для compute_due_date у 'periodic' типов.
+        obj = (await session.execute(
+            select(Object)
+            .options(selectinload(Object.period))
+            .where(Object.id == order_create.object_id)
+        )).scalar_one_or_none()
         if not obj:
             raise HTTPException(status_code=400, detail="Объект не найден")
+
+        # Авто-расчёт due_date если клиент не передал явно. Для ручной
+        # заявки period_start_date=None, поэтому anchor у 'periodic' типов
+        # получится = created_at (текущий календарный период).
+        if order_create.due_date is None:
+            order_create.due_date = compute_due_date(
+                sla_kind=spec_order.sla_kind,
+                sla_days=spec_order.sla_days,
+                created_at=date.today(),
+                period_start_date=None,
+                period_code=obj.period.code if obj.period else None,
+            )
 
         today = date.today()
         year, month = today.year, today.month
@@ -464,6 +494,27 @@ async def update_order(
                     status_code=400,
                     detail=f"Пользователь с id {aid} не существует",
                 )
+
+        # Пересчёт due_date, если меняется spec_order_id и клиент не
+        # передал due_date явно (иначе — уважаем ручное значение).
+        if 'spec_order_id' in update_data and 'due_date' not in update_data:
+            new_spec_id = update_data['spec_order_id']
+            spec_order = await session.get(Spec_Order, new_spec_id)
+            if spec_order:
+                obj = (await session.execute(
+                    select(Object)
+                    .options(selectinload(Object.period))
+                    .where(Object.id == existing.object_id)
+                )).scalar_one_or_none()
+                new_due = compute_due_date(
+                    sla_kind=spec_order.sla_kind,
+                    sla_days=spec_order.sla_days,
+                    created_at=existing.created_at,
+                    period_start_date=existing.period_start_date,
+                    period_code=obj.period.code if (obj and obj.period) else None,
+                )
+                update_data['due_date'] = new_due
+                order_update = order_update.model_copy(update={"due_date": new_due})
 
         # Обновление
         order = await order_data.update_order(session, order_id, order_update)

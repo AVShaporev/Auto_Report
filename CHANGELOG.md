@@ -5,6 +5,31 @@
 версионирование [SemVer](https://semver.org/lang/ru/) — bump на каждый
 фикс/фичу; см. правило в feedback_autoreport_versioning.md.
 
+## [1.0.29] — 2026-09-05
+
+### Added
+- Due-date для заявок — Этап 2 (сервисный слой + API).
+  - `service/due_date.py::compute_due_date()` — чистая функция расчёта
+    срока по правилам Spec_Order (periodic → конец периода объекта,
+    from_creation → created_at + sla_days, manual → None).
+  - `service/order.py::create_order` — авто-заполняет `Order.due_date`
+    если клиент не передал явно. Подгружает `Object.period` через
+    selectinload для period_code.
+  - `service/order.py::update_order` — при смене `spec_order_id`
+    автоматически пересчитывает due_date (если клиент явно не переопределяет).
+  - `service/order_autogen.py::_create_order` — авто-плановые/первичные
+    заявки получают due_date по формуле.
+  - `schema/order.py` — новые поля `due_date` в OrderCreate/OrderUpdate/
+    OrderResponse/OrderListResponse + `report_status_name` в
+    OrderResponse/OrderListResponse (для отчётного маркера во фронте).
+  - `service/order.py` + `api/order.py` — dict-serializer'ы (детальный
+    Order и списки) отдают `due_date` и `report_status_name`.
+- Полный CRUD для `spec_report_statuses` (по образцу spec_order_statuses):
+  `schema/data/service/api/spec_report_status.py`, роут
+  `/api/spec_report_status/{options,list,create,{id},put,delete}`,
+  RBAC-права `spec_report_status_*`. Правила is_default с partial
+  unique index (нельзя снять/удалить дефолтную без переноса).
+
 ## [1.0.28] — 2026-09-05
 
 ### Fixed

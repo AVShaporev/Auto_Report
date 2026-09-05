@@ -116,9 +116,14 @@ async def get_my_orders(
             "id": item.id,
             "number": item.number,
             "created_at": item.created_at,
+            "due_date": item.due_date,
             "status_id": item.status_id,
             "status_name": item.spec_order_status.name if item.spec_order_status else None,
             "report_id": item.report_id,
+            "report_status_name": (
+                item.report.status.name
+                if (item.report and item.report.status) else None
+            ),
             "spec_order_name": item.spec_order.name if item.spec_order else None,
             "object_name": item.object.name if item.object else None,
             "user_name": item.user.name if item.user else None,
