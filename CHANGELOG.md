@@ -5,6 +5,15 @@
 версионирование [SemVer](https://semver.org/lang/ru/) — bump на каждый
 фикс/фичу; см. правило в feedback_autoreport_versioning.md.
 
+## [1.0.34] — 2026-09-05
+
+### Added
+- MobileOrderListItem дополнен полями `due_date`, `report_id`,
+  `report_status_name` — для отрисовки due-date маркера в mobile-приложении
+  (та же логика что в web: температурная шкала + отчётный маркер если
+  есть отчёт). `data/mobile.py::get_orders_for_mobile` LEFT JOIN на
+  Report + Spec_Report_Status. Идёт вместе с mobile-релизом v1.8.0.
+
 ## [1.0.33] — 2026-09-05
 
 ### Fixed
