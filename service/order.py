@@ -521,14 +521,22 @@ async def update_order(
         # Обновление
         order = await order_data.update_order(session, order_id, order_update)
 
+        # Захватываем нужные атрибуты в локальные переменные ПОКА
+        # session ещё активна. После log_activity (=commit) instance
+        # order будет expired, а после выхода из `async with` — detached,
+        # так что api-слой (api/order.py::update_order → get_order_with_details)
+        # получит DetachedInstanceError при order.id.
+        order_id_val = order.id
+        order_number = order.number
+
         changed_keys = ', '.join(sorted(update_data.keys())) or 'нет полей'
         await log_activity(
             session, current_user,
-            action='update', entity='order', entity_id=order.id,
-            summary=f'Изменил заявку №{order.number}: {changed_keys}',
+            action='update', entity='order', entity_id=order_id_val,
+            summary=f'Изменил заявку №{order_number}: {changed_keys}',
             details=update_data,
         )
-        return order
+        return order_id_val
 
 # ========== МАССОВОЕ НАЗНАЧЕНИЕ ОТВЕТСТВЕННОГО ==========
 

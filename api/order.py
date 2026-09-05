@@ -306,14 +306,17 @@ async def update_order(
     
     Требуется право: order_modify
     """
-    order = await order_service.update_order(
+    # service.update_order возвращает id (не ORM-инстанс) — иначе
+    # instance был бы detached от закрытой сессии, и обращение к .id
+    # тут упало бы DetachedInstanceError.
+    updated_id = await order_service.update_order(
         order_id,
         order_data,
         current_user
     )
-    
-    # Возвращаем полную информацию
-    return await order_service.get_order_with_details(order.id, current_user)
+
+    # Возвращаем полную информацию — новая сессия внутри get_order_with_details.
+    return await order_service.get_order_with_details(updated_id, current_user)
 
 @router.patch("/{order_id}/status", response_model=OrderResponse)
 async def update_order_status(

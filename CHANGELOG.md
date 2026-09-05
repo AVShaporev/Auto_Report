@@ -5,6 +5,23 @@
 версионирование [SemVer](https://semver.org/lang/ru/) — bump на каждый
 фикс/фичу; см. правило в feedback_autoreport_versioning.md.
 
+## [1.0.36] — 2026-09-06
+
+### Fixed
+- PUT `/api/order/{id}` возвращал 500 при редактировании существующей
+  заявки (изменение полей сохранялось в БД, но клиент видел ошибку).
+  Причина: `DetachedInstanceError` при обращении к `order.id` в
+  api/order.py:316. `service.update_order` после успешного апдейта
+  делает `data.update_order` (session.commit → expire_on_commit=True),
+  затем `log_activity` (ещё commit → снова expire) — по выходу из
+  `async with new_session()` инстанс становится detached, любое
+  чтение атрибута тригерит refresh, который падает.
+- Fix: `service.update_order` теперь возвращает `int` (id заявки),
+  а не ORM-инстанс. `api/order.py::update_order` использует этот id
+  напрямую в вызове `get_order_with_details` (создаёт свою сессию).
+  Атрибуты `order.id` и `order.number` для audit-summary захватываются
+  в локальные переменные ПОКА сессия ещё активна.
+
 ## [1.0.35] — 2026-09-05
 
 ### Added — master-inbound endpoints для сброса пароля superadmin'а
