@@ -5,6 +5,16 @@
 версионирование [SemVer](https://semver.org/lang/ru/) — bump на каждый
 фикс/фичу; см. правило в feedback_autoreport_versioning.md.
 
+## [1.0.31] — 2026-09-05
+
+### Fixed
+- Права `spec_report_status_*` не сохранялись при редактировании роли.
+  В `schema/role.py::RoleBase` не хватало 4-х полей — PUT `/api/role/{id}`
+  их отсекал (model_dump(exclude_unset=True) → пустой набор для этих
+  полей → БД не обновлялась). Модель Role и миграция были ОК, только
+  Pydantic-схема. Добавил 4 булевых поля с `default=False` — по образцу
+  spec_order_status_*.
+
 ## [1.0.30] — 2026-09-05
 
 ### Fixed
