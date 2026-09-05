@@ -5,6 +5,17 @@
 версионирование [SemVer](https://semver.org/lang/ru/) — bump на каждый
 фикс/фичу; см. правило в feedback_autoreport_versioning.md.
 
+## [1.0.30] — 2026-09-05
+
+### Fixed
+- Hotfix после v1.0.29: 500 на GET /api/order/list и /api/order/my
+  из-за `InvalidRequestError: 'Order.report' is not available due to
+  lazy='raise'`. В `data/order.py` для списков стоял `raiseload(Order.report)`
+  как защита от N+1, но новый сериализатор обращается к
+  `item.report.status.name` для отчётного маркера. Заменил на
+  `selectinload(Order.report)` в обоих местах (get_order_all + get_order_paginated).
+  Report.status с `lazy="joined"` подтянется тем же SELECT'ом, N+1 не будет.
+
 ## [1.0.29] — 2026-09-05
 
 ### Added

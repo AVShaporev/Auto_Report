@@ -83,7 +83,10 @@ async def get_order_all(
                 Order.object,
                 Order.user,
             ),
-            raiseload(Order.report),
+            # v1.0.29: заменили raiseload на selectinload — сериализатору
+            # нужен `report.status.name` для отчётного маркера. Report.status
+            # имеет lazy="joined" — статус подтянется тем же SELECT'ом.
+            selectinload(Order.report),
         )
 
     result = await session.execute(query)
@@ -210,7 +213,10 @@ async def get_order_paginated(
                 Order.user,
             ),
             # report тоже помечен на модели lazy="selectin" — отрубаем
-            raiseload(Order.report),
+            # v1.0.29: заменили raiseload на selectinload — сериализатору
+            # нужен `report.status.name` для отчётного маркера. Report.status
+            # имеет lazy="joined" — статус подтянется тем же SELECT'ом.
+            selectinload(Order.report),
         )
 
     # Пагинация
