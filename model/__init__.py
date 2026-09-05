@@ -23,6 +23,7 @@ from model.spec_order import Spec_Order
 from model.spec_order_status import Spec_Order_Status
 from model.spec_priority import Spec_Priority
 from model.spec_region import Spec_Region
+from model.spec_report_status import Spec_Report_Status
 from model.spec_room import Spec_Room
 from model.spec_status import Spec_Status
 from model.spec_street import Spec_Street
@@ -63,7 +64,8 @@ __all__ = [
     "Spec_Arial", "Spec_Build", "Spec_Contract", "Spec_Equipment",
     "Spec_Job_Title", "Spec_Locality", "Spec_Order", "Spec_Order_Status",
     "Spec_Priority",
-    "Spec_Region", "Spec_Room", "Spec_Status", "Spec_Street", "Spec_System",
+    "Spec_Region", "Spec_Report_Status",
+    "Spec_Room", "Spec_Status", "Spec_Street", "Spec_System",
     # базовые
     "Bank", "Region", "Arial", "Locality", "Street", "Period", "Organization",
     # бизнес

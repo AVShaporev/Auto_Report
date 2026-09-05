@@ -34,6 +34,19 @@ class Spec_Order(Base):
     template_filename: Mapped[Optional[str]] = mapped_column(nullable=True)
     template_storage_path: Mapped[Optional[str]] = mapped_column(nullable=True)
 
+    # SLA-режим — как считать due_date у заявок этого типа. Миграция
+    # f5c6d7e8f9a0. CHECK-констрейнты sla_kind ∈ {periodic, from_creation,
+    # manual} + sla_days обязателен ровно для 'from_creation'.
+    #
+    #   periodic       — до конца календарного периода объекта
+    #                    (period_code monthly/quarterly/semiannual/yearly)
+    #   from_creation  — created_at + sla_days (например АВР = 3 дня)
+    #   manual         — юзер вводит due_date вручную в форме заявки
+    sla_kind: Mapped[str] = mapped_column(
+        default='manual', server_default='manual', nullable=False,
+    )
+    sla_days: Mapped[Optional[int]] = mapped_column(nullable=True)
+
     orders: Mapped[List["Order"]] = relationship(
                                                 "Order",
                                                 back_populates="spec_order"

@@ -5,6 +5,35 @@
 версионирование [SemVer](https://semver.org/lang/ru/) — bump на каждый
 фикс/фичу; см. правило в feedback_autoreport_versioning.md.
 
+## [1.0.27] — 2026-09-05
+
+### Added
+- Due-date для заявок (Этап 1 — модели + миграции). Реализация в
+  service/API — следующим коммитом.
+  - `Spec_Order.sla_kind` (periodic / from_creation / manual) + `sla_days`
+    — определяет как считать `Order.due_date` для заявок этого типа.
+    Backfill: is_default_planned → periodic, is_default_primary →
+    from_creation с sla_days=3 (АВР 3 дня по-умолчанию), остальные →
+    manual. CHECK-констрейнты на валидность.
+  - `Order.due_date` (DATE, nullable). Backfill открытых заявок
+    (report_id IS NULL) по формуле от sla_kind типа + period_code
+    объекта. Миграция считает конец календарного периода в Python
+    (monthrange), обновляет по одной строке.
+- Новый справочник `spec_report_statuses` с 4 сидовыми строками:
+  «В работе» (default), «На утверждении», «Утверждён», «Отклонён».
+  Канонная схема из 4 полей (id/name/description/is_default), partial
+  unique на is_default = true. `Report.status_id` FK переведён с
+  общего spec_statuss на новый спец-справочник; backfill всех
+  существующих отчётов → default («В работе»).
+- Роль: 4 новых RBAC-флага `spec_report_status_read/create/modify/delete`
+  (по образцу `spec_order_status_*`). Superadmin — все, admin — READ.
+
+### Migrations
+- f3a4b5c6d7e8 — spec_report_statuses + сид 4 строк.
+- f4b5c6d7e8f9 — role: 4 флага spec_report_status_*.
+- f5c6d7e8f9a0 — Spec_Order SLA-поля + Order.due_date + Report.status_id
+  FK на spec_report_statuses (backfill открытых заявок + всех отчётов).
+
 ## [1.0.26] — 2026-08-28
 
 ### Changed

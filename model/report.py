@@ -12,8 +12,12 @@ class Report(Base):
     
     id: Mapped[int_pk]
     number: Mapped[str] = mapped_column(unique=True, nullable=False)
+    # FK на spec_report_statuses (миграция f5c6d7e8f9a0). Раньше указывал
+    # на общий spec_statuss (тот же, что у Issue), но статусы отчёта
+    # {В работе / На утверждении / Утверждён / Отклонён} специфичны —
+    # выделили в свой справочник.
     status_id: Mapped[int] = mapped_column(
-        ForeignKey("spec_statuss.id"),
+        ForeignKey("spec_report_statuses.id"),
         nullable=False,
     )
     period_id: Mapped[int] = mapped_column(ForeignKey("periods.id"), nullable=False)
@@ -51,10 +55,9 @@ class Report(Base):
                                             lazy="joined"
                                         )
 
-    status: Mapped["Spec_Status"] = relationship(
-        "Spec_Status",
-        back_populates="reports",
-        lazy="selectin",
+    status: Mapped["Spec_Report_Status"] = relationship(
+        "Spec_Report_Status",
+        lazy="joined",
     )
 
     order: Mapped[Optional["Order"]] = relationship(

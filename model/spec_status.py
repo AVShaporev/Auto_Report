@@ -24,11 +24,6 @@ class Spec_Status(Base):
         back_populates="status"
     )
 
-    reports: Mapped[List["Report"]] = relationship(
-        "Report",
-        back_populates="status"
-    )
-
     def __str__(self):
         return f"{self.__class__.__name__}(id={self.id}, name={self.name})"
 
