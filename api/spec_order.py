@@ -92,6 +92,9 @@ async def get_all_spec_orders(
             "is_default_primary": item.is_default_primary,
             "orders_count": len(item.orders) if item.orders else 0,
             "template_filename": item.template_filename,
+            "sla_kind": item.sla_kind,
+            "sla_days": item.sla_days,
+            "sla_days_workdays": item.sla_days_workdays,
         }
         for item in spec_orders
     ]
@@ -140,6 +143,9 @@ async def create_spec_order(
         "description": spec_order.description,
         "orders_count": 0,
         "template_filename": spec_order.template_filename,
+        "sla_kind": spec_order.sla_kind,
+        "sla_days": spec_order.sla_days,
+        "sla_days_workdays": spec_order.sla_days_workdays,
     }
 
 @router.put("/{spec_order_id}", response_model=SpecOrderResponse)

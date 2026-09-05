@@ -5,6 +5,18 @@
 версионирование [SemVer](https://semver.org/lang/ru/) — bump на каждый
 фикс/фичу; см. правило в feedback_autoreport_versioning.md.
 
+## [1.0.33] — 2026-09-05
+
+### Fixed
+- Response dict в `service/spec_order.py` (3 места) и в `api/spec_order.py`
+  (2 места — `/all` и `/create`) вручную формировался БЕЗ полей
+  `sla_kind/sla_days/sla_days_workdays`. Pydantic-схемы имеют defaults
+  (`sla_kind='manual'`, остальные null/false), поэтому клиент получал
+  `sla_kind='manual'` для ЛЮБОГО типа заявки, независимо от того что
+  реально в БД. Симптом: при повторном открытии формы radio всегда на
+  «Вручную», хотя PUT сохранил `periodic`/`from_creation` корректно.
+  Добавил 3 поля во все 5 response dict'ов.
+
 ## [1.0.32] — 2026-09-05
 
 ### Fixed
