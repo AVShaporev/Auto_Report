@@ -46,6 +46,21 @@ def _period_end(period_code: Optional[str], anchor: date) -> Optional[date]:
     return None
 
 
+def _add_workdays(start: date, days: int) -> date:
+    """Прибавить N рабочих дней (пропускаем сб/вс).
+
+    Пример: пт + 3 рабочих дня = ср (пт → пн → вт → ср).
+    Госпраздники не учитываем — простой вариант без внешнего справочника.
+    """
+    d = start
+    remaining = days
+    while remaining > 0:
+        d = d + timedelta(days=1)
+        if d.weekday() < 5:  # 0..4 = Mon..Fri
+            remaining -= 1
+    return d
+
+
 def compute_due_date(
     *,
     sla_kind: str,
@@ -53,17 +68,23 @@ def compute_due_date(
     created_at: date,
     period_start_date: Optional[date] = None,
     period_code: Optional[str] = None,
+    sla_days_workdays: bool = False,
 ) -> Optional[date]:
     """Посчитать срок исполнения заявки по правилам её типа.
 
     Возвращает None, если правило не применимо (manual или недостаточно
     данных: periodic без period_code, from_creation без sla_days).
+
+    Для 'from_creation' с sla_days_workdays=True — прибавляем рабочие
+    дни (пропускаем сб/вс), иначе календарные.
     """
     if sla_kind == 'periodic':
         anchor = period_start_date or created_at
         return _period_end(period_code, anchor)
 
     if sla_kind == 'from_creation' and sla_days:
+        if sla_days_workdays:
+            return _add_workdays(created_at, sla_days)
         return created_at + timedelta(days=sla_days)
 
     # 'manual' и всё что не подходит → None

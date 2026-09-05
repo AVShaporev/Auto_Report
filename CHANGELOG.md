@@ -5,6 +5,50 @@
 версионирование [SemVer](https://semver.org/lang/ru/) — bump на каждый
 фикс/фичу; см. правило в feedback_autoreport_versioning.md.
 
+## [1.0.33] — 2026-09-05
+
+### Fixed
+- Response dict в `service/spec_order.py` (3 места) и в `api/spec_order.py`
+  (2 места — `/all` и `/create`) вручную формировался БЕЗ полей
+  `sla_kind/sla_days/sla_days_workdays`. Pydantic-схемы имеют defaults
+  (`sla_kind='manual'`, остальные null/false), поэтому клиент получал
+  `sla_kind='manual'` для ЛЮБОГО типа заявки, независимо от того что
+  реально в БД. Симптом: при повторном открытии формы radio всегда на
+  «Вручную», хотя PUT сохранил `periodic`/`from_creation` корректно.
+  Добавил 3 поля во все 5 response dict'ов.
+
+## [1.0.32] — 2026-09-05
+
+### Fixed
+- Поля `sla_kind`, `sla_days` отсутствовали в `schema/spec_order.py`
+  (SpecOrderCreate/Update/Response) — PUT/POST через API их отсекал.
+  Тип «Аварийная» в UI обновлялся, но настройки SLA (from_creation,
+  sla_days=3) не сохранялись → у новых заявок этого типа
+  `due_date=null`. Тот же паттерн что был с `schema/role.py`
+  (v1.0.31). Добавил 3 поля + Literal-валидацию `SlaKind`.
+
+### Added
+- **Рабочие дни для SLA from_creation** — новое поле
+  `Spec_Order.sla_days_workdays` (bool, default false).
+  - Миграция `f6d7e8f9a0b1` — добавляет колонку.
+  - `service/due_date.py::_add_workdays()` — прибавляет N рабочих
+    дней (loop, пропускает сб/вс). Госпраздники не учитываются
+    (простой вариант без внешнего справочника).
+  - `compute_due_date()` — новый параметр `sla_days_workdays`.
+  - Пример: пт 5 сен + 3 рабочих дня = ср 10 сен.
+  - `service/order.py` create/update + `service/order_autogen.py`
+    передают `spec_order.sla_days_workdays`.
+
+## [1.0.31] — 2026-09-05
+
+### Fixed
+- Права `spec_report_status_*` не сохранялись при редактировании роли.
+  В `schema/role.py::RoleBase` не хватало 4-х полей — PUT `/api/role/{id}`
+  их отсекал (model_dump(exclude_unset=True) → пустой набор для этих
+  полей → БД не обновлялась). Модель Role и миграция были ОК, только
+  Pydantic-схема. Добавил 4 булевых поля с `default=False` — по образцу
+  spec_order_status_*.
+
 ## [1.0.30] — 2026-09-05
 
 ### Fixed

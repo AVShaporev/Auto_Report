@@ -376,6 +376,7 @@ async def create_order(
                 created_at=date.today(),
                 period_start_date=None,
                 period_code=obj.period.code if obj.period else None,
+                sla_days_workdays=spec_order.sla_days_workdays,
             )
 
         today = date.today()
@@ -512,6 +513,7 @@ async def update_order(
                     created_at=existing.created_at,
                     period_start_date=existing.period_start_date,
                     period_code=obj.period.code if (obj and obj.period) else None,
+                    sla_days_workdays=spec_order.sla_days_workdays,
                 )
                 update_data['due_date'] = new_due
                 order_update = order_update.model_copy(update={"due_date": new_due})

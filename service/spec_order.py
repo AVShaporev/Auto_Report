@@ -161,7 +161,10 @@ async def get_spec_order_with_stats(
             "short_name": spec_order.short_name,
             "code": spec_order.code,
             "template_filename": spec_order.template_filename,
-            "orders_count": orders_count
+            "orders_count": orders_count,
+            "sla_kind": spec_order.sla_kind,
+            "sla_days": spec_order.sla_days,
+            "sla_days_workdays": spec_order.sla_days_workdays,
         }
 
 async def update_spec_order_with_stats(
@@ -214,7 +217,10 @@ async def update_spec_order_with_stats(
             "short_name": spec_order.short_name,
             "code": spec_order.code,
             "template_filename": spec_order.template_filename,
-            "orders_count": orders_count
+            "orders_count": orders_count,
+            "sla_kind": spec_order.sla_kind,
+            "sla_days": spec_order.sla_days,
+            "sla_days_workdays": spec_order.sla_days_workdays,
         }
 
 async def get_spec_orders_paginated_with_stats(
@@ -257,7 +263,10 @@ async def get_spec_orders_paginated_with_stats(
                 "short_name": item.short_name,
                 "code": item.code,
                 "template_filename": item.template_filename,
-                "orders_count": orders_count
+                "orders_count": orders_count,
+                "sla_kind": item.sla_kind,
+                "sla_days": item.sla_days,
+                "sla_days_workdays": item.sla_days_workdays,
             })
         
         return result_items, total

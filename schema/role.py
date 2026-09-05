@@ -203,6 +203,12 @@ class RoleBase(BaseModel):
     spec_order_status_create: bool = Field(False, description="Право на создание статусов заявок")
     spec_order_status_delete: bool = Field(False, description="Право на удаление статусов заявок")
 
+    # Права на статусы отчётов (справочник)
+    spec_report_status_read: bool = Field(False, description="Право на чтение статусов отчётов")
+    spec_report_status_modify: bool = Field(False, description="Право на изменение статусов отчётов")
+    spec_report_status_create: bool = Field(False, description="Право на создание статусов отчётов")
+    spec_report_status_delete: bool = Field(False, description="Право на удаление статусов отчётов")
+
     # Права на приоритеты неисправностей (справочник)
     spec_priority_read: bool = Field(False, description="Право на чтение приоритетов неисправностей")
     spec_priority_modify: bool = Field(False, description="Право на изменение приоритетов неисправностей")
