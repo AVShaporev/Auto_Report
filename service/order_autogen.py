@@ -222,8 +222,17 @@ async def _create_order(
     """Низкоуровневое создание Order. flush'ит, чтобы вытащить id и поймать
     UNIQUE-конфликт в пределах транзакции caller'а."""
     from data.spec_order_status import get_default_status_id
+    from service.due_date import compute_due_date
 
     number = await next_planned_order_number(session, obj, spec_order, today)
+    period_code = obj.period.code if obj.period else None
+    due_date = compute_due_date(
+        sla_kind=spec_order.sla_kind,
+        sla_days=spec_order.sla_days,
+        created_at=today,
+        period_start_date=period_start_date,
+        period_code=period_code,
+    )
     order = Order(
         number=number,
         spec_order_id=spec_order.id,
@@ -234,6 +243,7 @@ async def _create_order(
         description=description,
         status_id=await get_default_status_id(session),
         period_start_date=period_start_date,
+        due_date=due_date,
     )
     session.add(order)
     await session.flush()

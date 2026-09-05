@@ -6,7 +6,6 @@ from model.user import User
 from model.report import Report
 from model.contract import Contract
 from model.object import Object
-from model.spec_status import Spec_Status
 from data import report as report_data
 from service.activity_log import log_activity
 from schema.report import ReportCreate, ReportUpdate, ReportStatusUpdate
@@ -292,14 +291,16 @@ async def create_report(
                 )
             )
 
-        # Дефолтный статус для нового отчёта — 'not_approved'.
-        # Если код в справочнике отсутствует (свежий инстанс / юзер не завёл) —
-        # лениво создаём, чтобы создание отчёта не было заблокировано.
-        default_status = await report_data.get_spec_status_by_code(session, 'not_approved')
+        # Дефолтный статус для нового отчёта — is_default = true из
+        # spec_report_statuses («В работе» по сиду f3a4b5c6d7e8). Партиал-
+        # уникальный индекс гарантирует ровно одну такую строку, а сид —
+        # что она есть; если её нет — миграция сломана, кидаем 500.
+        default_status = await report_data.get_default_spec_report_status(session)
         if not default_status:
-            default_status = Spec_Status(name='Не утверждён', code='not_approved')
-            session.add(default_status)
-            await session.flush()
+            raise HTTPException(
+                status_code=500,
+                detail="spec_report_statuses не имеет is_default=true — миграция сломана.",
+            )
 
         # Создание — передаём user_id из current_user, сгенерированный номер и заявку
         report = await report_data.create_report(

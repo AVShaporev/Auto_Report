@@ -135,7 +135,7 @@ async def upload_attachment(
                 detail="Вы можете добавлять вложения только в свои отчёты",
             )
 
-        if report.status and report.status.code == 'approved':
+        if report.status and report.status.name == 'Утверждён':
             raise HTTPException(
                 status_code=400,
                 detail="Отчёт утверждён — изменять вложения нельзя",
@@ -224,7 +224,7 @@ async def link_mobile_photos(
                 status_code=403,
                 detail="Вы можете добавлять вложения только в свои отчёты",
             )
-        if report.status and report.status.code == 'approved':
+        if report.status and report.status.name == 'Утверждён':
             raise HTTPException(
                 status_code=400,
                 detail="Отчёт утверждён — изменять вложения нельзя",
@@ -282,7 +282,7 @@ async def delete_attachment(
                 status_code=403,
                 detail="Вы можете удалять вложения только в своих отчётах",
             )
-        if report and report.status and report.status.code == 'approved':
+        if report and report.status and report.status.name == 'Утверждён':  # spec_report_statuses после f3a4b5c6d7e8
             raise HTTPException(
                 status_code=400,
                 detail="Отчёт утверждён — изменять вложения нельзя",

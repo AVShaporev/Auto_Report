@@ -25,7 +25,7 @@ async def get_report_list(
     contract_id: Optional[int] = Query(None, ge=1, description="Фильтр по контракту"),
     object_id: Optional[int] = Query(None, ge=1, description="Фильтр по объекту"),
     user_id: Optional[int] = Query(None, ge=1, description="Фильтр по пользователю"),
-    status_id: Optional[int] = Query(None, ge=1, description="Фильтр по статусу (FK spec_statuss.id)"),
+    status_id: Optional[int] = Query(None, ge=1, description="Фильтр по статусу (FK spec_report_statuses.id)"),
     date_from: Optional[date] = Query(None, description="Дата создания с"),
     date_to: Optional[date] = Query(None, description="Дата создания по"),
     sort_by: str = Query("created_at", description="Поле сортировки"),
@@ -106,7 +106,7 @@ async def get_report_options(
             "id": report.id,
             "number": report.number,
             "status_id": report.status_id,
-            "status_code": report.status.code if report.status else None,
+            "status_name": report.status.name if report.status else None,
         }
         for report in reports
     ]
@@ -116,15 +116,21 @@ async def get_unapproved_reports(
     current_user: User = Depends(get_current_active_user)
 ):
     """
-    Получить список неутверждённых отчётов (статус с кодом 'not_approved').
+    Получить список отчётов «На утверждении» — те что ждут действия
+    руководителя. После f3a4b5c6d7e8 статусы отчёта: В работе /
+    На утверждении / Утверждён / Отклонён. Раньше endpoint возвращал
+    отчёты с code='not_approved'; теперь семантика сдвинута — «ждут
+    утверждения» это отдельный статус.
 
     Требуется право: report_read
     """
     from data import report as report_data
     from database.database import new_session
     async with new_session() as session:
-        st = await report_data.get_spec_status_by_code(session, 'not_approved')
-    status_id = st.id if st else None
+        pending = await report_data.get_spec_report_status_by_name(
+            session, 'На утверждении'
+        )
+    status_id = pending.id if pending else None
 
     items, _ = await report_service.get_reports_paginated(
         pagination=PaginationParams(page=1, per_page=100),

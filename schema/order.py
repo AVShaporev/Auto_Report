@@ -31,6 +31,12 @@ class OrderCreate(BaseModel):
     assigned_to_id: Optional[int] = Field(
         None, ge=1, description="ID ответственного (users.id); может быть не назначен"
     )
+    # Срок исполнения. Если не передан — сервис посчитает по spec_order.sla_kind
+    # (periodic → конец периода, from_creation → created_at + sla_days,
+    # manual → NULL). Явно переданный due_date перекрывает авто-расчёт.
+    due_date: Optional[date] = Field(
+        None, description="Срок исполнения; None → авто по sla_kind типа"
+    )
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -49,6 +55,10 @@ class OrderUpdate(BaseModel):
     assigned_to_id: Optional[int] = Field(
         None, ge=0, description="ID ответственного; 0/null → снять"
     )
+    # PATCH due_date: явное значение — установить, отсутствие ключа —
+    # оставить как было. Чтобы «сбросить в null», клиент передаёт
+    # `due_date: null` (это отличается от не-передачи через exclude_unset).
+    due_date: Optional[date] = Field(None, description="Срок исполнения")
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -70,6 +80,9 @@ class OrderResponse(BaseModel):
         None,
         description="Начало периода обслуживания (только для авто-сгенерированных плановых заявок)",
     )
+    due_date: Optional[date] = Field(
+        None, description="Срок исполнения (для температурной шкалы во фронте)"
+    )
 
     # Связанные данные
     spec_order_name: Optional[str] = Field(None, description="Название типа заявки")
@@ -79,6 +92,9 @@ class OrderResponse(BaseModel):
     assigned_to_id: Optional[int] = Field(None, description="ID ответственного")
     assigned_to_name: Optional[str] = Field(None, description="Имя ответственного")
     report_number: Optional[str] = Field(None, description="Номер отчета")
+    report_status_name: Optional[str] = Field(
+        None, description="Ру-имя статуса связанного отчёта (для отчётного маркера)"
+    )
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -88,9 +104,11 @@ class OrderListResponse(BaseModel):
     id: int
     number: str
     created_at: date
+    due_date: Optional[date] = None
     status_id: int
     status_name: Optional[str] = None
     report_id: Optional[int] = None
+    report_status_name: Optional[str] = None
 
     # FK-id'шники для фронта (фильтрация по типу/контракту/объекту,
     # деривация period_id при создании отчёта без отдельного GET)

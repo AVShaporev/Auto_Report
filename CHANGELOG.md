@@ -5,6 +5,93 @@
 версионирование [SemVer](https://semver.org/lang/ru/) — bump на каждый
 фикс/фичу; см. правило в feedback_autoreport_versioning.md.
 
+## [1.0.30] — 2026-09-05
+
+### Fixed
+- Hotfix после v1.0.29: 500 на GET /api/order/list и /api/order/my
+  из-за `InvalidRequestError: 'Order.report' is not available due to
+  lazy='raise'`. В `data/order.py` для списков стоял `raiseload(Order.report)`
+  как защита от N+1, но новый сериализатор обращается к
+  `item.report.status.name` для отчётного маркера. Заменил на
+  `selectinload(Order.report)` в обоих местах (get_order_all + get_order_paginated).
+  Report.status с `lazy="joined"` подтянется тем же SELECT'ом, N+1 не будет.
+
+## [1.0.29] — 2026-09-05
+
+### Added
+- Due-date для заявок — Этап 2 (сервисный слой + API).
+  - `service/due_date.py::compute_due_date()` — чистая функция расчёта
+    срока по правилам Spec_Order (periodic → конец периода объекта,
+    from_creation → created_at + sla_days, manual → None).
+  - `service/order.py::create_order` — авто-заполняет `Order.due_date`
+    если клиент не передал явно. Подгружает `Object.period` через
+    selectinload для period_code.
+  - `service/order.py::update_order` — при смене `spec_order_id`
+    автоматически пересчитывает due_date (если клиент явно не переопределяет).
+  - `service/order_autogen.py::_create_order` — авто-плановые/первичные
+    заявки получают due_date по формуле.
+  - `schema/order.py` — новые поля `due_date` в OrderCreate/OrderUpdate/
+    OrderResponse/OrderListResponse + `report_status_name` в
+    OrderResponse/OrderListResponse (для отчётного маркера во фронте).
+  - `service/order.py` + `api/order.py` — dict-serializer'ы (детальный
+    Order и списки) отдают `due_date` и `report_status_name`.
+- Полный CRUD для `spec_report_statuses` (по образцу spec_order_statuses):
+  `schema/data/service/api/spec_report_status.py`, роут
+  `/api/spec_report_status/{options,list,create,{id},put,delete}`,
+  RBAC-права `spec_report_status_*`. Правила is_default с partial
+  unique index (нельзя снять/удалить дефолтную без переноса).
+
+## [1.0.28] — 2026-09-05
+
+### Fixed
+- Отчёты — hotfix после v1.0.27: 500 на GET /api/report/list. Причина:
+  много мест в service/data/api/schema ссылались на Spec_Status.code
+  (у Report был FK на общий spec_statuss), но после переезда FK на
+  spec_report_statuses (канонная схема без code) — `.status.code`
+  выдавал AttributeError.
+  - `schema/report.py` — убрал `status_code` из `ReportListResponse` и
+    `ReportOptionResponse` (у нового справочника нет code, только name).
+  - `data/report.py` — `get_spec_status_by_code(code)` заменён на
+    `get_default_spec_report_status()` + `get_spec_report_status_by_name(name)`.
+  - `service/report.py` — при создании отчёта берём is_default статус
+    из spec_report_statuses (было — искали по code 'not_approved' и
+    создавали Spec_Status на лету).
+  - `service/report_attachment.py` — 3 места блокировки редактирования
+    для approved отчёта (`report.status.code == 'approved'`) переведены
+    на `report.status.name == 'Утверждён'`.
+  - `api/report.py` — endpoint `/unapproved` теперь возвращает отчёты
+    в статусе «На утверждении» (актуальная семантика для нового
+    workflow «В работе → На утверждении → Утверждён/Отклонён»).
+
+## [1.0.27] — 2026-09-05
+
+### Added
+- Due-date для заявок (Этап 1 — модели + миграции). Реализация в
+  service/API — следующим коммитом.
+  - `Spec_Order.sla_kind` (periodic / from_creation / manual) + `sla_days`
+    — определяет как считать `Order.due_date` для заявок этого типа.
+    Backfill: is_default_planned → periodic, is_default_primary →
+    from_creation с sla_days=3 (АВР 3 дня по-умолчанию), остальные →
+    manual. CHECK-констрейнты на валидность.
+  - `Order.due_date` (DATE, nullable). Backfill открытых заявок
+    (report_id IS NULL) по формуле от sla_kind типа + period_code
+    объекта. Миграция считает конец календарного периода в Python
+    (monthrange), обновляет по одной строке.
+- Новый справочник `spec_report_statuses` с 4 сидовыми строками:
+  «В работе» (default), «На утверждении», «Утверждён», «Отклонён».
+  Канонная схема из 4 полей (id/name/description/is_default), partial
+  unique на is_default = true. `Report.status_id` FK переведён с
+  общего spec_statuss на новый спец-справочник; backfill всех
+  существующих отчётов → default («В работе»).
+- Роль: 4 новых RBAC-флага `spec_report_status_read/create/modify/delete`
+  (по образцу `spec_order_status_*`). Superadmin — все, admin — READ.
+
+### Migrations
+- f3a4b5c6d7e8 — spec_report_statuses + сид 4 строк.
+- f4b5c6d7e8f9 — role: 4 флага spec_report_status_*.
+- f5c6d7e8f9a0 — Spec_Order SLA-поля + Order.due_date + Report.status_id
+  FK на spec_report_statuses (backfill открытых заявок + всех отчётов).
+
 ## [1.0.26] — 2026-08-28
 
 ### Changed

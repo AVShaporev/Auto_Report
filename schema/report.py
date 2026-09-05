@@ -56,8 +56,8 @@ class ReportUpdate(BaseModel):
 # ========== СХЕМЫ ДЛЯ СМЕНЫ СТАТУСА ==========
 
 class ReportStatusUpdate(BaseModel):
-    """Схема для смены статуса отчёта (FK на spec_statuss)."""
-    status_id: int = Field(..., ge=1, description="ID статуса из справочника spec_statuss")
+    """Схема для смены статуса отчёта (FK на spec_report_statuses)."""
+    status_id: int = Field(..., ge=1, description="ID статуса из справочника spec_report_statuses")
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -76,7 +76,6 @@ class ReportListResponse(BaseModel):
     number: str
     status_id: int
     status_name: Optional[str] = None
-    status_code: Optional[str] = None
     created_at: date
     period_id: int
     period_name: Optional[str] = None
@@ -98,7 +97,6 @@ class ReportListResponse(BaseModel):
         return {
             **{c.name: getattr(data, c.name) for c in data.__table__.columns},
             "status_name": data.status.name if data.status else None,
-            "status_code": data.status.code if data.status else None,
             "period_name": data.period.name if data.period else None,
             "contract_number": data.contract.number if data.contract else None,
             "object_name": data.object.name if data.object else None,
@@ -124,6 +122,6 @@ class ReportOptionResponse(BaseModel):
     id: int
     number: str
     status_id: int
-    status_code: Optional[str] = None
+    status_name: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)

@@ -47,6 +47,12 @@ class Order(Base):
     # WHERE period_start_date IS NOT NULL — защита от дублей при tick'ах.
     period_start_date: Mapped[Optional[date]] = mapped_column(nullable=True)
 
+    # Срок исполнения. Авто-заполняется по spec_order.sla_kind при create
+    # (periodic → конец периода, from_creation → created_at + sla_days),
+    # можно переопределить вручную в форме. NULL — «без срока» (маркер
+    # температурной шкалы не показывается). Миграция f5c6d7e8f9a0.
+    due_date: Mapped[Optional[date]] = mapped_column(nullable=True)
+
     # Все отношения через строки для избежания циклических импортов
     
     # Тип заявки (многие к одному)

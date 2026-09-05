@@ -10,7 +10,7 @@ from model.contract import Contract
 from model.object import Object
 from model.user import User
 from model.order import Order
-from model.spec_status import Spec_Status
+from model.spec_report_status import Spec_Report_Status
 from schema.report import ReportCreate, ReportUpdate
 
 from utils.timer import timer
@@ -289,7 +289,7 @@ async def update_report_status(
     report_id: int,
     status_id: int,
 ) -> Optional[Report]:
-    """Установить статус отчёта (FK на spec_statuss)."""
+    """Установить статус отчёта (FK на spec_report_statuses)."""
     report = await get_report_by_id(session, report_id, load_relations=False)
     if not report:
         return None
@@ -301,12 +301,26 @@ async def update_report_status(
 
 
 @timer
-async def get_spec_status_by_code(
+async def get_default_spec_report_status(
     session: AsyncSession,
-    code: str,
-) -> Optional[Spec_Status]:
-    """Вспомогательное: найти статус справочника по коду."""
-    query = select(Spec_Status).where(Spec_Status.code == code)
+) -> Optional[Spec_Report_Status]:
+    """Вспомогательное: дефолтный статус отчёта (is_default = true).
+
+    После миграции f3a4b5c6d7e8 это «В работе». Partial unique index
+    гарантирует ровно одну такую строку.
+    """
+    query = select(Spec_Report_Status).where(Spec_Report_Status.is_default == True)  # noqa: E712
+    result = await session.execute(query)
+    return result.scalar_one_or_none()
+
+
+@timer
+async def get_spec_report_status_by_name(
+    session: AsyncSession,
+    name: str,
+) -> Optional[Spec_Report_Status]:
+    """Найти статус отчёта по name."""
+    query = select(Spec_Report_Status).where(Spec_Report_Status.name == name)
     result = await session.execute(query)
     return result.scalar_one_or_none()
 
