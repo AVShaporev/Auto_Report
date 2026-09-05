@@ -233,6 +233,11 @@ async def get_orders_mobile_list(
     # User join — на assigned_to_id (ОТВЕТСТВЕННЫЙ). only_mine фильтрует
     # по этому же полю: инженер видит заявки, которые ему назначили, а не
     # те что он сам создал.
+    # v1.0.34 — LEFT JOIN на Report + Spec_Report_Status для due-date
+    # маркера (отчётный маркер перекрывает температурную шкалу если у
+    # заявки есть отчёт). Модели импортированы вверху файла.
+    from model.report import Report
+    from model.spec_report_status import Spec_Report_Status
     stmt = (
         select(
             Order.id,
@@ -241,6 +246,9 @@ async def get_orders_mobile_list(
             Spec_Order_Status.name.label("status_name"),
             Order.period_start_date,
             Order.created_at,
+            Order.due_date,
+            Order.report_id,
+            Spec_Report_Status.name.label("report_status_name"),
             Spec_Order.name.label("order_type"),
             Object.id.label("object_id"),
             Object.name.label("object_name"),
@@ -256,6 +264,8 @@ async def get_orders_mobile_list(
         .outerjoin(Arial, Arial.id == Object.arial_id)
         .outerjoin(Locality, Locality.id == Object.locality_id)
         .outerjoin(User, User.id == Order.assigned_to_id)
+        .outerjoin(Report, Report.id == Order.report_id)
+        .outerjoin(Spec_Report_Status, Spec_Report_Status.id == Report.status_id)
     )
     if only_mine and user_id is not None:
         stmt = stmt.where(Order.assigned_to_id == user_id)

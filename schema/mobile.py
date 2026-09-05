@@ -82,6 +82,11 @@ class MobileOrderListItem(BaseModel):
     region_name: Optional[str] = None
     arial_name: Optional[str] = None
     locality_name: Optional[str] = None
+    # v1.0.34 — для due-date маркера (температурная шкала + отчётный
+    # маркер, если у заявки есть отчёт). Логика идентична вебу.
+    due_date: Optional[date] = None
+    report_id: Optional[int] = None
+    report_status_name: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
