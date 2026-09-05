@@ -126,6 +126,93 @@ async def get_tech_logs(
     )
 
 
+@router.get('/admins')
+async def list_tenant_superadmins(
+    _: None = Depends(_require_master_token),
+) -> list[dict]:
+    """Список superadmin юзеров тенанта для master-UI (сброс пароля).
+
+    Auth: `Authorization: Bearer <MASTER_API_TENANT_TOKEN>` — тот же
+    shared secret что tech-logs proxy. Master ходит сюда напрямую по
+    публичному URL `https://<slug>.cool-doc.ru/api/tenant/admins`.
+
+    Возвращает только активных superadmin'ов (Role.is_superadmin=True,
+    User.is_active=True), отсортированных по id ASC.
+    """
+    from sqlalchemy import select
+    from model.role import Role
+
+    async with new_session() as session:
+        stmt = (
+            select(User)
+            .join(Role, User.role_id == Role.id)
+            .where(Role.is_superadmin.is_(True))
+            .where(User.is_active.is_(True))
+            .order_by(User.id.asc())
+        )
+        users = list((await session.execute(stmt)).scalars().unique().all())
+
+    return [
+        {
+            "id": u.id,
+            "name": u.name,
+            "full_name": u.full_name,
+            "email": u.email,
+            "is_protected": u.is_protected,
+        }
+        for u in users
+    ]
+
+
+@router.post('/admins/{user_id}/reset-password')
+async def reset_superadmin_password(
+    user_id: int,
+    _: None = Depends(_require_master_token),
+) -> dict:
+    """Сбросить пароль superadmin юзера тенанта. Генерирует новый пароль,
+    обновляет hash, отзывает все активные refresh-сессии юзера.
+
+    Auth: `Authorization: Bearer <MASTER_API_TENANT_TOKEN>`. Master после
+    получения ответа шлёт email на tenant.email — новый пароль возвращаем
+    единожды в теле ответа, никуда не сохраняем.
+
+    404 если user не найден или не является superadmin.
+    """
+    import secrets as _secrets
+    from sqlalchemy import select
+    from model.role import Role
+    from service.auth import get_password_hash
+    from data.user_session import revoke_all_user_sessions
+
+    new_password = _secrets.token_urlsafe(12)
+
+    async with new_session() as session:
+        stmt = (
+            select(User)
+            .join(Role, User.role_id == Role.id)
+            .where(User.id == user_id)
+            .where(Role.is_superadmin.is_(True))
+        )
+        user = (await session.execute(stmt)).scalar_one_or_none()
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Superadmin user id={user_id} не найден в тенанте",
+            )
+        user.hash = get_password_hash(new_password)
+        await session.commit()
+        revoked = await revoke_all_user_sessions(session, user_id)
+
+    return {
+        "user_id": user.id,
+        "name": user.name,
+        "full_name": user.full_name,
+        "email": user.email,
+        "new_password": new_password,
+        "sessions_revoked": revoked,
+    }
+
+
 @router.get('/lifecycle')
 async def get_tenant_lifecycle(current_user: User = Depends(get_current_user)) -> dict:
     """Прокси на master `GET /api/lifecycle/{slug}` для soft-mode банера (Этап 8.2).

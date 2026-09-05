@@ -5,6 +5,24 @@
 версионирование [SemVer](https://semver.org/lang/ru/) — bump на каждый
 фикс/фичу; см. правило в feedback_autoreport_versioning.md.
 
+## [1.0.35] — 2026-09-05
+
+### Added — master-inbound endpoints для сброса пароля superadmin'а
+- `GET /api/tenant/admins` — список активных superadmin юзеров тенанта
+  (id, name, full_name, email, is_protected). Auth: тот же
+  `MASTER_API_TENANT_TOKEN` что `/tech-logs`. Master-UI на admin.cool-doc.ru
+  использует для селекта пользователя в модалке «Сбросить пароль».
+- `POST /api/tenant/admins/{user_id}/reset-password` — генерит новый
+  пароль (`secrets.token_urlsafe(12)`), обновляет `User.hash` через
+  `get_password_hash` (bcrypt), отзывает все активные refresh-сессии
+  юзера (`revoke_all_user_sessions`). Возвращает
+  `{user_id, name, full_name, email, new_password, sessions_revoked}`.
+  Master парсит `new_password`, шлёт email на `tenant.email`, ничего
+  не сохраняет.
+- 404 если `user_id` не superadmin или не существует. Only superadmin —
+  чтобы через этот прокси-канал нельзя было сбросить пароль обычному
+  пользователю (для обычных — /api/user/{id}/password обычным путём).
+
 ## [1.0.34] — 2026-09-05
 
 ### Added
