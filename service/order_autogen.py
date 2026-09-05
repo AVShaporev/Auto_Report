@@ -232,6 +232,7 @@ async def _create_order(
         created_at=today,
         period_start_date=period_start_date,
         period_code=period_code,
+        sla_days_workdays=spec_order.sla_days_workdays,
     )
     order = Order(
         number=number,

@@ -46,6 +46,12 @@ class Spec_Order(Base):
         default='manual', server_default='manual', nullable=False,
     )
     sla_days: Mapped[Optional[int]] = mapped_column(nullable=True)
+    # true → sla_days считается в РАБОЧИХ днях (пропускаем сб/вс, без
+    # госпраздников — простой вариант без внешнего справочника).
+    # Актуально только для sla_kind='from_creation'. Миграция f6d7e8f9a0b1.
+    sla_days_workdays: Mapped[bool] = mapped_column(
+        default=False, server_default='false', nullable=False,
+    )
 
     orders: Mapped[List["Order"]] = relationship(
                                                 "Order",
