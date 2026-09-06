@@ -5,6 +5,19 @@
 версионирование [SemVer](https://semver.org/lang/ru/) — bump на каждый
 фикс/фичу; см. правило в feedback_autoreport_versioning.md.
 
+## [1.0.37] — 2026-09-06
+
+### Fixed
+- `PATCH /api/report/{id}/status` возвращал 400 «Статус с id N не
+  существует». Причина: `service.update_report_status` валидировал
+  status_id через старую таблицу `spec_statuss` (это Issue.status_id),
+  а не через `spec_report_statuses` (Report.status_id после миграции
+  f3a4b5c6d7e8). Также docstring врал «FK на spec_statuss».
+- Fix: замена `spec_status_data.get_spec_status_by_id` →
+  `spec_report_status_data.get_spec_report_status_by_id`. Идёт в паре
+  с Auto_report_front v1.0.32 (там фронт уже читает
+  `/spec_report_status/options` и ищет по name === 'Утверждён').
+
 ## [1.0.36] — 2026-09-06
 
 ### Fixed
