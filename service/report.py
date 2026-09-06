@@ -176,7 +176,10 @@ async def create_report(
         from model.order import Order as OrderModel
         order = (await session.execute(
             select(OrderModel)
-            .options(selectinload(OrderModel.object))
+            .options(
+                selectinload(OrderModel.object),
+                selectinload(OrderModel.spec_order),
+            )
             .where(OrderModel.id == report_create.order_id)
         )).scalar_one_or_none()
         if not order:
@@ -274,20 +277,42 @@ async def create_report(
 
         short_name = (contract.customer.short_name or "").strip() or "—"
         short_subject = (contract.short_subject or "").strip() or "—"
-        # В качестве «номера объекта» в номере отчёта используем
-        # number_in_contract (порядковый в рамках контракта), а не глобальный id.
+        short_order = (order.spec_order.short_name or "").strip() if order.spec_order else "—"
+        short_order = short_order or "—"
+
+        # seq — порядковый номер отчёта такого же типа (spec_order) для
+        # этого объекта в этом месяце. Аналогично order-number:
+        # позволяет иметь несколько отчётов на объект/месяц по разным
+        # заявкам одного или разного типа (аварийные, плановые и т.п.).
+        from sqlalchemy import func, extract
+        count_stmt = (
+            select(func.count())
+            .select_from(Report)
+            .join(OrderModel, OrderModel.report_id == Report.id)
+            .where(
+                Report.object_id == effective_object_id,
+                extract('year', Report.created_at) == year,
+                extract('month', Report.created_at) == month,
+                OrderModel.spec_order_id == order.spec_order_id,
+            )
+        )
+        existing_same_kind = (await session.execute(count_stmt)).scalar() or 0
+        seq = existing_same_kind + 1
+
+        # В качестве «номера объекта» в номере отчёта — number_in_contract
+        # (порядковый в рамках контракта), а не глобальный id.
         generated_number = (
             f"{obj.number_in_contract}/{month:02d}/{year:04d}/"
-            f"{short_name}/{short_subject}"
+            f"{short_name}/{short_subject}/{short_order}/{seq}"
         )
 
+        # На случай гонки или ручных правок номеров — финальная проверка.
         if await report_data.check_report_number_exists(session, generated_number):
             raise HTTPException(
                 status_code=400,
                 detail=(
-                    f"Отчёт за {month:02d}.{year} по объекту "
-                    f"№{obj.number_in_contract} (id={obj.id}) "
-                    f"уже существует (номер '{generated_number}')"
+                    f"Не удалось сгенерировать уникальный номер отчёта "
+                    f"('{generated_number}' уже существует). Повторите попытку."
                 )
             )
 
