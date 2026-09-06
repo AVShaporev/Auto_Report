@@ -391,18 +391,21 @@ async def update_report_status(
     current_user: User
 ) -> Report:
     """
-    Установить статус отчёта (FK на spec_statuss).
+    Установить статус отчёта (FK на spec_report_statuses).
     """
     await check_permission(current_user, "report_modify", "смены статуса отчётов")
 
     async with new_session() as session:
-        # Проверяем, что статус существует.
-        from data import spec_status as spec_status_data
-        status = await spec_status_data.get_spec_status_by_id(session, status_update.status_id)
+        # Проверяем, что статус существует. Report.status_id — FK на
+        # spec_report_statuses (не старую spec_statuss, которая для Issue).
+        from data import spec_report_status as spec_report_status_data
+        status = await spec_report_status_data.get_spec_report_status_by_id(
+            session, status_update.status_id,
+        )
         if not status:
             raise HTTPException(
                 status_code=400,
-                detail=f"Статус с id {status_update.status_id} не существует",
+                detail=f"Статус отчёта с id {status_update.status_id} не существует в spec_report_statuses",
             )
 
         report = await report_data.update_report_status(session, report_id, status_update.status_id)
