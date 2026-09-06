@@ -5,6 +5,25 @@
 версионирование [SemVer](https://semver.org/lang/ru/) — bump на каждый
 фикс/фичу; см. правило в feedback_autoreport_versioning.md.
 
+## [1.0.38] — 2026-09-06
+
+### Fixed
+- Создание второго отчёта по другой заявке на тот же объект в том же
+  месяце возвращало 400 «Отчёт за MM.YYYY по объекту №N уже
+  существует». Причина: `generated_number` для отчёта собирался как
+  `{obj.n}/{MM}/{YYYY}/{customer}/{contract}` — без типа заявки и
+  без счётчика. Аварийные (АВР) заявки создаются по потребности —
+  их может быть несколько в месяц по одному объекту.
+- Fix: добавили в маску `spec_order.short_name` + `seq` (порядковый
+  номер отчёта такого же типа для объекта в месяц) —
+  `{obj.n}/{MM}/{YYYY}/{customer}/{contract}/{spec_order}/{seq}`.
+  Аналогично маске Order.number. seq считается через join Report←Order
+  по `spec_order_id` и месяцу создания. Финальная защита от гонки
+  остаётся (check_report_number_exists).
+- Заодно service подгружает `order.spec_order` через selectinload
+  вместе с `order.object` — чтобы избежать lazy-load после закрытия
+  сессии.
+
 ## [1.0.37] — 2026-09-06
 
 ### Fixed
