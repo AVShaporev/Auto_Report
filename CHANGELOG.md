@@ -5,6 +5,56 @@
 версионирование [SemVer](https://semver.org/lang/ru/) — bump на каждый
 фикс/фичу; см. правило в feedback_autoreport_versioning.md.
 
+## [1.0.42] — 2026-09-07
+
+### Changed — реальные Jinja-шаблоны в `templates/seeds/`
+Прежние `emergency.docx / maintenance.docx / planned.dotx /
+primary.dotx` были плейсхолдерами. Заменены на полноценные акты с
+docxtpl-разметкой, чтобы на demo-тенанте кнопка «Скачать акт»
+сразу показывала подстановку данных из БД.
+
+Что теперь подставляется в каждом акте:
+- `{{ order.number }}`, `{{ order.created_at }}`, `{{ order.description }}`
+- `{{ contract.number }}`, `{{ contract.date_of_consclusion }}`,
+  `{{ contract.date_of_completion }}`, `{{ contract.subject }}`
+- `{{ customer.name/inn/kpp/director_full_name/address }}` —
+  и то же для `{{ executor.* }}`
+- `{{ object.name/address/responsible_face/responsible_faces_contact }}`
+- `{{ user.full_name }}`, `{{ user.role_name }}`
+- `{{ today_long }}` (например «05 августа 2026 г.»)
+- Nested `{%tr for group in equipment_groups %}` +
+  `{%tr for row in group.rows %}` — многоуровневая таблица
+  оборудования с нумерацией «1.», «1.1», «1.2», «2.», «2.1»
+
+Отличия шаблонов:
+- **planned.dotx** — Акт планового ТО с полной таблицей оборудования.
+- **maintenance.docx** — Акт технического обслуживания (упрощённее,
+  с исполнителем работ `{{ user.full_name }}`).
+- **emergency.docx** — Акт аварийно-восстановительных работ, без
+  таблицы оборудования, акцент на описании проблемы.
+- **primary.dotx** — Акт первичного осмотра, с составом комиссии и
+  таблицей найденного оборудования.
+
+### Added — `scripts/generate_demo_templates.py`
+Скрипт-генератор через `python-docx`. Каждый Jinja-плейсхолдер
+пишется одним `run.add_text(...)` — Word не разбивает разметку на
+несколько runs (в этом главная сложность ручной правки в Word).
+
+Про nested-таблицу: `{%tr for %}` и `{%tr endfor %}` **целиком
+удаляют содержащую строку таблицы** после парсинга. Для 2-уровневого
+цикла нужно 6 строк: header + open-outer + group-row + open-inner
++ item-row + close-inner + close-outer. Иначе таблица рендерится
+пустой.
+
+### How to apply
+- Локально: `python scripts/generate_demo_templates.py` перезаписывает
+  4 файла в `templates/seeds/`.
+- В контейнере demo: после fan-out нужно повторить seed_demo
+  (он копирует шаблоны в MEDIA), либо ждать ежесуточного restore
+  из эталона (D5).
+
+VERSION 1.0.41 → 1.0.42.
+
 ## [1.0.41] — 2026-09-07
 
 ### Fixed
