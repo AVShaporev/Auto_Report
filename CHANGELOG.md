@@ -5,6 +5,46 @@
 версионирование [SemVer](https://semver.org/lang/ru/) — bump на каждый
 фикс/фичу; см. правило в feedback_autoreport_versioning.md.
 
+## [1.0.43] — 2026-09-07
+
+### Added — Jinja-шаблоны журналов
+На demo-тенанте кнопка «Скачать журнал» на объекте отдавала
+400 «не загружен шаблон документа», потому что `Spec_Journal.
+template_storage_path` был пустым. Добавил 2 полноценных
+docxtpl-шаблона журналов.
+
+- **journal_maint.docx** — Журнал технического обслуживания.
+  Паспорт объекта + сведения о договоре + пустая таблица на 10
+  строк (№ / Дата / Работы / Исполнитель / Подпись) для ручной
+  регистрации записей ТО.
+- **journal_primary.docx** — Журнал первичного осмотра и приёмки.
+  Паспорт объекта + стороны договора + таблица на 8 строк
+  (№ / Система / Состояние / Замечания) + подписи директоров.
+
+Оба заведены с `Spec_Journal.template_storage_path = templates/
+journal_*.docx` в `seed_demo.py`. Копирование в MEDIA volume —
+через существующий `copy_seed_templates()`.
+
+### Note — Journal-контекст
+Контекст `_build_journal_context()` в `service/render_docx.py`
+включает только `object`, `contract`, `customer`, `executor`,
+`today`, `today_long`. **Нет** `order.*` и `equipment_groups`.
+Поэтому в шаблонах журналов нельзя показать список оборудования
+объекта — вместо этого пустые таблицы для ручных записей.
+(Дальнейший шаг — расширить контекст журнала добавив
+`equipment_groups` из `_build_equipment_groups(obj)` — тогда
+Журнал ТО тоже сможет показать перечень.)
+
+### Changed
+- `scripts/generate_demo_templates.py`: добавлены
+  `gen_journal_maint()` + `gen_journal_primary()` + утилиты
+  `_add_journal_log_table()` / `_add_journal_inspection_table()`.
+- `scripts/seed_demo.py`: `spec_journal_defs` теперь несёт
+  `template_filename` + `template_storage_path`, идемпотентный
+  поиск по `code`.
+
+VERSION 1.0.42 → 1.0.43.
+
 ## [1.0.42] — 2026-09-07
 
 ### Changed — реальные Jinja-шаблоны в `templates/seeds/`
