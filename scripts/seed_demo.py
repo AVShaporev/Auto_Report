@@ -33,6 +33,7 @@ demo-тенанта):
 """
 
 import asyncio
+import shutil
 import sys
 from datetime import date, timedelta
 from pathlib import Path
@@ -43,6 +44,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import model  # noqa: F401 — регистрирует все модели в Base.metadata
+from config import MEDIA_PATH, MEDIA_TEMPLATES_PATH
 from database.database import new_session
 from model import (
     Arial, Bank, Contract, Equipment, Issue, Locality, Object,
@@ -51,7 +53,13 @@ from model import (
     Spec_Locality, Spec_Order, Spec_Order_Status, Spec_Priority, Spec_Region,
     Spec_Report_Status, Spec_Status, Spec_Street, Spec_System, Street, User,
 )
+from model.spec_journal import Spec_Journal  # не re-export'нут в model/__init__.py
 from service.auth import get_password_hash
+
+# Корень проекта — для доступа к templates/seeds/. `__file__` = scripts/seed_demo.py,
+# `.parent.parent` → корень репо.
+REPO_ROOT = Path(__file__).resolve().parent.parent
+TEMPLATE_SEEDS_DIR = REPO_ROOT / 'templates' / 'seeds'
 
 
 # =============================================================================
@@ -294,6 +302,33 @@ async def _get_or_create(session: AsyncSession, model_cls, defaults=None, **filt
     return obj
 
 
+def copy_seed_templates() -> int:
+    """
+    Копирует все .docx/.dotx из `templates/seeds/` в MEDIA_TEMPLATES_PATH,
+    перезаписывая существующие — эталон должен быть строго тем, что в
+    репе (в отличие от `scripts/seed_templates.py`, который skip'ает
+    существующие, чтобы не сломать админские загрузки в prod).
+    Возвращает количество скопированных файлов.
+    """
+    if not TEMPLATE_SEEDS_DIR.exists():
+        print(f"  ▸ Шаблоны: {TEMPLATE_SEEDS_DIR} не существует — пропуск")
+        return 0
+
+    MEDIA_TEMPLATES_PATH.mkdir(parents=True, exist_ok=True)
+    copied = 0
+    for src in TEMPLATE_SEEDS_DIR.iterdir():
+        if not src.is_file():
+            continue
+        if src.suffix.lower() not in {'.docx', '.dotx'}:
+            continue
+        dst = MEDIA_TEMPLATES_PATH / src.name
+        shutil.copy2(src, dst)
+        copied += 1
+        print(f"      {src.name} → {dst.relative_to(MEDIA_PATH)}")
+    print(f"  ▸ Шаблоны: скопировано {copied} файлов в {MEDIA_TEMPLATES_PATH}")
+    return copied
+
+
 # =============================================================================
 # Роли и пользователи
 # =============================================================================
@@ -439,8 +474,55 @@ async def seed_dictionaries(session: AsyncSession) -> dict:
     spec_system = await _get_or_create(session, Spec_System, name='Электроснабжение')
     ids['spec_system_id'] = spec_system.id
 
-    spec_order = await _get_or_create(session, Spec_Order, name='Плановое ТО')
-    ids['spec_order_id'] = spec_order.id
+    # 4 типа заявок с шаблонами. Файлы кладёт copy_seed_templates(),
+    # здесь только запись в БД с template_storage_path (относительно
+    # MEDIA_ROOT, `render_docx.py` собирает абсолютный через MEDIA_PATH).
+    spec_order_defs = [
+        # (name, short_name, code, template_filename, sla_kind, sla_days)
+        ('Плановое ТО',        'ППР', 'planned',   'planned.dotx',     'periodic',      None),
+        ('Обслуживание',       'ТО',  'maint',     'maintenance.docx', 'periodic',      None),
+        ('Аварийная заявка',   'АВР', 'emergency', 'emergency.docx',   'from_creation', 3),
+        ('Первичный осмотр',   'ПО',  'primary',   'primary.dotx',     'manual',        None),
+    ]
+    spec_order_ids: dict[str, int] = {}  # code → id, для seed_orders
+    for name, short_name, code, tpl_file, sla_kind, sla_days in spec_order_defs:
+        existing = await _first(session, Spec_Order, name=name)
+        tpl_path = f'templates/{tpl_file}'
+        if existing is None:
+            so = Spec_Order(
+                name=name, short_name=short_name, code=code,
+                template_filename=tpl_file,
+                template_storage_path=tpl_path,
+                sla_kind=sla_kind,
+                sla_days=sla_days,
+            )
+            session.add(so)
+            await session.flush()
+            spec_order_ids[code] = so.id
+        else:
+            # Обновляем на случай если mapping менялся между запусками
+            existing.short_name = short_name
+            existing.code = code
+            existing.template_filename = tpl_file
+            existing.template_storage_path = tpl_path
+            existing.sla_kind = sla_kind
+            existing.sla_days = sla_days
+            spec_order_ids[code] = existing.id
+    # Первый (planned) — оставляем как «дефолтный» для мест где нужен один id
+    ids['spec_order_id'] = spec_order_ids['planned']
+    ids['spec_order_ids'] = spec_order_ids
+
+    # 2 типа журналов (без шаблонов на demo — они опциональны; юзер
+    # сможет через UI загрузить свой .docx и увидит рабочий флоу).
+    spec_journal_defs = [
+        ('Журнал технического обслуживания', 'ЖТО', 'journal_maint'),
+        ('Журнал первичного осмотра',        'ЖПО', 'journal_primary'),
+    ]
+    for name, short_name, code in spec_journal_defs:
+        await _get_or_create(
+            session, Spec_Journal, name=name,
+            defaults=dict(short_name=short_name, code=code),
+        )
 
     spec_status = await _get_or_create(
         session, Spec_Status, name='Новая',
@@ -632,24 +714,38 @@ async def seed_objects_equipment(session: AsyncSession, dict_ids: dict,
 
 async def seed_orders(session: AsyncSession, dict_ids: dict, object_ids: list[int],
                       user_id: int, target: int = 50) -> int:
+    """Заявки round-robin по 4 типам (planned/maint/emergency/primary) и по
+    объектам. Номер несёт короткий префикс типа (ППР/ТО/АВР/ПО), чтобы в
+    списке заявок сразу видно, что каталог типов работает."""
     print(f"  ▸ Заявки: цель {target}")
     obj_contract_stmt = select(Object.id, Object.contract_id).where(Object.id.in_(object_ids))
     pairs = [(r.id, r.contract_id) for r in (await session.execute(obj_contract_stmt)).all()]
 
+    # (spec_order_id, prefix, description) в порядке округления
+    order_types = [
+        (dict_ids['spec_order_ids']['planned'],   'ППР', 'Плановое ТО по объекту, месяц {m}'),
+        (dict_ids['spec_order_ids']['maint'],     'ТО',  'Обслуживание инженерных систем, месяц {m}'),
+        (dict_ids['spec_order_ids']['emergency'], 'АВР', 'Аварийная заявка №{i}'),
+        (dict_ids['spec_order_ids']['primary'],   'ПО',  'Первичный осмотр объекта'),
+    ]
+
     added = 0
     for i in range(target):
-        number = f'ППР-08/2026/{i + 1:03d}'
+        spec_order_id, prefix, desc_tpl = order_types[i % len(order_types)]
+        # Локальный счётчик внутри типа для читаемого номера
+        type_seq = i // len(order_types) + 1
+        number = f'{prefix}-08/2026/{type_seq:03d}'
         existing = await _first(session, Order, number=number)
         if existing:
             continue
         oid, cid = pairs[i % len(pairs)]
         o = Order(
             number=number,
-            spec_order_id=dict_ids['spec_order_id'],
+            spec_order_id=spec_order_id,
             contract_id=cid,
             object_id=oid,
             user_id=user_id,
-            description=f'Плановое ТО по объекту, месяц {(i % 12) + 1}',
+            description=desc_tpl.format(m=(i % 12) + 1, i=type_seq),
             status_id=dict_ids['spec_order_status_id'],
         )
         session.add(o)
@@ -744,29 +840,32 @@ async def main():
     print("seed_demo — наполнение демо-тенанта cool-doc.ru")
     print("=" * 60)
 
+    print("\n[1/7] Копирование .docx/.dotx шаблонов в MEDIA")
+    copy_seed_templates()
+
     async with new_session() as session:
-        print("\n[1/6] Роли и юзеры")
+        print("\n[2/7] Роли и юзеры")
         admin_role_id, manager_role_id = await seed_roles(session)
         admin_user_id, manager_user_id = await seed_users(
             session, admin_role_id, manager_role_id
         )
 
-        print("\n[2/6] Справочники")
+        print("\n[3/7] Справочники (в т.ч. 4 spec_order с шаблонами)")
         dict_ids = await seed_dictionaries(session)
 
-        print("\n[3/6] Организации + договоры + объекты")
+        print("\n[4/7] Организации + договоры + объекты")
         customer_id, executor_id = await seed_organizations(session, dict_ids)
         contract_ids = await seed_contracts(session, dict_ids, customer_id, executor_id, target=10)
         object_ids = await seed_objects(session, dict_ids, contract_ids, target=30)
 
-        print("\n[4/6] Каталог оборудования и привязка к объектам")
+        print("\n[5/7] Каталог оборудования и привязка к объектам")
         equipment_ids = await seed_equipment(session, dict_ids, target=20)
         await seed_objects_equipment(session, dict_ids, object_ids, equipment_ids)
 
-        print("\n[5/6] Заявки")
+        print("\n[6/7] Заявки (round-robin по 4 типам)")
         await seed_orders(session, dict_ids, object_ids, admin_user_id, target=50)
 
-        print("\n[6/6] Отчёты + неисправности")
+        print("\n[7/7] Отчёты + неисправности")
         await seed_reports(session, dict_ids, object_ids, admin_user_id, target=20)
         await seed_issues(session, dict_ids, admin_user_id, target=10)
 

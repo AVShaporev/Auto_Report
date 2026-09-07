@@ -5,6 +5,53 @@
 версионирование [SemVer](https://semver.org/lang/ru/) — bump на каждый
 фикс/фичу; см. правило в feedback_autoreport_versioning.md.
 
+## [1.0.40] — 2026-09-07
+
+### Changed — `scripts/seed_demo.py` (D1+ демо-стенда): шаблоны и типы заявок
+Расширил seed_demo, чтобы на demo-тенанте работала кнопка «Скачать акт»
+и были реальные шаблоны актов/журналов, а не пустой каталог.
+
+- **Копирование `.docx/.dotx` шаблонов**. Функция `copy_seed_templates()`
+  берёт файлы из `templates/seeds/` и **перезаписывает** их в
+  `MEDIA_TEMPLATES_PATH` (в отличие от `scripts/seed_templates.py`,
+  который skip'ает существующие — там защита прод-загрузок админа,
+  здесь эталон должен строго соответствовать репе).
+- **4 типа заявок** вместо одного «Плановое ТО». Каждый привязан к
+  своему шаблону (`template_storage_path` = `templates/<file>`):
+    - «Плановое ТО» (planned.dotx, sla_kind=periodic)
+    - «Обслуживание» (maintenance.docx, sla_kind=periodic)
+    - «Аварийная заявка» (emergency.docx, sla_kind=from_creation,
+      sla_days=3)
+    - «Первичный осмотр» (primary.dotx, sla_kind=manual)
+- **50 заявок round-robin** по 4 типам. Префикс в номере тоже
+  меняется — ППР-.../ТО-.../АВР-.../ПО-... — визуально видно, что
+  каталог типов работает.
+- **2 типа журналов** через `Spec_Journal`: «Журнал технического
+  обслуживания» и «Журнал первичного осмотра». Без шаблонов пока —
+  посетитель может загрузить свой .docx через UI и увидеть работающий
+  флоу генерации журнала.
+
+### Note
+`Spec_Journal` не экспортируется в `model/__init__.py`, поэтому
+импорт через `from model.spec_journal import Spec_Journal` напрямую.
+Стоит перенести в `__init__.py` при ближайшей уборке модели.
+
+### Deploy notes
+- Скрипт идемпотентен для новых прогонов на **чистой** БД.
+- Если demo-тенант уже сидился первой версией скрипта (v1.0.39),
+  повторный прогон обновит spec_order (добавит template_*, sla_*),
+  но существующие 50 заявок так и останутся привязанными к planned.
+  Правильный порядок перед D4 (dump эталона): чистая БД + свежий
+  прогон seed_demo:
+  ```bash
+  docker exec postgres-demo psql -U autoreport -d autoreport \
+      -c 'DROP SCHEMA public CASCADE; CREATE SCHEMA public;'
+  docker restart backend-demo   # прокрутит alembic upgrade head
+  docker exec backend-demo python scripts/seed_demo.py
+  ```
+
+VERSION 1.0.39 → 1.0.40.
+
 ## [1.0.39] — 2026-09-07
 
 ### Added — D1 демо-стенда: `scripts/seed_demo.py`
