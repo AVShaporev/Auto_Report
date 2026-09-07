@@ -477,6 +477,11 @@ async def seed_dictionaries(session: AsyncSession) -> dict:
     # 4 типа заявок с шаблонами. Файлы кладёт copy_seed_templates(),
     # здесь только запись в БД с template_storage_path (относительно
     # MEDIA_ROOT, `render_docx.py` собирает абсолютный через MEDIA_PATH).
+    #
+    # ВАЖНО: Alembic-миграция f5d8a2c1e9b4 сидит 3 системных spec_orders
+    # с code ∈ {emergency, primary, planned} и is_system=True. Ищем по
+    # code (уникальный ключ), при находке обновляем name/short_name/
+    # template_*/sla_*, is_system не трогаем.
     spec_order_defs = [
         # (name, short_name, code, template_filename, sla_kind, sla_days)
         ('Плановое ТО',        'ППР', 'planned',   'planned.dotx',     'periodic',      None),
@@ -486,7 +491,7 @@ async def seed_dictionaries(session: AsyncSession) -> dict:
     ]
     spec_order_ids: dict[str, int] = {}  # code → id, для seed_orders
     for name, short_name, code, tpl_file, sla_kind, sla_days in spec_order_defs:
-        existing = await _first(session, Spec_Order, name=name)
+        existing = await _first(session, Spec_Order, code=code)
         tpl_path = f'templates/{tpl_file}'
         if existing is None:
             so = Spec_Order(
@@ -500,9 +505,10 @@ async def seed_dictionaries(session: AsyncSession) -> dict:
             await session.flush()
             spec_order_ids[code] = so.id
         else:
-            # Обновляем на случай если mapping менялся между запусками
+            # Существует (либо из Alembic-seed, либо от прошлого прогона).
+            # Обновляем видимые поля, is_system оставляем.
+            existing.name = name
             existing.short_name = short_name
-            existing.code = code
             existing.template_filename = tpl_file
             existing.template_storage_path = tpl_path
             existing.sla_kind = sla_kind

@@ -5,6 +5,21 @@
 версионирование [SemVer](https://semver.org/lang/ru/) — bump на каждый
 фикс/фичу; см. правило в feedback_autoreport_versioning.md.
 
+## [1.0.41] — 2026-09-07
+
+### Fixed
+- `scripts/seed_demo.py`: при повторном запуске падал с
+  `UniqueViolationError: Key (code)=(planned) already exists`.
+  Причина — Alembic-миграция `f5d8a2c1e9b4` сидит 3 системных
+  `spec_orders` (emergency/primary/planned) с именами «Аварийная»/
+  «Первичная»/«Плановая ТО» и `is_system=True`. Мой seed_demo искал
+  по `name='Плановое ТО'` — не находил — пытался INSERT — конфликт
+  по уникальному `code`.
+- Fix: искать по `code` (уникальный ключ), при находке обновлять
+  `name/short_name/template_*/sla_*`, `is_system` не трогать.
+
+VERSION 1.0.40 → 1.0.41.
+
 ## [1.0.40] — 2026-09-07
 
 ### Changed — `scripts/seed_demo.py` (D1+ демо-стенда): шаблоны и типы заявок
