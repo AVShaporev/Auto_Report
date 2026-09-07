@@ -11,14 +11,18 @@ demo-тенанта cool-doc.ru через python-docx.
   программно через python-docx — каждый плейсхолдер один run.
 
 Что генерируется:
-- planned.dotx     — Акт планового ТО с таблицей оборудования
-                     через {%tr for group in equipment_groups %}
-- maintenance.docx — Акт технического обслуживания (упрощённая
-                     версия planned)
-- emergency.docx   — Акт по аварийной заявке (без таблицы
-                     оборудования, с описанием проблемы)
-- primary.dotx     — Акт первичного осмотра (адрес, ответственный,
-                     таблица оборудования)
+- planned.dotx        — Акт планового ТО с таблицей оборудования
+                        через {%tr for group in equipment_groups %}
+- maintenance.docx    — Акт технического обслуживания (упрощённая
+                        версия planned)
+- emergency.docx      — Акт по аварийной заявке (без таблицы
+                        оборудования, с описанием проблемы)
+- primary.dotx        — Акт первичного осмотра (адрес, ответственный,
+                        таблица оборудования)
+- journal_maint.docx  — Журнал технического обслуживания объекта
+                        (контекст журнала: без order.*, только object,
+                        contract, customer, executor, today*)
+- journal_primary.docx — Журнал первичного осмотра объекта
 
 Контекст docxtpl (см. `service/render_docx.py::_build_context`):
     order.number, order.created_at, order.description
@@ -365,6 +369,160 @@ def gen_primary() -> Path:
 
 
 # ---------------------------------------------------------------------------
+# 5. Журнал ТО (journal_maint.docx) — паспорт объекта + пустая таблица записей
+# ---------------------------------------------------------------------------
+
+
+def _add_journal_log_table(doc: Document, rows: int = 8) -> None:
+    """Пустая таблица для ручных записей ТО: № / Дата / Что сделано /
+    Исполнитель / Подпись. Строки только header + N пустых — журнал же
+    заполняется по мере обслуживания."""
+    table = doc.add_table(rows=1 + rows, cols=5)
+    table.style = 'Table Grid'
+    table.autofit = False
+    widths = (Cm(1.2), Cm(2.5), Cm(6.8), Cm(3.5), Cm(3.0))
+    for i, w in enumerate(widths):
+        table.columns[i].width = w
+
+    headers = ('№', 'Дата', 'Описание выполненных работ', 'Исполнитель', 'Подпись')
+    for cell, text in zip(table.rows[0].cells, headers):
+        cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+        run = cell.paragraphs[0].add_run(text)
+        run.bold = True
+
+    for i in range(rows):
+        row = table.rows[i + 1].cells
+        row[0].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+        row[0].paragraphs[0].add_run(str(i + 1))
+    doc.add_paragraph()
+
+
+def gen_journal_maint() -> Path:
+    """Журнал технического обслуживания. Контекст журнала (см.
+    render_docx.py::_build_journal_context): object.*, contract.*,
+    customer.*, executor.*, today, today_long — **без** order.* и
+    equipment_groups. Поэтому таблица оборудования не выводится, но
+    в шапке есть все паспортные поля."""
+    doc = Document()
+    _set_default_font(doc)
+
+    _add_title(doc, 'ЖУРНАЛ')
+    _add_paragraph(doc, 'учёта работ по техническому обслуживанию',
+                   align=WD_ALIGN_PARAGRAPH.CENTER, bold=True)
+    doc.add_paragraph()
+
+    _add_paragraph(doc, 'Сведения об объекте:', bold=True)
+    _add_kv_row(doc, 'Наименование', '{{ object.name }}')
+    _add_kv_row(doc, 'Адрес', '{{ object.address }}')
+    _add_kv_row(doc, 'Ответственный на объекте', '{{ object.responsible_face }}')
+    _add_kv_row(doc, 'Контактный телефон', '{{ object.responsible_faces_contact }}')
+    doc.add_paragraph()
+
+    _add_paragraph(doc, 'Сведения о договоре обслуживания:', bold=True)
+    _add_kv_row(doc, 'Договор', '№ {{ contract.number }} от {{ contract.date_of_consclusion }}')
+    _add_kv_row(doc, 'Действует до', '{{ contract.date_of_completion }}')
+    _add_kv_row(doc, 'Предмет', '{{ contract.subject }}')
+    _add_kv_row(doc, 'Заказчик', '{{ customer.name }} (ИНН {{ customer.inn }})')
+    _add_kv_row(doc, 'Исполнитель', '{{ executor.name }} (ИНН {{ executor.inn }})')
+    doc.add_paragraph()
+
+    _add_paragraph(doc, 'Журнал заведён:', bold=True)
+    _add_kv_row(doc, 'Дата', '{{ today_long }}')
+    doc.add_paragraph()
+
+    _add_paragraph(doc, 'Записи о выполненных работах:', bold=True)
+    _add_journal_log_table(doc, rows=10)
+
+    _add_paragraph(doc,
+        'Журнал ведётся в двух экземплярах: один хранится у Заказчика, '
+        'второй — у Исполнителя. Записи вносятся после каждого выхода '
+        'на объект и подписываются ответственным лицом Заказчика.')
+
+    out = OUT_DIR / 'journal_maint.docx'
+    doc.save(out)
+    return out
+
+
+# ---------------------------------------------------------------------------
+# 6. Журнал первичного осмотра (journal_primary.docx)
+# ---------------------------------------------------------------------------
+
+
+def _add_journal_inspection_table(doc: Document, rows: int = 6) -> None:
+    """Таблица первичного осмотра: № / Система / Обнаруженное состояние /
+    Замечания. Пустые строки — комиссия заполняет вручную по итогам обхода."""
+    table = doc.add_table(rows=1 + rows, cols=4)
+    table.style = 'Table Grid'
+    table.autofit = False
+    widths = (Cm(1.2), Cm(4.5), Cm(6.0), Cm(5.3))
+    for i, w in enumerate(widths):
+        table.columns[i].width = w
+
+    headers = ('№', 'Система / оборудование', 'Состояние на момент осмотра', 'Замечания')
+    for cell, text in zip(table.rows[0].cells, headers):
+        cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+        run = cell.paragraphs[0].add_run(text)
+        run.bold = True
+
+    for i in range(rows):
+        row = table.rows[i + 1].cells
+        row[0].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+        row[0].paragraphs[0].add_run(str(i + 1))
+    doc.add_paragraph()
+
+
+def gen_journal_primary() -> Path:
+    """Журнал первичного осмотра. Отличается от акта первичного осмотра
+    тем, что это долгоживущий документ для регистрации периодических
+    осмотров, а не одноразовый акт."""
+    doc = Document()
+    _set_default_font(doc)
+
+    _add_title(doc, 'ЖУРНАЛ')
+    _add_paragraph(doc, 'первичного осмотра и приёмки объекта в обслуживание',
+                   align=WD_ALIGN_PARAGRAPH.CENTER, bold=True)
+    doc.add_paragraph()
+
+    _add_paragraph(doc, 'Сведения об объекте:', bold=True)
+    _add_kv_row(doc, 'Наименование', '{{ object.name }}')
+    _add_kv_row(doc, 'Адрес', '{{ object.address }}')
+    _add_kv_row(doc, 'Ответственный на объекте', '{{ object.responsible_face }}')
+    _add_kv_row(doc, 'Контактный телефон', '{{ object.responsible_faces_contact }}')
+    doc.add_paragraph()
+
+    _add_paragraph(doc, 'Стороны:', bold=True)
+    _add_kv_row(doc, 'Заказчик', '{{ customer.name }}, ИНН {{ customer.inn }}, КПП {{ customer.kpp }}')
+    _add_kv_row(doc, 'Директор', '{{ customer.director_full_name }}')
+    _add_kv_row(doc, 'Юр. адрес заказчика', '{{ customer.address }}')
+    _add_kv_row(doc, 'Исполнитель', '{{ executor.name }}, ИНН {{ executor.inn }}, КПП {{ executor.kpp }}')
+    _add_kv_row(doc, 'Директор', '{{ executor.director_full_name }}')
+    _add_kv_row(doc, 'Юр. адрес исполнителя', '{{ executor.address }}')
+    doc.add_paragraph()
+
+    _add_paragraph(doc, 'Основание:', bold=True)
+    _add_kv_row(doc, 'Договор', '№ {{ contract.number }} от {{ contract.date_of_consclusion }}')
+    _add_kv_row(doc, 'Предмет договора', '{{ contract.subject }}')
+    doc.add_paragraph()
+
+    _add_paragraph(doc, 'Дата открытия журнала: {{ today_long }}')
+    doc.add_paragraph()
+
+    _add_paragraph(doc, 'Результаты осмотра инженерных систем:', bold=True)
+    _add_journal_inspection_table(doc, rows=8)
+
+    _add_paragraph(doc,
+        'По результатам первичного осмотра объект принимается на '
+        'техническое обслуживание в соответствии с условиями договора.')
+    doc.add_paragraph()
+
+    _add_signatures(doc)
+
+    out = OUT_DIR / 'journal_primary.docx'
+    doc.save(out)
+    return out
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -373,7 +531,8 @@ def main() -> int:
     if not OUT_DIR.exists():
         OUT_DIR.mkdir(parents=True, exist_ok=True)
     print(f'[generate_demo_templates] output: {OUT_DIR}')
-    for gen in (gen_planned, gen_maintenance, gen_emergency, gen_primary):
+    for gen in (gen_planned, gen_maintenance, gen_emergency, gen_primary,
+                gen_journal_maint, gen_journal_primary):
         out = gen()
         size = out.stat().st_size
         print(f'  [ok] {out.name} ({size:,} bytes)')

@@ -518,17 +518,36 @@ async def seed_dictionaries(session: AsyncSession) -> dict:
     ids['spec_order_id'] = spec_order_ids['planned']
     ids['spec_order_ids'] = spec_order_ids
 
-    # 2 типа журналов (без шаблонов на demo — они опциональны; юзер
-    # сможет через UI загрузить свой .docx и увидит рабочий флоу).
+    # 2 типа журналов с прикреплёнными шаблонами. Контекст журнала
+    # (см. render_docx.py::_build_journal_context) — только object/
+    # contract/customer/executor/today, без order.* и equipment_groups,
+    # поэтому в шаблонах паспорт объекта + пустая таблица записей.
     spec_journal_defs = [
-        ('Журнал технического обслуживания', 'ЖТО', 'journal_maint'),
-        ('Журнал первичного осмотра',        'ЖПО', 'journal_primary'),
+        # (name, short_name, code, template_filename)
+        ('Журнал технического обслуживания', 'ЖТО', 'journal_maint',   'journal_maint.docx'),
+        ('Журнал первичного осмотра',        'ЖПО', 'journal_primary', 'journal_primary.docx'),
     ]
-    for name, short_name, code in spec_journal_defs:
-        await _get_or_create(
-            session, Spec_Journal, name=name,
-            defaults=dict(short_name=short_name, code=code),
-        )
+    for name, short_name, code, tpl_file in spec_journal_defs:
+        tpl_path = f'templates/{tpl_file}'
+        existing = await _first(session, Spec_Journal, code=code)
+        if existing is None:
+            # Пробуем по name — на случай если запись создавалась ранее
+            # без code (в v1.0.40 skipped, но подстрахуемся).
+            existing = await _first(session, Spec_Journal, name=name)
+        if existing is None:
+            sj = Spec_Journal(
+                name=name, short_name=short_name, code=code,
+                template_filename=tpl_file,
+                template_storage_path=tpl_path,
+            )
+            session.add(sj)
+            await session.flush()
+        else:
+            existing.name = name
+            existing.short_name = short_name
+            existing.code = code
+            existing.template_filename = tpl_file
+            existing.template_storage_path = tpl_path
 
     spec_status = await _get_or_create(
         session, Spec_Status, name='Новая',
