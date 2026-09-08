@@ -6,6 +6,7 @@ from model.user import User
 from model.report import Report
 from model.contract import Contract
 from model.object import Object
+from model.spec_order_status import Spec_Order_Status
 from data import report as report_data
 from service.activity_log import log_activity
 from schema.report import ReportCreate, ReportUpdate, ReportStatusUpdate
@@ -342,6 +343,29 @@ async def create_report(
             action='create', entity='report', entity_id=report.id,
             summary=f'Создал отчёт №{report.number}',
         )
+
+        # Создание отчёта = инженер начал работу по заявке. Автоматически
+        # переводим заявку в статус «В работе» (если она ещё не там или в
+        # более продвинутом состоянии). Специально проверяем именно "не
+        # равно", а не "меньше" — админ может руками поставить «Выполнена»
+        # или «Отменена», тогда не откатываем.
+        in_progress_status = (await session.execute(
+            select(Spec_Order_Status).where(Spec_Order_Status.name == 'В работе')
+        )).scalar_one_or_none()
+        if in_progress_status and order.status_id != in_progress_status.id:
+            # Меняем только если сейчас «Новая» (is_default) — из
+            # «Выполнена»/«Отменена» назад не откатываем, это админ-решение.
+            current_status = (await session.execute(
+                select(Spec_Order_Status).where(Spec_Order_Status.id == order.status_id)
+            )).scalar_one_or_none()
+            if current_status and current_status.is_default:
+                order.status_id = in_progress_status.id
+                await log_activity(
+                    session, current_user,
+                    action='update', entity='order', entity_id=order.id,
+                    summary=(f'Заявка №{order.number}: статус → «В работе» '
+                             f'(создан отчёт №{report.number})'),
+                )
         return report
 
 # ========== ОБНОВЛЕНИЕ ==========
