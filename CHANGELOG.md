@@ -5,6 +5,25 @@
 версионирование [SemVer](https://semver.org/lang/ru/) — bump на каждый
 фикс/фичу; см. правило в feedback_autoreport_versioning.md.
 
+## [1.0.49] — 2026-09-13
+
+### Fixed — push при смене ответственного на существующей заявке пропускался
+
+После v1.0.45 (создание push M7) push приходил **только** на новых заявках, а
+при смене ответственного на существующей PUT /api/order/{id} возвращал 200 без
+`[push]` строки в логах.
+
+Причина: `service/order.py::update_order` считывал старое значение как
+`existing.assigned_to_id` **после** вызова `order_data.update_order`, а тот
+внутри мутирует ORM-instance того же самого объекта (SQLAlchemy identity map:
+`get_order_by_id` в data-слое возвращает уже загруженный `existing` из
+session) + `session.refresh(order)`. К моменту hook'а `existing` уже был с
+новым `assigned_to_id`, и условие `new_assignee != existing.assigned_to_id`
+всегда было False.
+
+Фикс: снапшот `old_assignee_id = existing.assigned_to_id` **до** апдейта,
+сравнение push-hook переведено на локальную переменную.
+
 ## [1.0.48] — 2026-09-13
 
 ### Fixed — activity_log падал на `date` в details → PUT /order 500
