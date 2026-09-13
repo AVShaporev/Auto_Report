@@ -5,6 +5,36 @@
 версионирование [SemVer](https://semver.org/lang/ru/) — bump на каждый
 фикс/фичу; см. правило в feedback_autoreport_versioning.md.
 
+## [1.0.48] — 2026-09-13
+
+### Fixed — activity_log падал на `date` в details → PUT /order 500
+
+Юзер на demo менял ответственного заявки — вернулось 500. В стек-трейсе:
+
+```
+sqlalchemy.exc.PendingRollbackError: This Session's transaction has
+been rolled back due to a previous exception during flush.
+Original exception was: (builtins.TypeError) Object of type date is
+not JSON serializable
+[SQL: INSERT INTO activity_logs ... $7::JSONB ...]
+```
+
+Существующий баг с версии первого activity-log'а. `asyncpg` не умеет
+кодировать `date`/`datetime`/`Decimal` в JSONB. Не проявлялся раньше,
+потому что `update_order` обычно приходил без `due_date` в details.
+С мобилки при назначении ответственного PUT приносил весь payload
+включая `due_date` — 500.
+
+- `data/activity_log.py::_jsonify_safe` — новый helper, рекурсивно
+  превращает `date`/`datetime` в `isoformat()`, `Decimal` в `str`.
+  Применяется к `details` перед INSERT.
+- `service/order.py::update_order` push-hook — читает `new_assignee`
+  из `update_data`, не через `order.assigned_to_id` (тот ORM-attribute
+  expire'нут после commit, lazy-load бы валился на уже rolled-back
+  session'е).
+
+VERSION 1.0.47 → 1.0.48.
+
 ## [1.0.47] — 2026-09-13
 
 ### Changed — FCM service-account можно передавать как JSON-строку в env

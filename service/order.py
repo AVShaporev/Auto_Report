@@ -563,7 +563,12 @@ async def update_order(
         # Push-уведомление, если ответственный сменился на нового
         # (или сразу назначили). Не отправляем сами себе.
         # См. docs/PUSH_NOTIFICATIONS.md § 2.4.
-        new_assignee = order.assigned_to_id
+        #
+        # Важно: НЕ читаем order.assigned_to_id как ORM-attribute — после
+        # log_activity (commit) instance expire'нут, lazy-load бы дёрнул
+        # SELECT на session'е. Если session уже rolled-back — получим
+        # PendingRollbackError. Берём значение прямо из update_data.
+        new_assignee = update_data.get('assigned_to_id')
         if (
             'assigned_to_id' in update_data
             and new_assignee is not None
@@ -572,12 +577,8 @@ async def update_order(
         ):
             try:
                 from service import push as push_service
-                # spec_order подгружен через selectinload при get_order_by_id;
-                # безопасно использовать через order.spec_order.name как fallback.
-                spec_name = getattr(
-                    getattr(order, 'spec_order', None), 'name', None
-                ) or ''
-                brief = (order.description or spec_name or '')[:80]
+                brief = (update_data.get('description')
+                         or existing.description or '')[:80]
                 await push_service.send_assignment_notification(
                     session,
                     user_id=new_assignee,

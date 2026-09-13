@@ -4,13 +4,36 @@
 той же транзакции что и основная мутация. Если основная мутация
 откатывается — лог тоже. Для читалки — новая сессия из new_session().
 """
-from datetime import datetime
+from datetime import date, datetime
+from decimal import Decimal
 from typing import Any, List, Optional, Tuple
 
 from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from model.activity_log import ActivityLog
+
+
+def _jsonify_safe(obj: Any) -> Any:
+    """Рекурсивно превращает dict/list в JSON-safe версию.
+
+    asyncpg при INSERT в JSONB не умеет кодировать `date`/`datetime`/
+    `Decimal` — падает с `TypeError: Object of type date is not JSON
+    serializable`, что помечает всю транзакцию как rolled-back и
+    следующие обращения к session бросают PendingRollbackError.
+    Реальный инцидент 2026-09-13: update_order с `due_date` в
+    payload'е повалил PUT /api/order/{id} с 500. Фикс — предварительно
+    прогнать details через этот helper.
+    """
+    if isinstance(obj, (date, datetime)):
+        return obj.isoformat()
+    if isinstance(obj, Decimal):
+        return str(obj)
+    if isinstance(obj, dict):
+        return {k: _jsonify_safe(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_jsonify_safe(v) for v in obj]
+    return obj
 
 
 async def create_activity_log(
@@ -38,7 +61,7 @@ async def create_activity_log(
         entity=entity,
         entity_id=entity_id,
         summary=summary,
-        details=details,
+        details=_jsonify_safe(details) if details is not None else None,
     )
     session.add(row)
     await session.commit()
