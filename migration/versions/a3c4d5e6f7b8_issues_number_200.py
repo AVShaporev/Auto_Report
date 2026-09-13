@@ -8,7 +8,7 @@ Long short_customer/short_subject у tenant'а легко переваливаю
 на POST /api/issue/create). Аналог orders.number (уже VARCHAR(200)).
 
 Revision ID: a3c4d5e6f7b8
-Revises: f9a0b1c2d3e4
+Revises: f6d7e8f9a0b1
 Create Date: 2026-09-13
 """
 from alembic import op
@@ -16,7 +16,9 @@ import sqlalchemy as sa
 
 
 revision = 'a3c4d5e6f7b8'
-down_revision = 'f9a0b1c2d3e4'
+# down_revision — актуальный alembic head (не путать с f9a0b1c2d3e4,
+# он в середине цепочки, ссылка на него порождает multiple heads).
+down_revision = 'f6d7e8f9a0b1'
 branch_labels = None
 depends_on = None
 
