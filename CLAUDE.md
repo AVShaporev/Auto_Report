@@ -89,8 +89,14 @@ templates/           jinja-шаблоны (если есть)
 - `DELETE /api/user/me/push-token` — body `{token}`, снимает регистрацию (только своего юзера).
 - `GET /api/user/me/push-tokens` — свой список для UI/дебага.
 - Cleanup: APScheduler ежедневно в 03:15 МСК сносит записи с `last_seen_at < NOW-30d`.
-- **Отправка** уведомлений (FCM/APNs) ещё НЕ реализована — это Mobile M7. Пока только инфра.
 - Access 30 мин, refresh 30 дней, алгоритм HS256, секрет в `.env`.
+
+### Push-уведомления (Mobile M7, v1.0.45)
+- **Полный дизайн — [`docs/PUSH_NOTIFICATIONS.md`](docs/PUSH_NOTIFICATIONS.md).** Читать при любой правке push-логики.
+- `service/push.py::send_assignment_notification` — отправляет FCM-multicast всем активным `push_tokens` юзера. Ошибки не бросает вверх (fire-and-forget).
+- Триггеры (в `service/order.py`): `create_order`, `update_order`, `bulk_assign_responsible` — если `assigned_to_id` появился/изменился и не равен `current_user.id`, шлём push.
+- Feature-flag `FCM_SERVICE_ACCOUNT_PATH` — если не задан, push-модуль в no-op: логгирует warning, ничего не отправляет, HTTP-handler'ы работают как раньше. Активация — см. `docs/PUSH_NOTIFICATIONS.md § 1`.
+- Мёртвые токены (FCM `UNREGISTERED`/`INVALID_ARGUMENT`/`SENDER_ID_MISMATCH`) деактивируются автоматически (`is_active=false`) — cleanup snoo их удалит через 30 дней.
 
 ## `.env`
 ```

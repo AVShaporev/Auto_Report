@@ -16,7 +16,13 @@ class Issue(Base):
     id: Mapped[int_pk]
     
     # Основная информация
-    number: Mapped[str] = mapped_column(String(50), unique=True, nullable=False, comment="Номер неисправности")
+    # Номер неисправности — генерируется по шаблону
+    #   "{number_in_contract}/{MM}/{YYYY}/{customer.short_name}/{contract.short_subject}/Н/{seq}"
+    # (см. service/issue.py::create_issue). Длинные short_name/short_subject
+    # у tenant'а легко переваливают за 50 символов (real-world демо-стенд
+    # ловил StringDataRightTruncationError 2026-09-13). Расширено до 200 —
+    # так же как orders.number.
+    number: Mapped[str] = mapped_column(String(200), unique=True, nullable=False, comment="Номер неисправности")
     title: Mapped[str] = mapped_column(String(200), nullable=False, comment="Краткое описание")
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True, comment="Подробное описание")
     

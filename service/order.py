@@ -1,5 +1,6 @@
 from typing import Optional, List, Tuple
 from fastapi import HTTPException
+from loguru import logger
 from sqlalchemy import select, func, extract, update as sa_update
 from sqlalchemy.orm import selectinload
 from datetime import date
@@ -423,6 +424,28 @@ async def create_order(
             action='create', entity='order', entity_id=order.id,
             summary=f'Создал заявку №{order.number}',
         )
+
+        # Push-уведомление ответственному, если заявка сразу создана с
+        # assigned_to_id (и это не текущий пользователь — сам себе не
+        # шлём). No-op когда FCM не настроен. См.
+        # docs/PUSH_NOTIFICATIONS.md § 2.4.
+        if order.assigned_to_id and order.assigned_to_id != current_user.id:
+            try:
+                from service import push as push_service
+                brief = (order.description or spec_order.name or '')[:80]
+                await push_service.send_assignment_notification(
+                    session,
+                    user_id=order.assigned_to_id,
+                    entity='order',
+                    entity_id=order.id,
+                    entity_number=order.number,
+                    title='Новая заявка',
+                    body=f'{order.number} — {brief}' if brief else order.number,
+                    route=f'/orders/{order.id}',
+                )
+            except Exception as exc:
+                logger.warning(f"[push] create_order hook failed: {exc}")
+
         return order
 
 # ========== ОБНОВЛЕНИЕ ==========
@@ -536,6 +559,38 @@ async def update_order(
             summary=f'Изменил заявку №{order_number}: {changed_keys}',
             details=update_data,
         )
+
+        # Push-уведомление, если ответственный сменился на нового
+        # (или сразу назначили). Не отправляем сами себе.
+        # См. docs/PUSH_NOTIFICATIONS.md § 2.4.
+        new_assignee = order.assigned_to_id
+        if (
+            'assigned_to_id' in update_data
+            and new_assignee is not None
+            and new_assignee != existing.assigned_to_id
+            and new_assignee != current_user.id
+        ):
+            try:
+                from service import push as push_service
+                # spec_order подгружен через selectinload при get_order_by_id;
+                # безопасно использовать через order.spec_order.name как fallback.
+                spec_name = getattr(
+                    getattr(order, 'spec_order', None), 'name', None
+                ) or ''
+                brief = (order.description or spec_name or '')[:80]
+                await push_service.send_assignment_notification(
+                    session,
+                    user_id=new_assignee,
+                    entity='order',
+                    entity_id=order_id_val,
+                    entity_number=order_number,
+                    title='Новая заявка',
+                    body=f'{order_number} — {brief}' if brief else order_number,
+                    route=f'/orders/{order_id_val}',
+                )
+            except Exception as exc:
+                logger.warning(f"[push] update_order hook failed: {exc}")
+
         return order_id_val
 
 # ========== МАССОВОЕ НАЗНАЧЕНИЕ ОТВЕТСТВЕННОГО ==========
@@ -597,6 +652,33 @@ async def bulk_assign_responsible(
             )
 
         await session.commit()
+
+        # Push-уведомление всем в bulk-назначении (кроме себя).
+        # target_id == None означает «снятие», push тогда не нужен.
+        # См. docs/PUSH_NOTIFICATIONS.md § 2.4.
+        if updated and target_id is not None and target_id != current_user.id:
+            try:
+                from service import push as push_service
+                # Подгружаем номера заявок для тела уведомления — одним
+                # запросом, чтобы не размазать push'ем нагрузку на БД.
+                rows = (await session.execute(
+                    select(Order.id, Order.number)
+                    .where(Order.id.in_(order_ids))
+                )).all()
+                for oid, onum in rows:
+                    await push_service.send_assignment_notification(
+                        session,
+                        user_id=target_id,
+                        entity='order',
+                        entity_id=oid,
+                        entity_number=onum,
+                        title='Новая заявка',
+                        body=f'{onum}',
+                        route=f'/orders/{oid}',
+                    )
+            except Exception as exc:
+                logger.warning(f"[push] bulk_assign hook failed: {exc}")
+
         return updated
 
 
