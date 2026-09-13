@@ -42,6 +42,11 @@ qrcode = {extras = ["pil"], version = "^8.0"}
 # Document.add_picture). Перенесено из dev-группы в main deps в v1.0.12 —
 # Dockerfile ставит `poetry export --without dev`, иначе ModuleNotFoundError.
 python-docx = "^1.2.0"
+# Mobile M7 push-уведомления (см. docs/PUSH_NOTIFICATIONS.md).
+# firebase-admin отправляет FCM-сообщения на активные push_tokens юзеров.
+# Feature-flag через FCM_SERVICE_ACCOUNT_PATH — если не задан, service/push.py
+# работает в no-op режиме (лог warning, никаких падений).
+firebase-admin = "^6.5.0"
 
 
 [tool.poetry.group.dev.dependencies]

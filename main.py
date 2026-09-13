@@ -169,6 +169,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[dict, None]:
     MEDIA_PATH.mkdir(parents=True, exist_ok=True)
     logger.info(f"MEDIA_PATH: {MEDIA_PATH}")
 
+    # Firebase Cloud Messaging для push-уведомлений (Mobile M7).
+    # Feature-flag через FCM_SERVICE_ACCOUNT_PATH: если не задан — no-op,
+    # никаких падений, /api/order/* работают как раньше без push'ей.
+    # См. docs/PUSH_NOTIFICATIONS.md § 1.5 и Часть 2.
+    from service.push import init_fcm
+    init_fcm()
+
     # APScheduler для авто-генерации плановых заявок (раз в сутки, 00:30 МСК).
     # На stage/prod settings.AUTOGEN_SCHEDULER_ENABLED=True; на dev можно
     # выключить через .env, чтобы не зависеть от системного времени.

@@ -5,6 +5,57 @@
 версионирование [SemVer](https://semver.org/lang/ru/) — bump на каждый
 фикс/фичу; см. правило в feedback_autoreport_versioning.md.
 
+## [1.0.45] — 2026-09-13
+
+### Added — Mobile M7: push-уведомления при назначении ответственного
+
+Инфра (M1.2, v1.0.14): `push_tokens` — регистрация FCM/APNs-токенов
+с телефона. **Отправка** (M7) до этого не была реализована — CLAUDE.md
+это прямо констатировал. Теперь реализована.
+
+**Полный дизайн:** [`docs/PUSH_NOTIFICATIONS.md`](docs/PUSH_NOTIFICATIONS.md).
+Читать этот файл при любой правке push-логики.
+
+Что добавилось:
+- `service/push.py` — новый. Клиент Firebase Admin SDK, `send_assignment_notification`
+  (мульти-каст на активные токены юзера через `messaging.send_each_for_multicast`).
+- `service/order.py` — хуки:
+  - `create_order` — если сразу с `assigned_to_id ≠ current_user.id` → push.
+  - `update_order` — если `assigned_to_id` изменился на нового (≠ current_user) → push.
+  - `bulk_assign_responsible` — по каждой затронутой заявке → push (если
+    target ≠ current_user).
+  Все хуки в try/except: любой FCM-фейл — только warning в лог, HTTP
+  handler не ломается.
+- `main.py` — `init_fcm()` в lifespan-е при старте.
+- `config.py` — новые Settings `FCM_SERVICE_ACCOUNT_PATH` +
+  `FCM_PROJECT_ID` (оба Optional).
+- `pyproject.toml` — `firebase-admin ^6.5`.
+
+**Feature-flag:** если `FCM_SERVICE_ACCOUNT_PATH` не задан или файл
+отсутствует — `service/push.py` работает в **no-op режиме**: логгирует
+warning и все `send_*`-функции возвращают 0. Приложение не падает,
+все HTTP endpoint'ы работают как раньше. Активация push'ей — по
+настройке Firebase (см. `docs/PUSH_NOTIFICATIONS.md § 1`).
+
+**Deadstone-токены:** FCM-ошибки `UNREGISTERED` / `INVALID_ARGUMENT` /
+`SENDER_ID_MISMATCH` помечают токен `is_active=false`. Через 30 дней
+существующий APScheduler-cleanup (@03:15 МСК) их снесёт физически.
+
+**Что НЕ покрыто в этом релизе** (задел на будущее):
+- iOS/APNs — пока mobile-APK только Android, откладываем до iOS-релиза.
+- Триггеры на изменение статуса заявки / готовность отчёта —
+  отдельные user-facing события, отложены до M8.
+- Триггеры на `Issue.assigned_to_id` — аналогично, отдельная итерация.
+
+**Как активировать** (см. `docs/PUSH_NOTIFICATIONS.md § 1`):
+1. Firebase Console → создать проект.
+2. Скачать `fcm-service-account.json`.
+3. Положить в SOPS-env: `FCM_SERVICE_ACCOUNT_PATH=/app/secrets/fcm-service-account.json`,
+   монтировать файл в контейнер как Docker-secret.
+4. Redeploy — в логах `[push] enabled: firebase-admin loaded from ...`.
+
+VERSION 1.0.44 → 1.0.45.
+
 ## [1.0.44] — 2026-09-08
 
 ### Added — авто-переход заявки в «В работе» при создании отчёта
