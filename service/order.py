@@ -468,7 +468,13 @@ async def update_order(
                 status_code=404,
                 detail=f"Заявка с id {order_id} не найдена"
             )
-        
+
+        # Снапшот старого ответственного ДО апдейта — data.update_order
+        # мутирует тот же ORM-instance (identity map), после refresh()
+        # existing.assigned_to_id уже равен новому значению, и push-hook
+        # ниже сравнивал бы «новое != новое» → пропуск на смене.
+        old_assignee_id = existing.assigned_to_id
+
         # Ограничение «менять только свои заявки» снято 2026-08-27:
         # у роли уже есть отдельный флаг order_modify, проверенный выше
         # через check_permission — этого достаточно. Параллельный
@@ -572,7 +578,7 @@ async def update_order(
         if (
             'assigned_to_id' in update_data
             and new_assignee is not None
-            and new_assignee != existing.assigned_to_id
+            and new_assignee != old_assignee_id
             and new_assignee != current_user.id
         ):
             try:
