@@ -49,11 +49,17 @@ class Settings(BaseSettings):
     # покрывает capacitor://localhost, https://localhost, *.cool-doc.ru —
     # см. main.py add_middleware(CORSMiddleware).
     EXTRA_CORS_ORIGINS: str = ""
-    # Mobile M7 push-уведомления. Путь к JSON-файлу Firebase service-account,
-    # монтируется в контейнер как Docker-secret (см. docs/PUSH_NOTIFICATIONS.md).
-    # Если не задан или файл отсутствует — service/push.py работает как no-op:
-    # никаких доставок, только лог `[push] disabled`. Это позволяет раскатить
-    # код на все tenant'ы, а Firebase-credentials выдавать по мере готовности.
+    # Mobile M7 push-уведомления. Два способа передать Firebase-креды
+    # (используется один из двух, приоритет у _JSON):
+    #   1. FCM_SERVICE_ACCOUNT_JSON — сам JSON целиком одной строкой в env,
+    #      удобно кладётся в SOPS-env вместе с остальными секретами tenant'а.
+    #      Никаких volume-mount'ов Docker'а не требуется.
+    #   2. FCM_SERVICE_ACCOUNT_PATH — путь к JSON-файлу на диске
+    #      (Docker-secret или host volume). Fallback для случаев когда
+    #      многострочный JSON плохо ложится в .env (например Windows dev).
+    # Если оба не заданы — service/push.py работает как no-op: только лог
+    # `[push] disabled`, никаких доставок. См. docs/PUSH_NOTIFICATIONS.md.
+    FCM_SERVICE_ACCOUNT_JSON: str | None = None
     FCM_SERVICE_ACCOUNT_PATH: str | None = None
     # Опциональный override project_id (обычно вычитывается из service-account
     # JSON автоматически, задавать вручную нужно только для дебага).

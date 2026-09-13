@@ -5,6 +5,26 @@
 версионирование [SemVer](https://semver.org/lang/ru/) — bump на каждый
 фикс/фичу; см. правило в feedback_autoreport_versioning.md.
 
+## [1.0.47] — 2026-09-13
+
+### Changed — FCM service-account можно передавать как JSON-строку в env
+
+Раньше `service/push.py::init_fcm()` требовал только `FCM_SERVICE_ACCOUNT_PATH`
+(путь к файлу на диске → нужен volume-mount / Docker-secret). Добавлен
+альтернативный способ: `FCM_SERVICE_ACCOUNT_JSON` — весь JSON целиком одной
+строкой в env-переменной. Приоритет у `_JSON`, `_PATH` — fallback.
+
+**Why:** JSON-в-env удобнее для SOPS-encrypted `.env` каждого tenant'а
+(рядом с существующим MOBILE_ONBOARD_SECRET). Никаких дополнительных
+volume-mount'ов в docker-compose не требуется.
+
+- `config.py::Settings.FCM_SERVICE_ACCOUNT_JSON` — новый Optional.
+- `service/push.py::init_fcm` — сначала пробует `_JSON` (парсит через
+  `json.loads` + `credentials.Certificate(sa_dict)`), затем `_PATH`.
+- Оба не заданы → no-op, как раньше.
+
+VERSION 1.0.46 → 1.0.47.
+
 ## [1.0.46] — 2026-09-13
 
 ### Fixed — `issues.number` расширен `VARCHAR(50)` → `VARCHAR(200)`
