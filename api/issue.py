@@ -29,7 +29,7 @@ async def get_issue_list(
     is_resolved: Optional[bool] = Query(None, description="Только устраненные/неустраненные"),
     is_critical: Optional[bool] = Query(None, description="Только критические"),
     reported_by_id: Optional[int] = Query(None, ge=1, description="Фильтр по создателю"),
-    assigned_to_id: Optional[int] = Query(None, ge=1, description="Фильтр по ответственному"),
+    assigned_to_id: Optional[int] = Query(None, ge=0, description="Фильтр по ответственному; 0 = без ответственного"),
     date_from: Optional[date] = Query(None, description="Дата обнаружения с"),
     date_to: Optional[date] = Query(None, description="Дата обнаружения по"),
     sort_by: str = Query("detected_date", description="Поле сортировки"),

@@ -216,9 +216,13 @@ async def get_issue_paginated(
         query = query.where(Issue.reported_by_id == reported_by_id)
         count_query = count_query.where(Issue.reported_by_id == reported_by_id)
     
-    if assigned_to_id:
-        query = query.where(Issue.assigned_to_id == assigned_to_id)
-        count_query = count_query.where(Issue.assigned_to_id == assigned_to_id)
+    if assigned_to_id is not None:
+        if assigned_to_id == 0:
+            query = query.where(Issue.assigned_to_id.is_(None))
+            count_query = count_query.where(Issue.assigned_to_id.is_(None))
+        else:
+            query = query.where(Issue.assigned_to_id == assigned_to_id)
+            count_query = count_query.where(Issue.assigned_to_id == assigned_to_id)
     
     if date_from:
         query = query.where(Issue.detected_date >= date_from)
