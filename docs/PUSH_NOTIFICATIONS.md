@@ -97,25 +97,32 @@ Backend отправляет push через **Firebase Admin SDK** — ему �
    с полями `project_id`, `private_key`, `client_email` и т.д.
 3. Этот файл — **секрет**. Никогда не в git.
 
-### 1.5. Добавить путь к service-account'у в SOPS-env бэка
-Для каждого tenant (`backend-<slug>`) в `deploy/secrets/<env>.env.sops`
-(SOPS-encrypted):
+### 1.5. Передать service account бэкенду через SOPS-env
+Бэкенд берёт ключ из env (приоритет) или из файла:
 
 ```env
-# Firebase Cloud Messaging (Mobile M7)
+# JSON service account'а целиком, одной строкой (приоритет)
+FCM_SERVICE_ACCOUNT_JSON={"type":"service_account","project_id":"autoreport-prod",...}
+# либо путь к файлу внутри контейнера
 FCM_SERVICE_ACCOUNT_PATH=/app/secrets/fcm-service-account.json
 ```
 
-Файл `fcm-service-account.json` монтируется в контейнер через
-Docker-secret или volume: `docker-compose` → `secrets: fcm_sa` → mount
-в `/app/secrets/fcm-service-account.json`.
+**SaaS-tenant'ы (VDS).** Ключ общий для всех tenant'ов и хранится в master:
+`Auto_Report_Master/deploy/secrets/master-vds-prod.env.sops` →
+`FCM_SERVICE_ACCOUNT_JSON`.
+- Новые tenant'ы получают его при `provision-tenant.sh` автоматически.
+- Существующим — на VDS
+  `sudo ./scripts/sync-tenant-secret.sh FCM_SERVICE_ACCOUNT_JSON`
+  (бэкап, сверка ключей, redeploy). Подробнее —
+  `Auto_Report_Master/scripts/README.md`, «Общие секреты tenant'ов».
 
-**Feature-flag:** если `FCM_SERVICE_ACCOUNT_PATH` не задан или файл
-отсутствует — backend всё равно стартует, но `service/push.py` в
-режиме no-op (лог `[warn] FCM disabled: no service account`, все
-`send_*`-функции возвращают `False` без исключений). Это позволяет
-раскатить код на все tenant'ы, а активировать только тем, у кого
-Firebase уже настроен.
+**hi-tech (legacy) и 192-stage** — вручную, в своём
+`deploy/secrets/<env>.env.sops` этого репо.
+
+**Feature-flag:** если не заданы ни `FCM_SERVICE_ACCOUNT_JSON`, ни
+`FCM_SERVICE_ACCOUNT_PATH` — backend стартует, но `service/push.py` в
+режиме no-op (лог `[push] disabled: FCM_SERVICE_ACCOUNT_JSON / _PATH not set`,
+`send_*`-функции ничего не отправляют и не бросают исключений).
 
 ---
 
@@ -410,8 +417,10 @@ Mobile (Auto_Report_Mobile):
 3. Redeploy stage → smoke по Части 4.2.
 4. Merge stage → prod в обоих репо.
 5. Fan-out через `redeploy-tenants.sh` — все существующие tenant'ы
-   получают код. Firebase-key раскатывается tenant-by-tenant через
-   обновление SOPS-env каждого.
+   получают код. Firebase-key кладётся один раз в master
+   `master-vds-prod.env.sops` и раскатывается на все tenant'ы
+   `sync-tenant-secret.sh FCM_SERVICE_ACCOUNT_JSON` (см. § 1.5);
+   новые tenant'ы получают его при провижининге.
 6. Собираем и раздаём APK v1.7.11 инженерам, они логинятся — токены
    регистрируются автоматически.
 

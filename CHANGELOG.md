@@ -5,6 +5,16 @@
 версионирование [SemVer](https://semver.org/lang/ru/) — bump на каждый
 фикс/фичу; см. правило в feedback_autoreport_versioning.md.
 
+## [1.0.51] — 2026-09-13
+
+### Docs — FCM-ключ общий для SaaS-tenant'ов
+- `docs/PUSH_NOTIFICATIONS.md` § 1.5 и § 7, `CLAUDE.md`: ключ
+  `FCM_SERVICE_ACCOUNT_JSON` хранится в master `.env.sops`, новые tenant'ы
+  получают его при провижининге, существующие — через
+  `Auto_Report_Master/scripts/sync-tenant-secret.sh` (Master 1.0.24).
+  Устаревшее описание с монтированием файла через Docker-secret убрано.
+  Кода не касается.
+
 ## [1.0.50] — 2026-09-13
 
 ### Added — фильтр по ответственному для неисправностей и отчётов

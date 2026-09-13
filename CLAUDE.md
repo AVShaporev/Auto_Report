@@ -95,7 +95,7 @@ templates/           jinja-шаблоны (если есть)
 - **Полный дизайн — [`docs/PUSH_NOTIFICATIONS.md`](docs/PUSH_NOTIFICATIONS.md).** Читать при любой правке push-логики.
 - `service/push.py::send_assignment_notification` — отправляет FCM-multicast всем активным `push_tokens` юзера. Ошибки не бросает вверх (fire-and-forget).
 - Триггеры (в `service/order.py`): `create_order`, `update_order`, `bulk_assign_responsible` — если `assigned_to_id` появился/изменился и не равен `current_user.id`, шлём push.
-- Feature-flag `FCM_SERVICE_ACCOUNT_PATH` — если не задан, push-модуль в no-op: логгирует warning, ничего не отправляет, HTTP-handler'ы работают как раньше. Активация — см. `docs/PUSH_NOTIFICATIONS.md § 1`.
+- Feature-flag `FCM_SERVICE_ACCOUNT_JSON` (приоритет) или `FCM_SERVICE_ACCOUNT_PATH` — если оба не заданы, push-модуль в no-op: ничего не отправляет, HTTP-handler'ы работают как раньше. На SaaS-tenant'ах ключ общий, хранится в master `.env.sops` и раскладывается `Auto_Report_Master/scripts/sync-tenant-secret.sh`. Активация — см. `docs/PUSH_NOTIFICATIONS.md § 1.5`.
 - Мёртвые токены (FCM `UNREGISTERED`/`INVALID_ARGUMENT`/`SENDER_ID_MISMATCH`) деактивируются автоматически (`is_active=false`) — cleanup snoo их удалит через 30 дней.
 
 ## `.env`
