@@ -5,6 +5,37 @@
 версионирование [SemVer](https://semver.org/lang/ru/) — bump на каждый
 фикс/фичу; см. правило в feedback_autoreport_versioning.md.
 
+## [1.0.46] — 2026-09-13
+
+### Fixed — `issues.number` расширен `VARCHAR(50)` → `VARCHAR(200)`
+
+Юзер поймал на демо-стенде через мобилку: `POST /api/issue/create`
+падает с `500 Internal Server Error`, в логах —
+`asyncpg.exceptions.StringDataRightTruncationError: value too long for
+type character varying(50)`.
+
+Причина: `service/issue.py::create_issue` генерирует номер по шаблону
+`{number_in_contract}/{MM}/{YYYY}/{short_customer}/{short_subject}/Н/{seq}`.
+При длинных `short_name` заказчика и `short_subject` договора итог
+легко переваливает за 50 символов. Для `orders.number` та же формула
+уже давно расширена до `VARCHAR(200)` — а для `issues.number`
+осталось `VARCHAR(50)`, забыли.
+
+- `model/issue.py::Issue.number` — `String(50)` → `String(200)`,
+  комментарий с ссылкой на инцидент.
+- `migration/versions/a3c4d5e6f7b8_issues_number_200.py` — новая
+  Alembic-миграция, `ALTER TABLE issues ALTER COLUMN number TYPE
+  VARCHAR(200)`. Downgrade — с предупреждением про потенциальную
+  обрезку.
+
+**Применение на живых tenant'ах:** deploy-vds.yml сам катит миграции
+через существующий fan-out (`redeploy-tenants.sh`, см. memory
+[feedback-autoreport-ci-tenant-fanout]) — все SaaS-tenant'ы получат
+`alembic upgrade head` автоматом. Hi-tech (legacy) — отдельная
+цепочка.
+
+VERSION 1.0.45 → 1.0.46.
+
 ## [1.0.45] — 2026-09-13
 
 ### Added — Mobile M7: push-уведомления при назначении ответственного
