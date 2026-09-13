@@ -16,6 +16,7 @@ handler — все исключения ловятся здесь и уходя�
 from __future__ import annotations
 
 import asyncio
+import json
 from pathlib import Path
 from typing import Optional
 
@@ -41,15 +42,13 @@ def init_fcm() -> bool:
     """
     global _fcm_ready, _fcm_messaging
 
+    # Приоритет 1: JSON целиком в env (удобно для SOPS).
+    json_str = settings.FCM_SERVICE_ACCOUNT_JSON
     path_str = settings.FCM_SERVICE_ACCOUNT_PATH
-    if not path_str:
-        logger.info("[push] disabled: FCM_SERVICE_ACCOUNT_PATH not set")
-        return False
 
-    path = Path(path_str)
-    if not path.exists():
-        logger.warning(
-            f"[push] disabled: FCM_SERVICE_ACCOUNT_PATH={path_str} does not exist"
+    if not json_str and not path_str:
+        logger.info(
+            "[push] disabled: FCM_SERVICE_ACCOUNT_JSON / _PATH not set"
         )
         return False
 
@@ -63,8 +62,34 @@ def init_fcm() -> bool:
         )
         return False
 
+    cred = None
+    source_desc = ""
+    if json_str:
+        try:
+            sa_dict = json.loads(json_str)
+            cred = credentials.Certificate(sa_dict)
+            source_desc = f"env FCM_SERVICE_ACCOUNT_JSON (project={sa_dict.get('project_id', '?')})"
+        except (json.JSONDecodeError, ValueError) as exc:
+            logger.error(
+                f"[push] disabled: FCM_SERVICE_ACCOUNT_JSON is not valid "
+                f"JSON — {exc}"
+            )
+            return False
+    else:
+        path = Path(path_str)
+        if not path.exists():
+            logger.warning(
+                f"[push] disabled: FCM_SERVICE_ACCOUNT_PATH={path_str} does not exist"
+            )
+            return False
+        try:
+            cred = credentials.Certificate(str(path))
+            source_desc = f"file {path}"
+        except Exception as exc:
+            logger.error(f"[push] disabled: failed to load {path} — {exc}")
+            return False
+
     try:
-        cred = credentials.Certificate(str(path))
         options = {}
         if settings.FCM_PROJECT_ID:
             options["projectId"] = settings.FCM_PROJECT_ID
@@ -77,7 +102,7 @@ def init_fcm() -> bool:
                 raise
         _fcm_messaging = messaging
         _fcm_ready = True
-        logger.info(f"[push] enabled: firebase-admin loaded from {path}")
+        logger.info(f"[push] enabled: firebase-admin loaded from {source_desc}")
         return True
     except Exception as exc:
         logger.error(f"[push] disabled: failed to initialize firebase — {exc}")
