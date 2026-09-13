@@ -101,6 +101,7 @@ async def get_report_paginated(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     *,
+    assigned_to_id: Optional[int] = None,
     load_relations: bool = False
 ) -> Tuple[List[Report], int]:
     """
@@ -139,6 +140,18 @@ async def get_report_paginated(
     if status_id is not None:
         query = query.where(Report.status_id == status_id)
         count_query = count_query.where(Report.status_id == status_id)
+
+    # Своего ответственного у отчёта нет — фильтруем по ответственному
+    # заявки, которую отчёт закрывает (orders.report_id → reports.id, 1:1).
+    if assigned_to_id is not None:
+        query = query.join(Order, Order.report_id == Report.id)
+        count_query = count_query.join(Order, Order.report_id == Report.id)
+        if assigned_to_id == 0:
+            assignee_filter = Order.assigned_to_id.is_(None)
+        else:
+            assignee_filter = Order.assigned_to_id == assigned_to_id
+        query = query.where(assignee_filter)
+        count_query = count_query.where(assignee_filter)
 
     if date_from:
         query = query.where(Report.created_at >= date_from)

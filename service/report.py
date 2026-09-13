@@ -78,6 +78,7 @@ async def get_reports_paginated(
     object_id: Optional[int] = None,
     user_id: Optional[int] = None,
     status_id: Optional[int] = None,
+    assigned_to_id: Optional[int] = None,
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
     sort_by: str = "created_at",
@@ -87,7 +88,7 @@ async def get_reports_paginated(
     Получить список отчетов с пагинацией
     """
     await check_permission(current_user, "report_read", "просмотра списка отчетов")
-    
+
     async with new_session() as session:
         items, total = await report_data.get_report_paginated(
             session=session,
@@ -99,6 +100,7 @@ async def get_reports_paginated(
             object_id=object_id,
             user_id=user_id,
             status_id=status_id,
+            assigned_to_id=assigned_to_id,
             date_from=date_from,
             date_to=date_to,
             sort_by=sort_by,
