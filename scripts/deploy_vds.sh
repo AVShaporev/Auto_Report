@@ -116,6 +116,15 @@ case "$TARGET" in
         ;;
 esac
 
+# ─── 2.5. Повторная расшифровка после git reset ────────────────────────
+# Шаг 1.5 расшифровал .env.sops ДО обновления репо — это только проверка
+# ключа. Если в этом же деплое приехала правка deploy/secrets/vds-prod.env.sops,
+# в ENV_FILE лежит старое содержимое и контейнер поднялся бы со старым env
+# (2026-09-13: FCM_SERVICE_ACCOUNT_JSON подхватился только вторым деплоем).
+echo "[deploy] Повторная расшифровка SOPS .env после git reset"
+ENV_FILE=$("$REPO_BACK/scripts/decrypt-env.sh" vds-prod)
+export ENV_FILE
+
 # ─── 3. Pre-deploy backup ──────────────────────────────────────────────
 # Делаем ТОЛЬКО при backend/all. Фронт-деплой схему БД не трогает, а
 # параллельный backend-деплой (наш частый кейс — оба GHA-workflow в одну

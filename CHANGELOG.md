@@ -5,6 +5,20 @@
 версионирование [SemVer](https://semver.org/lang/ru/) — bump на каждый
 фикс/фичу; см. правило в feedback_autoreport_versioning.md.
 
+## [1.0.53] — 2026-09-13
+
+### Fixed — деплой hi-tech применял старый .env.sops
+- `scripts/deploy_vds.sh` расшифровывал `deploy/secrets/vds-prod.env.sops`
+  ДО `git reset --hard origin/prod`. Если правка секретов приезжала в том же
+  деплое, контейнер поднимался со старым env (FCM_SERVICE_ACCOUNT_JSON на
+  hi-tech подхватился только вторым деплоем). Теперь после `git reset` env
+  расшифровывается повторно; ранняя расшифровка осталась как проверка ключа.
+- На VDS после merge обновить копию: `sudo cp
+  /opt/auto-report/Auto_Report/scripts/deploy_vds.sh
+  /opt/auto-report/scripts/deploy.sh`. Копия на VDS от 2026-08-08 по размеру
+  (9679 байт) совпадает с версией до `--force-recreate` (01583a3) —
+  обновление подтянет и его.
+
 ## [1.0.52] — 2026-09-13
 
 ### Added — push-уведомления на hi-tech (legacy)
