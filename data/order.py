@@ -34,10 +34,15 @@ async def get_order_by_id(
     query = select(Order).where(Order.id == order_id)
 
     if load_relations:
+        # locality/street → spec_* по умолчанию lazy="select": без явного
+        # selectinload build_address упадёт MissingGreenlet в async-сессии.
+        from model.locality import Locality
+        from model.street import Street
         query = query.options(
             selectinload(Order.spec_order),
             selectinload(Order.contract),
-            selectinload(Order.object),
+            selectinload(Order.object).selectinload(Object.locality).selectinload(Locality.spec_locality),
+            selectinload(Order.object).selectinload(Object.street).selectinload(Street.spec_street),
             selectinload(Order.user),
             selectinload(Order.report),
             selectinload(Order.spec_order_status),

@@ -37,10 +37,15 @@ async def get_report_by_id(
     query = select(Report).where(Report.id == report_id)
 
     if load_relations:
+        # locality/street → spec_* по умолчанию lazy="select": без явного
+        # selectinload build_address (ReportResponse) упадёт на detached-объекте.
+        from model.locality import Locality
+        from model.street import Street
         query = query.options(
             selectinload(Report.period),
             selectinload(Report.contract),
-            selectinload(Report.object),
+            selectinload(Report.object).selectinload(Object.locality).selectinload(Locality.spec_locality),
+            selectinload(Report.object).selectinload(Object.street).selectinload(Street.spec_street),
             selectinload(Report.user),
             selectinload(Report.order),
             selectinload(Report.status),

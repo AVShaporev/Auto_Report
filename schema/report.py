@@ -94,7 +94,7 @@ class ReportListResponse(BaseModel):
     def _flatten_relations(cls, data):
         if not hasattr(data, "__table__"):
             return data
-        return {
+        result = {
             **{c.name: getattr(data, c.name) for c in data.__table__.columns},
             "status_name": data.status.name if data.status else None,
             "period_name": data.period.name if data.period else None,
@@ -104,15 +104,28 @@ class ReportListResponse(BaseModel):
             "order_id": data.order.id if data.order else None,
             "order_number": data.order.number if data.order else None,
         }
+        # Только детальный ответ: в списках object грузится без адресных
+        # spec_*-цепочек (см. data/report.py::get_report_by_id).
+        if "object_address" in cls.model_fields:
+            # render_docx импортирует service.order — модульный импорт дал бы цикл.
+            from service.render_docx import build_address
+            result["object_address"] = build_address(data.object) if data.object else None
+            result["customer_name"] = (
+                data.contract.customer.name
+                if data.contract and data.contract.customer else None
+            )
+        return result
 
 
 class ReportResponse(ReportListResponse):
-    """Полная информация об отчете: + user_id и description.
+    """Полная информация об отчете: + user_id, description, заказчик и адрес.
 
     Наследует flatten-валидатор от ReportListResponse.
     """
     user_id: int
     description: Optional[str] = None
+    customer_name: Optional[str] = None
+    object_address: Optional[str] = None
 
 
 # ========== СХЕМА ДЛЯ ВЫПАДАЮЩЕГО СПИСКА ==========

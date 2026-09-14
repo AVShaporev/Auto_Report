@@ -88,6 +88,8 @@ class OrderResponse(BaseModel):
     spec_order_name: Optional[str] = Field(None, description="Название типа заявки")
     contract_number: Optional[str] = Field(None, description="Номер контракта")
     object_name: Optional[str] = Field(None, description="Название объекта")
+    object_address: Optional[str] = Field(None, description="Полный адрес объекта (как в актах)")
+    customer_name: Optional[str] = Field(None, description="Заказчик (из договора)")
     user_name: Optional[str] = Field(None, description="Имя пользователя (автор)")
     assigned_to_id: Optional[int] = Field(None, description="ID ответственного")
     assigned_to_name: Optional[str] = Field(None, description="Имя ответственного")

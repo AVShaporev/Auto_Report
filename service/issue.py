@@ -224,15 +224,24 @@ async def get_issue_with_details(
         equipment_name = None
         equipment_inventory_number = None
 
+        object_address = None
+        customer_name = None
+
         if issue.object_equipment:
             object_id = issue.object_equipment.object_id
             equipment_id = issue.object_equipment.equipment_id
             equipment_inventory_number = issue.object_equipment.inventory_number
-            if issue.object_equipment.object:
-                object_name = issue.object_equipment.object.name
+            obj = issue.object_equipment.object
+            if obj:
+                # render_docx импортирует service.order — модульный импорт дал бы цикл.
+                from service.render_docx import build_address
+                object_name = obj.name
+                object_address = build_address(obj)
+                if obj.contract and obj.contract.customer:
+                    customer_name = obj.contract.customer.name
             if issue.object_equipment.equipment:
                 equipment_name = issue.object_equipment.equipment.name
-        
+
         return {
             "id": issue.id,
             "number": issue.number,
@@ -255,6 +264,8 @@ async def get_issue_with_details(
             "assigned_to_id": issue.assigned_to_id,
             "object_id": object_id,
             "object_name": object_name,
+            "object_address": object_address,
+            "customer_name": customer_name,
             "equipment_id": equipment_id,
             "equipment_name": equipment_name,
             "equipment_inventory_number": equipment_inventory_number,

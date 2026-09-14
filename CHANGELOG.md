@@ -5,6 +5,17 @@
 версионирование [SemVer](https://semver.org/lang/ru/) — bump на каждый
 фикс/фичу; см. правило в feedback_autoreport_versioning.md.
 
+## [1.0.54] — 2026-09-14
+
+### Added — заказчик и полный адрес объекта в детальных ответах
+- `GET /api/order/{id}`, `GET /api/issue/{id}`, `GET /api/report/{id}` (и
+  ответы create/update, которые идут через те же функции) отдают
+  `customer_name` (заказчик из договора) и `object_address` — полный адрес
+  объекта через `build_address`, как в актах и `address_pretty` объекта.
+- В data-слое детальных запросов явно подгружаются `locality.spec_locality`
+  и `street.spec_street` (по умолчанию lazy="select" → MissingGreenlet).
+- Списки не менялись: у отчётов поля добавлены только в `ReportResponse`.
+
 ## [1.0.53] — 2026-09-13
 
 ### Fixed — деплой hi-tech применял старый .env.sops
