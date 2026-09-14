@@ -5,6 +5,59 @@
 версионирование [SemVer](https://semver.org/lang/ru/) — bump на каждый
 фикс/фичу; см. правило в feedback_autoreport_versioning.md.
 
+## [1.0.58] — 2026-09-14
+
+### Fixed — лимиты генерируемых полей (аудит)
+Номера заявки/неисправности/отчёта собираются сервером из
+`number_in_contract/MM/YYYY/customer.short_name/contract.short_subject/spec_order.short_name/N`.
+При лимитах схем на исходники (short_name ≤ 100, short_subject ≤ 200,
+spec_order.short_name ≤ 50) номер доходит до ~375 символов.
+
+- Миграция `b4d5e6f7a8c9`: `orders.number` и `issues.number` VARCHAR(200) → VARCHAR(500).
+  С 200 длинное сокращение предмета договора давало 500 на INSERT заявки /
+  неисправности (в т.ч. в автогенерации плановых заявок).
+- Модели и схемы `number` заявки, неисправности, отчёта — `max_length` 500
+  (`reports.number` в БД без ограничения).
+- `POST /api/issue/{id}/attachments` и `POST /api/report/{id}/attachments`:
+  `title` ограничен 255 символами (колонка VARCHAR(255)) — длинный заголовок
+  теперь 422, а не 500 на INSERT.
+
+Проверено и в порядке: `reports.number` (без лимита в БД), `activity_log.summary`
+(обрезается до 500 в `log_activity`), `pdf_path` вложений (≤ ~80 из 512),
+`kind` (enum ≤ 20), имя файла mobile-upload (ASCII ≤ 200 + uuid < 255 байт),
+refresh `jti` (uuid).
+
+## [1.0.57] — 2026-09-14
+
+### Fixed — 500 на создании/чтении неисправности с длинным номером
+- `schema/issue.py`: `IssueBase.number` / `IssueUpdate.number` — `max_length`
+  50 → 200. Колонку `issues.number` расширили до VARCHAR(200) ещё в 1.0.46,
+  а схема осталась на 50: неисправность с номером длиннее 50 символов
+  (`2/09/2026/Технопром/Плановое ТО котельного оборудования/Н/1`) сохранялась
+  в БД, но ответ `POST /issue/create` и `GET /issue/{id}` падал
+  `ResponseValidationError` → 500 без CORS-заголовков → мобильное приложение
+  показывало «Нет связи с сервером», фото к неисправности не прикреплялись.
+- `schema/report.py`: `ReportBase.number` / `ReportUpdate.number` — тоже
+  50 → 200 (колонка `reports.number` без ограничения длины, номера того же
+  формата).
+
+## [1.0.56] — 2026-09-14
+
+### Added — фото неисправности из мобильного приложения
+- `POST /api/issue/{id}/attachments/link-mobile-photos` — `{final_paths, title?, kind='photo'}`:
+  фото из chunked-upload (M1.5) склеиваются в одно PDF-вложение неисправности
+  (зеркало отчётного endpoint'а, M5.3). До 10 фото за запрос.
+- Права: `issue_modify` или `issue_create`; прикреплять можно только к своей
+  неисправности (или админу) — инженер добавляет фото сразу после создания,
+  `issue_modify` у инженерской роли обычно нет.
+
+### Changed
+- Проверка `final_path` (path-traversal, наличие файла в MEDIA) вынесена в
+  `service/attachment_converter.resolve_mobile_media_paths` — общая для отчётов
+  и неисправностей.
+- `service/issue_attachment`: запись PDF + строки в БД вынесена в
+  `_store_attachment`, её используют обычная загрузка и линковка mobile-фото.
+
 ## [1.0.55] — 2026-09-14
 
 ### Added — `customer_id` в детальных ответах заявки, неисправности, отчёта

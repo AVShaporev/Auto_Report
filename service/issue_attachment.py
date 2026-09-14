@@ -15,7 +15,11 @@ from database.database import new_session
 from model.issue_attachment import Issue_Attachment
 from model.user import User
 from schema.issue_attachment import IssueAttachmentKind
-from service.attachment_converter import convert_uploads_to_pdf
+from service.attachment_converter import (
+    convert_disk_files_to_pdf,
+    convert_uploads_to_pdf,
+    resolve_mobile_media_paths,
+)
 
 
 # ========== УТИЛИТЫ ==========
@@ -118,8 +122,58 @@ async def upload_attachment(
     # Сначала конвертируем файлы — это самая «дорогая» часть, нет смысла начинать
     # транзакцию БД, если конвертация упадёт.
     pdf_bytes, pages = await convert_uploads_to_pdf(files)
-    size_bytes = len(pdf_bytes)
+    return await _store_attachment(
+        issue_id=issue_id,
+        kind=kind,
+        title=title,
+        pdf_bytes=pdf_bytes,
+        pages=pages,
+        current_user=current_user,
+    )
 
+
+async def link_mobile_photos(
+    *,
+    issue_id: int,
+    final_paths: List[str],
+    title: Optional[str],
+    kind: IssueAttachmentKind,
+    current_user: User,
+) -> dict:
+    """Склеить фото из mobile chunked-upload (MEDIA/mobile/*.jpg) в одно PDF-вложение.
+
+    Автору неисправности достаточно issue_create: инженер прикладывает фото
+    сразу после создания, а issue_modify у инженерской роли обычно нет.
+    """
+    role = current_user.role
+    if not (getattr(role, "issue_modify", False) or getattr(role, "issue_create", False)):
+        raise HTTPException(
+            status_code=403,
+            detail="Недостаточно прав для прикрепления фото к неисправности",
+        )
+
+    resolved_paths = resolve_mobile_media_paths(final_paths)
+    pdf_bytes, pages = await convert_disk_files_to_pdf(resolved_paths)
+    return await _store_attachment(
+        issue_id=issue_id,
+        kind=kind,
+        title=title,
+        pdf_bytes=pdf_bytes,
+        pages=pages,
+        current_user=current_user,
+    )
+
+
+async def _store_attachment(
+    *,
+    issue_id: int,
+    kind: IssueAttachmentKind,
+    title: Optional[str],
+    pdf_bytes: bytes,
+    pages: int,
+    current_user: User,
+) -> dict:
+    """Проверить неисправность и авторство, записать PDF на диск и строку в БД."""
     async with new_session() as session:
         issue = await issue_data.get_issue_by_id(session, issue_id)
         if not issue:
@@ -136,7 +190,7 @@ async def upload_attachment(
             issue_id=issue_id,
             kind=kind.value,
             title=(title or None),
-            size_bytes=size_bytes,
+            size_bytes=len(pdf_bytes),
             pages=pages,
             uploaded_by=current_user.id,
         )

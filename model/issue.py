@@ -22,7 +22,7 @@ class Issue(Base):
     # у tenant'а легко переваливают за 50 символов (real-world демо-стенд
     # ловил StringDataRightTruncationError 2026-09-13). Расширено до 200 —
     # так же как orders.number.
-    number: Mapped[str] = mapped_column(String(200), unique=True, nullable=False, comment="Номер неисправности")
+    number: Mapped[str] = mapped_column(String(500), unique=True, nullable=False, comment="Номер неисправности")
     title: Mapped[str] = mapped_column(String(200), nullable=False, comment="Краткое описание")
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True, comment="Подробное описание")
     

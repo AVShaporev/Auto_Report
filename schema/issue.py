@@ -7,9 +7,9 @@ from datetime import date, datetime
 
 class IssueBase(BaseModel):
     """Базовая схема неисправности"""
-    number: str = Field(..., min_length=1, max_length=50, description="Номер неисправности")
+    number: str = Field(..., min_length=1, max_length=500, description="Номер неисправности")
     title: str = Field(..., min_length=3, max_length=200, description="Краткое описание")
-    description: Optional[str] = Field(None, max_length=5000, description="Подробное описание")
+    description: Optional[str] = Field(None, max_length=20000, description="Подробное описание")
     priority_id: int = Field(..., ge=1, description="ID приоритета из справочника spec_prioritys")
     detected_date: date = Field(..., description="Дата обнаружения")
     is_critical: bool = Field(False, description="Критическая неисправность")
@@ -29,7 +29,7 @@ class IssueCreate(BaseModel):
     Номер генерируется сервером (как у отчётов/заявок). Приоритет — FK на spec_prioritys.
     """
     title: str = Field(..., min_length=3, max_length=200, description="Краткое описание")
-    description: Optional[str] = Field(None, max_length=5000, description="Подробное описание")
+    description: Optional[str] = Field(None, max_length=20000, description="Подробное описание")
     priority_id: int = Field(..., ge=1, description="ID приоритета из справочника spec_prioritys")
     detected_date: date = Field(..., description="Дата обнаружения")
     is_critical: bool = Field(False, description="Критическая неисправность")
@@ -43,9 +43,9 @@ class IssueCreate(BaseModel):
 
 class IssueUpdate(BaseModel):
     """Схема для обновления неисправности (все поля опциональны)"""
-    number: Optional[str] = Field(None, min_length=1, max_length=50)
+    number: Optional[str] = Field(None, min_length=1, max_length=500)
     title: Optional[str] = Field(None, min_length=3, max_length=200)
-    description: Optional[str] = Field(None, max_length=5000)
+    description: Optional[str] = Field(None, max_length=20000)
     priority_id: Optional[int] = Field(None, ge=1)
     detected_date: Optional[date] = None
     is_critical: Optional[bool] = None

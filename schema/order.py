@@ -6,7 +6,7 @@ from datetime import date
 # Базовая схема заявки (без user_id)
 class OrderBase(BaseModel):
     """Базовая схема заявки"""
-    number: str = Field(..., min_length=1, max_length=200, description="Номер заявки")
+    number: str = Field(..., min_length=1, max_length=500, description="Номер заявки")
     spec_order_id: int = Field(..., ge=1, description="ID типа заявки")
     contract_id: int = Field(..., ge=1, description="ID контракта")
     object_id: int = Field(..., ge=1, description="ID объекта")
@@ -43,7 +43,7 @@ class OrderCreate(BaseModel):
 # Схема для обновления заявки (все поля опциональны)
 class OrderUpdate(BaseModel):
     """Схема для обновления заявки"""
-    number: Optional[str] = Field(None, min_length=1, max_length=200)
+    number: Optional[str] = Field(None, min_length=1, max_length=500)
     spec_order_id: Optional[int] = Field(None, ge=1)
     contract_id: Optional[int] = Field(None, ge=1)
     object_id: Optional[int] = Field(None, ge=1)

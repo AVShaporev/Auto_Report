@@ -17,6 +17,8 @@ from PIL import Image, UnidentifiedImageError
 from pillow_heif import register_heif_opener
 from pypdf import PdfReader
 
+from config import MEDIA_PATH
+
 # Регистрируем поддержку HEIC/HEIF в Pillow.
 register_heif_opener()
 
@@ -148,6 +150,33 @@ async def convert_disk_files_to_pdf(paths: List[Path]) -> Tuple[bytes, int]:
             detail=f"Не удалось собрать PDF из изображений: {exc}",
         )
     return pdf_bytes, len(image_payloads)
+
+
+def resolve_mobile_media_paths(final_paths: List[str]) -> List[Path]:
+    """Проверить final_path'ы из mobile chunked-upload (M1.5) и вернуть пути на диске.
+
+    Принимает путь относительно MEDIA (`mobile/<uuid>_<name>.jpg`) или голое
+    имя файла из MEDIA/mobile. Абсолютные пути и path-traversal — 400.
+    """
+    resolved: List[Path] = []
+    for rel in final_paths:
+        if not rel or ".." in rel.split("/") or rel.startswith("/"):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Некорректный final_path: '{rel}'",
+            )
+        candidate = MEDIA_PATH / rel
+        candidate_alt = MEDIA_PATH / "mobile" / rel
+        if candidate.is_file():
+            resolved.append(candidate)
+        elif candidate_alt.is_file():
+            resolved.append(candidate_alt)
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Файл '{rel}' не найден в MEDIA",
+            )
+    return resolved
 
 
 def _looks_like_pdf(data: bytes) -> bool:
