@@ -85,6 +85,7 @@ class IssueResponse(IssueBase):
     object_id: Optional[int] = Field(None, description="ID объекта (через object_equipment)")
     object_name: Optional[str] = Field(None, description="Название объекта")
     object_address: Optional[str] = Field(None, description="Полный адрес объекта (как в актах)")
+    customer_id: Optional[int] = Field(None, description="ID организации-заказчика (из договора объекта)")
     customer_name: Optional[str] = Field(None, description="Заказчик (из договора объекта)")
     equipment_id: Optional[int] = Field(None, description="ID оборудования (через object_equipment)")
     equipment_name: Optional[str] = Field(None, description="Название оборудования")

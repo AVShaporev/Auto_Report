@@ -110,6 +110,7 @@ class ReportListResponse(BaseModel):
             # render_docx импортирует service.order — модульный импорт дал бы цикл.
             from service.render_docx import build_address
             result["object_address"] = build_address(data.object) if data.object else None
+            result["customer_id"] = data.contract.customer_id if data.contract else None
             result["customer_name"] = (
                 data.contract.customer.name
                 if data.contract and data.contract.customer else None
@@ -124,6 +125,7 @@ class ReportResponse(ReportListResponse):
     """
     user_id: int
     description: Optional[str] = None
+    customer_id: Optional[int] = None
     customer_name: Optional[str] = None
     object_address: Optional[str] = None
 

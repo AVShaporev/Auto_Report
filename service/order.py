@@ -213,6 +213,7 @@ async def get_order_with_details(
             "due_date": order.due_date,
             "spec_order_name": order.spec_order.name if order.spec_order else None,
             "contract_number": order.contract.number if order.contract else None,
+            "customer_id": order.contract.customer_id if order.contract else None,
             "customer_name": (
                 order.contract.customer.name
                 if order.contract and order.contract.customer else None

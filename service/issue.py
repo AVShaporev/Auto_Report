@@ -225,6 +225,7 @@ async def get_issue_with_details(
         equipment_inventory_number = None
 
         object_address = None
+        customer_id = None
         customer_name = None
 
         if issue.object_equipment:
@@ -237,8 +238,10 @@ async def get_issue_with_details(
                 from service.render_docx import build_address
                 object_name = obj.name
                 object_address = build_address(obj)
-                if obj.contract and obj.contract.customer:
-                    customer_name = obj.contract.customer.name
+                if obj.contract:
+                    customer_id = obj.contract.customer_id
+                    if obj.contract.customer:
+                        customer_name = obj.contract.customer.name
             if issue.object_equipment.equipment:
                 equipment_name = issue.object_equipment.equipment.name
 
@@ -265,6 +268,7 @@ async def get_issue_with_details(
             "object_id": object_id,
             "object_name": object_name,
             "object_address": object_address,
+            "customer_id": customer_id,
             "customer_name": customer_name,
             "equipment_id": equipment_id,
             "equipment_name": equipment_name,
