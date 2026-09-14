@@ -11,6 +11,17 @@ class IssueAttachmentKind(str, Enum):
     other = "other"
 
 
+class LinkIssueMobilePhotosRequest(BaseModel):
+    """Тело запроса линковки фото из MEDIA/mobile/*.jpg к неисправности.
+
+    Мобильный клиент грузит фото через chunked-upload (M1.5), получает
+    final_path'ы и передаёт сюда — backend склеит их в один PDF.
+    """
+    final_paths: list[str] = Field(..., min_length=1, max_length=10)
+    title: Optional[str] = Field(None, max_length=255)
+    kind: IssueAttachmentKind = IssueAttachmentKind.photo
+
+
 class IssueAttachmentResponse(BaseModel):
     """Информация о вложении неисправности (без пути на диске)."""
     id: int

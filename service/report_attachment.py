@@ -18,6 +18,7 @@ from schema.report_attachment import ReportAttachmentKind
 from service.attachment_converter import (
     convert_disk_files_to_pdf,
     convert_uploads_to_pdf,
+    resolve_mobile_media_paths,
 )
 
 
@@ -190,28 +191,7 @@ async def link_mobile_photos(
     """
     _check_permission(current_user, "report_modify", "линковки mobile-фото")
 
-    # Валидация путей: они должны быть под MEDIA/mobile, без path-traversal.
-    resolved_paths: List[Path] = []
-    for rel in final_paths:
-        if not rel or ".." in rel.split("/") or rel.startswith("/"):
-            raise HTTPException(
-                status_code=400,
-                detail=f"Некорректный final_path: '{rel}'",
-            )
-        # M1.5 кладёт в MEDIA/mobile/<uuid>_<name>.jpg — принимаем как есть,
-        # так и голое имя (для гибкости на случай если фронт отдал basename).
-        candidate = MEDIA_PATH / rel
-        candidate_alt = MEDIA_PATH / "mobile" / rel
-        if candidate.is_file():
-            resolved_paths.append(candidate)
-        elif candidate_alt.is_file():
-            resolved_paths.append(candidate_alt)
-        else:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Файл '{rel}' не найден в MEDIA",
-            )
-
+    resolved_paths = resolve_mobile_media_paths(final_paths)
     pdf_bytes, pages = await convert_disk_files_to_pdf(resolved_paths)
     size_bytes = len(pdf_bytes)
 

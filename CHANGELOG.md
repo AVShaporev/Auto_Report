@@ -5,6 +5,23 @@
 версионирование [SemVer](https://semver.org/lang/ru/) — bump на каждый
 фикс/фичу; см. правило в feedback_autoreport_versioning.md.
 
+## [1.0.56] — 2026-09-14
+
+### Added — фото неисправности из мобильного приложения
+- `POST /api/issue/{id}/attachments/link-mobile-photos` — `{final_paths, title?, kind='photo'}`:
+  фото из chunked-upload (M1.5) склеиваются в одно PDF-вложение неисправности
+  (зеркало отчётного endpoint'а, M5.3). До 10 фото за запрос.
+- Права: `issue_modify` или `issue_create`; прикреплять можно только к своей
+  неисправности (или админу) — инженер добавляет фото сразу после создания,
+  `issue_modify` у инженерской роли обычно нет.
+
+### Changed
+- Проверка `final_path` (path-traversal, наличие файла в MEDIA) вынесена в
+  `service/attachment_converter.resolve_mobile_media_paths` — общая для отчётов
+  и неисправностей.
+- `service/issue_attachment`: запись PDF + строки в БД вынесена в
+  `_store_attachment`, её используют обычная загрузка и линковка mobile-фото.
+
 ## [1.0.55] — 2026-09-14
 
 ### Added — `customer_id` в детальных ответах заявки, неисправности, отчёта

@@ -5,7 +5,11 @@ from fastapi.responses import FileResponse
 
 from core.dependencies import get_current_active_user
 from model.user import User
-from schema.issue_attachment import IssueAttachmentKind, IssueAttachmentResponse
+from schema.issue_attachment import (
+    IssueAttachmentKind,
+    IssueAttachmentResponse,
+    LinkIssueMobilePhotosRequest,
+)
 from service import issue_attachment as attachment_service
 
 router = APIRouter(prefix="/api/issue", tags=["issue-attachments"])
@@ -51,6 +55,32 @@ async def upload_issue_attachment(
         kind=kind,
         title=title,
         files=files,
+        current_user=current_user,
+    )
+
+
+@router.post(
+    "/{issue_id}/attachments/link-mobile-photos",
+    response_model=IssueAttachmentResponse,
+)
+async def link_issue_mobile_photos(
+    issue_id: int,
+    body: LinkIssueMobilePhotosRequest,
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    Прилинковать mobile-фото к неисправности.
+
+    Мобильный клиент грузит фото через chunked-upload M1.5 и передаёт сюда
+    список final_path — backend склеивает их в один PDF (Issue_Attachment).
+
+    Требуется право issue_modify, либо issue_create для автора неисправности.
+    """
+    return await attachment_service.link_mobile_photos(
+        issue_id=issue_id,
+        final_paths=body.final_paths,
+        title=body.title,
+        kind=body.kind,
         current_user=current_user,
     )
 
