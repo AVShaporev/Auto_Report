@@ -179,10 +179,13 @@ async def get_order_with_details(
     """
     await check_permission(current_user, "order_read", "просмотра заявок")
     
+    # render_docx импортирует service.order — модульный импорт дал бы цикл.
+    from service.render_docx import build_address
+
     async with new_session() as session:
         # Получаем заявку с загрузкой всех связанных данных
         order = await order_data.get_order_by_id(
-            session, 
+            session,
             order_id,
             load_relations=True
         )
@@ -210,7 +213,13 @@ async def get_order_with_details(
             "due_date": order.due_date,
             "spec_order_name": order.spec_order.name if order.spec_order else None,
             "contract_number": order.contract.number if order.contract else None,
+            "customer_id": order.contract.customer_id if order.contract else None,
+            "customer_name": (
+                order.contract.customer.name
+                if order.contract and order.contract.customer else None
+            ),
             "object_name": order.object.name if order.object else None,
+            "object_address": build_address(order.object) if order.object else None,
             "user_name": order.user.name if order.user else None,
             "assigned_to_id": order.assigned_to_id,
             "assigned_to_name": order.assigned_to.name if order.assigned_to else None,

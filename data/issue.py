@@ -34,10 +34,18 @@ async def get_issue_by_id(
     query = select(Issue).where(Issue.id == issue_id)
     
     if load_relations:
-        # ✅ ИСПРАВЛЕНО: загружаем object_equipment, а не прямые связи
+        # locality/street → spec_* по умолчанию lazy="select": без явного
+        # selectinload build_address упадёт MissingGreenlet в async-сессии.
+        from model.object import Object
+        from model.locality import Locality
+        from model.street import Street
         query = query.options(
             selectinload(Issue.object_equipment)
-                .selectinload(Objects_Equipment.object),  # Загружаем объект через связь
+                .selectinload(Objects_Equipment.object)
+                .selectinload(Object.locality).selectinload(Locality.spec_locality),
+            selectinload(Issue.object_equipment)
+                .selectinload(Objects_Equipment.object)
+                .selectinload(Object.street).selectinload(Street.spec_street),
             selectinload(Issue.object_equipment)
                 .selectinload(Objects_Equipment.equipment),  # Загружаем оборудование через связь
             selectinload(Issue.reported_by),
