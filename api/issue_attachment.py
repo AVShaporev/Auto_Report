@@ -38,7 +38,7 @@ async def list_issue_attachments(
 async def upload_issue_attachment(
     issue_id: int,
     kind: IssueAttachmentKind = Form(..., description="Категория: photo/document/other"),
-    title: Optional[str] = Form(None, description="Заголовок (необязательно)"),
+    title: Optional[str] = Form(None, max_length=255, description="Заголовок (необязательно)"),
     files: List[UploadFile] = File(..., description="Одно или несколько изображений или один PDF"),
     current_user: User = Depends(get_current_active_user),
 ):

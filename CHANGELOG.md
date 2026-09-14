@@ -5,6 +5,28 @@
 версионирование [SemVer](https://semver.org/lang/ru/) — bump на каждый
 фикс/фичу; см. правило в feedback_autoreport_versioning.md.
 
+## [1.0.58] — 2026-09-14
+
+### Fixed — лимиты генерируемых полей (аудит)
+Номера заявки/неисправности/отчёта собираются сервером из
+`number_in_contract/MM/YYYY/customer.short_name/contract.short_subject/spec_order.short_name/N`.
+При лимитах схем на исходники (short_name ≤ 100, short_subject ≤ 200,
+spec_order.short_name ≤ 50) номер доходит до ~375 символов.
+
+- Миграция `b4d5e6f7a8c9`: `orders.number` и `issues.number` VARCHAR(200) → VARCHAR(500).
+  С 200 длинное сокращение предмета договора давало 500 на INSERT заявки /
+  неисправности (в т.ч. в автогенерации плановых заявок).
+- Модели и схемы `number` заявки, неисправности, отчёта — `max_length` 500
+  (`reports.number` в БД без ограничения).
+- `POST /api/issue/{id}/attachments` и `POST /api/report/{id}/attachments`:
+  `title` ограничен 255 символами (колонка VARCHAR(255)) — длинный заголовок
+  теперь 422, а не 500 на INSERT.
+
+Проверено и в порядке: `reports.number` (без лимита в БД), `activity_log.summary`
+(обрезается до 500 в `log_activity`), `pdf_path` вложений (≤ ~80 из 512),
+`kind` (enum ≤ 20), имя файла mobile-upload (ASCII ≤ 200 + uuid < 255 байт),
+refresh `jti` (uuid).
+
 ## [1.0.57] — 2026-09-14
 
 ### Fixed — 500 на создании/чтении неисправности с длинным номером

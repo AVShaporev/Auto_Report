@@ -15,7 +15,7 @@ class Order(Base):
     # Номер заявки. Для автогенерируемых формат:
     # "<object.number_in_contract>/<MM>/<YYYY>/<customer.short_name>/<contract.short_subject>/<seq>"
     # Длина под 200 — два текстовых куска (заказчик + предмет) могут быть длинными.
-    number: Mapped[str] = mapped_column(String(200), unique=True, nullable=False)
+    number: Mapped[str] = mapped_column(String(500), unique=True, nullable=False)
     spec_order_id: Mapped[int] = mapped_column(ForeignKey("spec_orders.id"), nullable=False)
     contract_id: Mapped[int] = mapped_column(ForeignKey("contracts.id"), nullable=False)
     object_id: Mapped[int] = mapped_column(ForeignKey("objects.id"), nullable=False)

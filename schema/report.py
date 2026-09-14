@@ -6,7 +6,7 @@ from datetime import date
 
 class ReportBase(BaseModel):
     """Базовая схема отчета (без user_id для входящих данных)"""
-    number: str = Field(..., min_length=1, max_length=200, description="Номер отчета")
+    number: str = Field(..., min_length=1, max_length=500, description="Номер отчета")
     period_id: int = Field(..., ge=1, description="ID периода")
     contract_id: int = Field(..., ge=1, description="ID контракта")
     object_id: int = Field(..., ge=1, description="ID объекта")
@@ -44,7 +44,7 @@ class ReportCreate(BaseModel):
 
 class ReportUpdate(BaseModel):
     """Схема для обновления отчета (все поля опциональны)"""
-    number: Optional[str] = Field(None, min_length=1, max_length=200)
+    number: Optional[str] = Field(None, min_length=1, max_length=500)
     period_id: Optional[int] = Field(None, ge=1)
     contract_id: Optional[int] = Field(None, ge=1)
     object_id: Optional[int] = Field(None, ge=1)

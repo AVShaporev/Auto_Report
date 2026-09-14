@@ -38,7 +38,7 @@ async def list_report_attachments(
 async def upload_report_attachment(
     report_id: int,
     kind: ReportAttachmentKind = Form(..., description="Категория: act/journal/equipment/other"),
-    title: Optional[str] = Form(None, description="Заголовок (необязательно)"),
+    title: Optional[str] = Form(None, max_length=255, description="Заголовок (необязательно)"),
     files: List[UploadFile] = File(..., description="Одно или несколько изображений или один PDF"),
     current_user: User = Depends(get_current_active_user),
 ):
