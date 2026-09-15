@@ -181,8 +181,11 @@ case "$TARGET" in
         docker compose up -d --force-recreate frontend
         ;;
     all)
-        echo "[deploy] docker compose up -d --force-recreate (все сервисы)"
-        docker compose up -d --force-recreate
+        # postgres не пересоздаём (как у SaaS-tenant'ов и master): env ему нужен
+        # только при init. Как зависимость backend'а он поднимется, если лежит,
+        # и пересоздастся сам, если в docker-compose.yml поменялась его конфигурация.
+        echo "[deploy] docker compose up -d --force-recreate backend frontend"
+        docker compose up -d --force-recreate backend frontend
         ;;
 esac
 
