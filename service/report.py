@@ -42,6 +42,31 @@ async def check_permission(
             detail=f"Недостаточно прав для {action}"
         )
 
+
+# Статусы, из которых автор без report_modify может отправить свой отчёт
+# на утверждение (совпадают с mobile services/reportStatuses.js).
+SUBMITTED_STATUS_NAME = 'На утверждении'
+AUTHOR_EDITABLE_STATUS_NAMES = ('В работе', 'Отклонён')
+
+
+def can_moderate_reports(current_user: User) -> bool:
+    return bool(getattr(current_user.role, "report_modify", False))
+
+
+async def check_report_author_permission(current_user: User, action: str) -> None:
+    """Правка своего отчёта: report_modify или report_create.
+
+    Инженеру с одним report_create иначе нельзя ни поправить описание, ни
+    отправить на утверждение созданный им же отчёт. Проверка «свой отчёт»
+    остаётся в вызывающей функции.
+    """
+    if not (can_moderate_reports(current_user)
+            or getattr(current_user.role, "report_create", False)):
+        raise HTTPException(
+            status_code=403,
+            detail=f"Недостаточно прав для {action}"
+        )
+
 # ========== ПОЛУЧЕНИЕ ==========
 
 async def get_report_by_id(
@@ -380,8 +405,8 @@ async def update_report(
     """
     Обновить отчет
     """
-    await check_permission(current_user, "report_modify", "изменения отчетов")
-    
+    await check_report_author_permission(current_user, "изменения отчетов")
+
     async with new_session() as session:
         existing = await report_data.get_report_by_id(session, report_id)
         if not existing:
@@ -444,7 +469,7 @@ async def update_report_status(
     """
     Установить статус отчёта (FK на spec_report_statuses).
     """
-    await check_permission(current_user, "report_modify", "смены статуса отчётов")
+    await check_report_author_permission(current_user, "смены статуса отчётов")
 
     async with new_session() as session:
         # Проверяем, что статус существует. Report.status_id — FK на
@@ -458,6 +483,31 @@ async def update_report_status(
                 status_code=400,
                 detail=f"Статус отчёта с id {status_update.status_id} не существует в spec_report_statuses",
             )
+
+        # Без report_modify (инженер-автор) — только отправить свой отчёт на
+        # утверждение. Утверждать/отклонять может лишь тот, у кого report_modify.
+        if not can_moderate_reports(current_user):
+            existing = await report_data.get_report_by_id(session, report_id)
+            if not existing:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Отчет с id {report_id} не найден"
+                )
+            if existing.user_id != current_user.id:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Вы можете отправлять на утверждение только свои отчёты"
+                )
+            current_status_name = existing.status.name if existing.status else None
+            if (status.name != SUBMITTED_STATUS_NAME
+                    or current_status_name not in AUTHOR_EDITABLE_STATUS_NAMES):
+                raise HTTPException(
+                    status_code=403,
+                    detail=(
+                        "Без права изменения отчётов можно только отправить свой отчёт "
+                        "из «В работе» или «Отклонён» на утверждение"
+                    ),
+                )
 
         report = await report_data.update_report_status(session, report_id, status_update.status_id)
 
