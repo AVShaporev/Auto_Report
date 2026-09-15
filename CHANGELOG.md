@@ -5,6 +5,17 @@
 версионирование [SemVer](https://semver.org/lang/ru/) — bump на каждый
 фикс/фичу; см. правило в feedback_autoreport_versioning.md.
 
+## [1.0.60] — 2026-09-15
+
+### Changed — деплой hi-tech `all` больше не рестартует БД
+- `scripts/deploy_vds.sh all`: `docker compose up -d --force-recreate backend
+  frontend` вместо всех сервисов — postgres не пересоздаётся, как у SaaS-tenant'ов
+  (Master 1.0.25 `redeploy-tenants.sh`) и master (`deploy-master.sh`). Цели
+  `backend` / `frontend` не менялись.
+- На VDS после merge обновить копию: `sudo cp
+  /opt/auto-report/Auto_Report/scripts/deploy_vds.sh
+  /opt/auto-report/scripts/deploy.sh` и сверить sha256.
+
 ## [1.0.59] — 2026-09-15
 
 ### Fixed — инженер без report_modify не мог работать со своим отчётом
