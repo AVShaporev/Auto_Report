@@ -37,6 +37,21 @@ def _check_permission(current_user: User, permission: str, action: str) -> None:
         )
 
 
+def _check_author_permission(current_user: User, action: str) -> None:
+    """Вложения своего отчёта: report_modify или report_create.
+
+    Инженеру с одним report_create иначе нельзя приложить фото к собственному
+    черновику. Проверки «свой отчёт (или админ)» и «утверждённый не менять» —
+    дальше в каждой функции.
+    """
+    role = current_user.role
+    if not (getattr(role, "report_modify", False) or getattr(role, "report_create", False)):
+        raise HTTPException(
+            status_code=403,
+            detail=f"Недостаточно прав для {action}",
+        )
+
+
 def _slugify(value: str, fallback: str) -> str:
     """Простой ASCII-slug для имени файла."""
     value = (value or "").strip()
@@ -118,7 +133,7 @@ async def upload_attachment(
     files: List[UploadFile],
     current_user: User,
 ) -> dict:
-    _check_permission(current_user, "report_modify", "загрузки вложений отчёта")
+    _check_author_permission(current_user, "загрузки вложений отчёта")
 
     # Сначала конвертируем файлы — это самая «дорогая» часть, нет смысла начинать
     # транзакцию БД, если конвертация упадёт.
@@ -189,7 +204,7 @@ async def link_mobile_photos(
     Работает без re-upload: фото уже на диске после chunked-upload (M1.5).
     Ограничение kind='report_photo' — фото с объекта, доказательство работ.
     """
-    _check_permission(current_user, "report_modify", "линковки mobile-фото")
+    _check_author_permission(current_user, "линковки mobile-фото")
 
     resolved_paths = resolve_mobile_media_paths(final_paths)
     pdf_bytes, pages = await convert_disk_files_to_pdf(resolved_paths)
@@ -250,7 +265,7 @@ async def delete_attachment(
     attachment_id: int,
     current_user: User,
 ) -> bool:
-    _check_permission(current_user, "report_modify", "удаления вложений отчёта")
+    _check_author_permission(current_user, "удаления вложений отчёта")
     async with new_session() as session:
         attachment = await attachment_data.get_report_attachment_by_id(session, attachment_id)
         if not attachment or attachment.report_id != report_id:
