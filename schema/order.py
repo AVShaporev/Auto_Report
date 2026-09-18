@@ -22,8 +22,12 @@ class OrderCreate(BaseModel):
     Номер генерируется сервером по маске
     "{object.number_in_contract}/{MM}/{YYYY}/{customer.short_name}/{contract.short_subject}/{spec_order.short_name}/{seq}".
     status_id опционально; None → берётся дефолтный (spec_order_statuses.is_default=true).
+    spec_order_id обязателен, кроме заявки на устранение (issue_id задан):
+    там None → системный тип code='fix' («Устранение неисправности»).
     """
-    spec_order_id: int = Field(..., ge=1, description="ID типа заявки")
+    spec_order_id: Optional[int] = Field(
+        None, ge=1, description="ID типа заявки; None допустим только с issue_id"
+    )
     contract_id: int = Field(..., ge=1, description="ID контракта")
     object_id: int = Field(..., ge=1, description="ID объекта")
     description: Optional[str] = Field(None, max_length=1000, description="Описание заявки")

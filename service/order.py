@@ -337,6 +337,20 @@ async def create_order(
     await check_permission(current_user, "order_create", "создания заявок")
 
     async with new_session() as session:
+        # Тип не передан: для заявки на устранение — системный «Устранение
+        # неисправности» (code='fix', миграция d6e7f8a9b0c1), иначе 400.
+        if order_create.spec_order_id is None:
+            if not order_create.issue_id:
+                raise HTTPException(status_code=400, detail="Не указан тип заявки")
+            from data import spec_order as spec_order_data
+            fix_type = await spec_order_data.get_spec_order_by_code(session, 'fix')
+            if not fix_type:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Не найден системный тип заявки «Устранение неисправности»",
+                )
+            order_create.spec_order_id = fix_type.id
+
         # Проверка существования всех связанных объектов
         if not await order_data.check_spec_order_exists(session, order_create.spec_order_id):
             raise HTTPException(
