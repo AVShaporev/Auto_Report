@@ -92,6 +92,9 @@ class IssueResponse(IssueBase):
     equipment_inventory_number: Optional[str] = Field(None, description="Инвентарный номер оборудования")
     reported_by_name: Optional[str] = Field(None, description="Имя пользователя, сообщившего о неисправности")
     assigned_to_name: Optional[str] = Field(None, description="Имя ответственного пользователя")
+    contract_id: Optional[int] = Field(None, description="ID договора объекта (префилл заявки на устранение)")
+    order_id: Optional[int] = Field(None, description="ID заявки на устранение")
+    order_number: Optional[str] = Field(None, description="Номер заявки на устранение")
 
     model_config = ConfigDict(from_attributes=True)
 

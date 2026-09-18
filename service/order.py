@@ -11,6 +11,7 @@ from model.contract import Contract
 from model.object import Object
 from model.period import Period
 from model.spec_order import Spec_Order
+from model.issue import Issue
 from data import order as order_data
 from service.activity_log import log_activity
 from service.due_date import compute_due_date
@@ -228,6 +229,19 @@ async def get_order_with_details(
                 order.report.status.name
                 if (order.report and order.report.status) else None
             ),
+            "fix_issues": [
+                {
+                    "id": issue.id,
+                    "number": issue.number,
+                    "title": issue.title,
+                    "status_name": issue.status.name if issue.status else None,
+                }
+                for issue in (await session.execute(
+                    select(Issue)
+                    .where(Issue.order_id == order.id)
+                    .order_by(Issue.id)
+                )).scalars().all()
+            ],
         }
 
 async def get_orders_paginated_with_details(
@@ -350,6 +364,42 @@ async def create_order(
                 detail=f"Пользователь с id {order_create.assigned_to_id} не существует",
             )
 
+        # Заявка на устранение неисправности: неисправность должна быть на
+        # том же объекте, ещё не устранена и без заявки (1 неисправность →
+        # 1 заявка на устранение).
+        fix_issue = None
+        if order_create.issue_id:
+            fix_issue = await session.get(Issue, order_create.issue_id)
+            if not fix_issue:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Неисправность с id {order_create.issue_id} не найдена",
+                )
+            if (
+                not fix_issue.object_equipment
+                or fix_issue.object_equipment.object_id != order_create.object_id
+            ):
+                raise HTTPException(
+                    status_code=400,
+                    detail="Неисправность относится к другому объекту",
+                )
+            if fix_issue.is_resolved:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Неисправность №{fix_issue.number} уже устранена",
+                )
+            if fix_issue.order_id:
+                existing_number = (await session.execute(
+                    select(Order.number).where(Order.id == fix_issue.order_id)
+                )).scalar_one_or_none()
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        f"Для неисправности №{fix_issue.number} уже создана "
+                        f"заявка на устранение №{existing_number or fix_issue.order_id}"
+                    ),
+                )
+
         # Подгружаем контракт с заказчиком и тип заявки — нужно для маски номера.
         contract = (await session.execute(
             select(Contract)
@@ -433,6 +483,30 @@ async def create_order(
             action='create', entity='order', entity_id=order.id,
             summary=f'Создал заявку №{order.number}',
         )
+
+        if fix_issue is not None:
+            from data import spec_status as spec_status_data
+            fix_issue.order_id = order.id
+            status_note = ''
+            # «Новая» → «В работе»: неисправность взята в работу заявкой.
+            # Другие статусы (уже «В работе» и т.п.) не трогаем.
+            if fix_issue.status and fix_issue.status.code == 'new':
+                in_progress = await spec_status_data.get_spec_status_by_code(
+                    session, 'in_progress'
+                )
+                if in_progress:
+                    fix_issue.status_id = in_progress.id
+                    status_note = f', статус → {in_progress.name}'
+            await session.commit()
+            await log_activity(
+                session, current_user,
+                action='update', entity='issue', entity_id=fix_issue.id,
+                summary=(
+                    f'Создал заявку на устранение №{order.number} '
+                    f'для неисправности №{fix_issue.number}{status_note}'
+                ),
+                details={'order_id': order.id},
+            )
 
         # Push-уведомление ответственному, если заявка сразу создана с
         # assigned_to_id (и это не текущий пользователь — сам себе не

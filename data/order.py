@@ -385,7 +385,8 @@ async def create_order(
     Если OrderCreate.status_id не задан — берём дефолтный
     (spec_order_statuses.is_default=true).
     """
-    order_data = order_create.model_dump()
+    # issue_id — не колонка orders: связь пишется в issues.order_id (сервис).
+    order_data = order_create.model_dump(exclude={'issue_id'})
     order_data['user_id'] = user_id
     order_data['number'] = number
 

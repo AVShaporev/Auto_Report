@@ -37,8 +37,20 @@ class OrderCreate(BaseModel):
     due_date: Optional[date] = Field(
         None, description="Срок исполнения; None → авто по sla_kind типа"
     )
+    # Заявка на устранение неисправности: после создания заявки
+    # issues.order_id = id заявки, статус неисправности «Новая» → «В работе».
+    issue_id: Optional[int] = Field(
+        None, ge=1, description="ID неисправности, которую устраняет заявка"
+    )
 
     model_config = ConfigDict(from_attributes=True)
+
+class OrderFixIssueRef(BaseModel):
+    """Неисправность, которую устраняет заявка"""
+    id: int
+    number: str
+    title: str
+    status_name: Optional[str] = None
 
 # Схема для обновления заявки (все поля опциональны)
 class OrderUpdate(BaseModel):
@@ -97,6 +109,9 @@ class OrderResponse(BaseModel):
     report_number: Optional[str] = Field(None, description="Номер отчета")
     report_status_name: Optional[str] = Field(
         None, description="Ру-имя статуса связанного отчёта (для отчётного маркера)"
+    )
+    fix_issues: List[OrderFixIssueRef] = Field(
+        default_factory=list, description="Неисправности, которые устраняет заявка"
     )
 
     model_config = ConfigDict(from_attributes=True)
