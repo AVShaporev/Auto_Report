@@ -67,6 +67,16 @@ class Issue(Base):
         comment="ID ответственного пользователя"
     )
 
+    # Заявка на устранение (создаётся из карточки неисправности, 1:1).
+    # Без relationship: номер заявки для ответа берём отдельным select'ом,
+    # чтобы не тянуть в каждый SELECT неисправностей граф Order'а.
+    order_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("orders.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+        comment="ID заявки на устранение",
+    )
+
     # 👇 ИЗМЕНЕНО: отношения
     status: Mapped["Spec_Status"] = relationship(
         "Spec_Status",

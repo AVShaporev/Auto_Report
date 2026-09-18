@@ -227,6 +227,7 @@ async def get_issue_with_details(
         object_address = None
         customer_id = None
         customer_name = None
+        contract_id = None
 
         if issue.object_equipment:
             object_id = issue.object_equipment.object_id
@@ -238,12 +239,22 @@ async def get_issue_with_details(
                 from service.render_docx import build_address
                 object_name = obj.name
                 object_address = build_address(obj)
+                contract_id = obj.contract_id
                 if obj.contract:
                     customer_id = obj.contract.customer_id
                     if obj.contract.customer:
                         customer_name = obj.contract.customer.name
             if issue.object_equipment.equipment:
                 equipment_name = issue.object_equipment.equipment.name
+
+        # Заявка на устранение — отдельным select'ом (relationship на Order
+        # в модели нет намеренно, см. model/issue.py).
+        order_number = None
+        if issue.order_id:
+            from model.order import Order
+            order_number = (await session.execute(
+                select(Order.number).where(Order.id == issue.order_id)
+            )).scalar_one_or_none()
 
         return {
             "id": issue.id,
@@ -274,7 +285,10 @@ async def get_issue_with_details(
             "equipment_name": equipment_name,
             "equipment_inventory_number": equipment_inventory_number,
             "reported_by_name": issue.reported_by.name if issue.reported_by else None,
-            "assigned_to_name": issue.assigned_to.name if issue.assigned_to else None
+            "assigned_to_name": issue.assigned_to.name if issue.assigned_to else None,
+            "contract_id": contract_id,
+            "order_id": issue.order_id,
+            "order_number": order_number,
         }
 
 async def get_issues_paginated_with_details(
