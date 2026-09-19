@@ -79,7 +79,13 @@ OBJECT_COLUMNS = [
     ("responsible_face", "Ответственное лицо", True, "ФИО ответственного на объекте, 2–100 символов."),
     ("responsible_contact", "Контакт ответственного", True, "Телефон или e-mail, 5–100 символов."),
     ("description", "Описание", False, "Комментарий к объекту."),
+    ("requires_signature", "Подпись обязательна", False,
+     "да / нет (пусто = нет). «да» — отчёт нельзя отправить на утверждение без подписи "
+     "представителя заказчика знаком в мобильном приложении."),
 ]
+
+_YES = {"да", "yes", "y", "1", "true", "+", "д"}
+_NO = {"нет", "no", "n", "0", "false", "-", "н", ""}
 EQUIPMENT_COLUMNS = [
     ("object", "Объект", True, "Точно как на листе «Объекты» или как у объекта, уже заведённого в договоре."),
     ("system", "Система", False, "Например «Автоматическая пожарная сигнализация». Новая — будет создана."),
@@ -323,6 +329,10 @@ async def build_plan(content: bytes, contract_id: int) -> ImportPlan:
         _len_err(r.errors, "Контакт ответственного", v["responsible_contact"], 5, 100)
         _len_err(r.errors, "Дом", v["build_number"], 1, 50)
         _len_err(r.errors, "Помещение", v["room_number"], 1, 50)
+        flag = _norm(v.get("requires_signature") or "")
+        if flag not in _YES and flag not in _NO:
+            r.errors.append(f"«Подпись обязательна»: «{v['requires_signature']}» — нужно «да» или «нет»")
+        v["requires_signature_bool"] = flag in _YES
 
         key = _norm(v["name"])
         if v["name"] and key in seen:
@@ -548,6 +558,7 @@ async def commit_plan(content: bytes, contract_id: int, current_user: User) -> d
                 period_id=ids["period"][_norm(v["period"])],
                 contract_id=contract_id,
                 description=v["description"],
+                requires_signature=v.get("requires_signature_bool", False),
             ), current_user)
             object_ids[_norm(v["name"])] = obj.id
             created_objects += 1
@@ -639,7 +650,8 @@ async def build_template() -> bytes:
             ws.column_dimensions[get_column_letter(col)].width = max(16, len(caption) + 6)
             if key in lookups:
                 strict, catalog_caption = lookups[key]
-                dv = DataValidation(type="list", formula1=ranges[catalog_caption], allow_blank=True,
+                formula = '"да,нет"' if catalog_caption == "__yes_no__" else ranges[catalog_caption]
+                dv = DataValidation(type="list", formula1=formula, allow_blank=True,
                                     showErrorMessage=strict)
                 if strict:
                     dv.error = "Выберите значение из списка (лист «Справочники»)."
@@ -651,6 +663,7 @@ async def build_template() -> bytes:
         return ws
 
     ws_o = sheet(SHEET_OBJECTS, OBJECT_COLUMNS, {
+        "requires_signature": (True, "__yes_no__"),
         "region": (True, "Регионы"), "arial": (False, "Районы"), "locality": (False, "Населённые пункты"),
         "spec_build": (True, "Типы строений"), "spec_room": (True, "Типы помещений"),
         "period": (True, "Периодичность ТО"),

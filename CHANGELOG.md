@@ -5,6 +5,42 @@
 версионирование [SemVer](https://semver.org/lang/ru/) — bump на каждый
 фикс/фичу; см. правило в feedback_autoreport_versioning.md.
 
+## [1.0.70] — 2026-09-19
+
+### Changed — подпись заказчика: узор 4×4 (простая электронная подпись) вместо картинки
+Заказчик подписывает бумажный акт как обычно, а в электронном отчёте
+подтверждает выполнение работ своим секретным знаком: узор по сетке 4×4,
+который задал сам. Картинка-росчерк 1.0.69 (была только на stage) убрана.
+- Миграция `f8a9b0c1d2e3`: `objects.requires_signature` («подтверждение
+  выполнения работ подписью ответственного», по умолчанию false);
+  `customer_representatives` (представители заказчика на объекте: ФИО,
+  должность, контакты, bcrypt(HMAC(SECRET_KEY, узор)), счётчик ошибок,
+  блокировка, одноразовая ссылка — sha256 токена, 72 ч); `app_keys` (RSA-2048
+  организации для офлайн-подписи); `reports`: `signature_path` удалён,
+  добавлены `representative_id`, `signature_status` (verified | failed),
+  `signature_code`.
+- API (`api/customer_representative.py`):
+  `GET/POST /api/object/{id}/representatives`, `PUT /api/representative/{id}`,
+  `POST /api/representative/{id}/enroll-link`; без входа —
+  `GET/POST /api/public/sign-setup/{token}` (узор дважды, ≥ 5 точек);
+  `GET /api/signature/public-key`; `POST /api/signature/verify` → токен
+  подписи (JWT, 2 ч) или 400 «осталось попыток: N» / 423 после 5 ошибок
+  (снимается новой ссылкой).
+- Отчёт: `signature_token` (онлайн) или `signature_offline`
+  ({representative_id, encrypted: RSA-OAEP SHA-256 {pattern, order_id,
+  signed_at, nonce}}) в create/update, `clear_signature` в update. Неверный
+  офлайн-узор не роняет сохранение — подпись «failed». Код подписи —
+  HMAC(отчёт|представитель|время), «7F3A-91C2».
+- `requires_signature` на объекте: «На утверждении» и «Утверждён» — 400 без
+  подтверждённой подписи.
+- Акт: `{{ customer_signature }}` = «Подписано простой электронной подписью:
+  ФИО, должность, дата, код …»; `report.signature_code`,
+  `report.signature_line`, `report.is_signed` (только verified).
+- Импорт из Excel: колонка «Подпись обязательна» (да/нет).
+- `service/report_signature.py`, `GET /api/report/{id}/signature`,
+  `tests/test_report_signature.py` удалены; `tests/test_customer_signature.py`
+  — 5 тестов (ссылка, онлайн + акт, блокировка, офлайн, флаг объекта).
+
 ## [1.0.69] — 2026-09-19
 
 ### Added — подпись заказчика под отчётом

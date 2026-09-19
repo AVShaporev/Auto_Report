@@ -15,18 +15,13 @@ class ReportBase(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-# ========== ПОДПИСЬ ЗАКАЗЧИКА ==========
+# ========== ПОДПИСЬ ПРЕДСТАВИТЕЛЯ ЗАКАЗЧИКА (узор, ПЭП) ==========
 
-class CustomerSignatureIn(BaseModel):
-    """Подпись заказчика с телефона инженера.
-
-    image — data URL «data:image/png;base64,…» (или чистый base64 PNG).
-    signed_at — время подписания на телефоне: отчёт мог уйти из офлайн-очереди
-    позже. Не передано — время сервера.
-    """
-    image: str = Field(..., min_length=100, max_length=600_000)
-    signer_name: str = Field(..., min_length=2, max_length=150, description="ФИО подписавшего")
-    signer_position: Optional[str] = Field(None, max_length=150, description="Должность подписавшего")
+class SignatureOffline(BaseModel):
+    """Подпись, поставленная без сети: узор зашифрован открытым ключом
+    организации (GET /api/signature/public-key), проверка — на сервере."""
+    representative_id: int = Field(..., ge=1)
+    encrypted: str = Field(..., min_length=16, max_length=4096, description="base64 RSA-OAEP(SHA-256)")
     signed_at: Optional[datetime] = None
 
 
@@ -51,8 +46,10 @@ class ReportCreate(BaseModel):
     description: Optional[str] = Field(None, max_length=1000, description="Описание отчета")
     report_period: str = Field(..., pattern=r"^\d{4}-(0[1-9]|1[0-2])$",
                                description="Отчётный период в формате YYYY-MM")
-    customer_signature: Optional[CustomerSignatureIn] = Field(
-        None, description="Подпись заказчика (необязательно)")
+    # Подпись представителя заказчика: онлайн — токен из POST
+    # /api/signature/verify, офлайн — зашифрованный узор.
+    signature_token: Optional[str] = Field(None, max_length=2000)
+    signature_offline: Optional[SignatureOffline] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -66,9 +63,11 @@ class ReportUpdate(BaseModel):
     contract_id: Optional[int] = Field(None, ge=1)
     object_id: Optional[int] = Field(None, ge=1)
     description: Optional[str] = Field(None, max_length=1000)
-    # Передано объектом — заменить подпись; передано null — убрать; не
-    # передано — не трогать. До утверждения отчёта.
-    customer_signature: Optional[CustomerSignatureIn] = None
+    # Подпись: токен или офлайн-узор — поставить/заменить; clear_signature —
+    # убрать. До утверждения отчёта.
+    signature_token: Optional[str] = Field(None, max_length=2000)
+    signature_offline: Optional[SignatureOffline] = None
+    clear_signature: bool = False
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -123,7 +122,7 @@ class ReportListResponse(BaseModel):
             "user_name": data.user.name if data.user else None,
             "order_id": data.order.id if data.order else None,
             "order_number": data.order.number if data.order else None,
-            "has_signature": bool(data.signature_path),
+            "is_signed": data.signature_status == "verified",
         }
         # Только детальный ответ: в списках object грузится без адресных
         # spec_*-цепочек (см. data/report.py::get_report_by_id).
@@ -149,8 +148,11 @@ class ReportResponse(ReportListResponse):
     customer_id: Optional[int] = None
     customer_name: Optional[str] = None
     object_address: Optional[str] = None
-    # Подпись заказчика: картинка — GET /api/report/{id}/signature
-    has_signature: bool = False
+    # Подпись представителя заказчика узором (ПЭП)
+    representative_id: Optional[int] = None
+    signature_status: Optional[str] = None      # verified | failed
+    signature_code: Optional[str] = None
+    is_signed: bool = False
     signer_name: Optional[str] = None
     signer_position: Optional[str] = None
     signed_at: Optional[datetime] = None

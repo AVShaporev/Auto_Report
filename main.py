@@ -22,6 +22,7 @@ from service.order_autogen import tick_planned_orders
 
 from api import spec_contract as api_spec_contract
 from api import import_objects as api_import_objects
+from api import customer_representative as api_customer_representative
 from api import contract as api_contract
 from api import sub_contract as api_sub_contract
 from api import spec_job_title as api_spec_job_title
@@ -329,6 +330,7 @@ app.include_router(api_autogen.router)
 app.include_router(api_tenant.router)
 app.include_router(api_mobile.router)
 app.include_router(api_import_objects.router)
+app.include_router(api_customer_representative.router)
 
 # запуск приложения fastapi
 if __name__ == "__main__":

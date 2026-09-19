@@ -48,6 +48,8 @@ from model.media_upload_session import MediaUploadSession
 from model.contract import Contract
 from model.sub_contract import Sub_Contract
 from model.object import Object
+from model.customer_representative import Customer_Representative
+from model.app_key import App_Key
 from model.equipment import Equipment
 from model.objects_equipment import Objects_Equipment
 from model.operation import Operation  # содержит Table operations_spec_equipments
@@ -72,7 +74,7 @@ __all__ = [
     "Role", "User", "UserSession", "PushToken", "IdempotencyKey",
     "MediaUploadSession",
     "Contract", "Sub_Contract",
-    "Object", "Equipment", "Objects_Equipment",
+    "Object", "Customer_Representative", "App_Key", "Equipment", "Objects_Equipment",
     "Operation",
     "Order", "Issue", "Report",
     "Report_Attachment", "Issue_Attachment",

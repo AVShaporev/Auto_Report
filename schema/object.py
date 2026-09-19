@@ -20,6 +20,8 @@ class ObjectBase(BaseModel):
     spec_room_id: Optional[int] = Field(None, ge=1, description="ID типа помещения (опционально)")
     period_id: int = Field(..., ge=1, description="ID периода")
     contract_id: int = Field(..., ge=1, description="ID контракта")
+    requires_signature: bool = Field(
+        False, description="Подтверждение выполнения работ подписью ответственного (узор ПЭП)")
     
     model_config = ConfigDict(from_attributes=True)
 
@@ -46,6 +48,7 @@ class ObjectUpdate(BaseModel):
     spec_room_id: Optional[int] = Field(None, ge=1)
     period_id: Optional[int] = Field(None, ge=1)
     contract_id: Optional[int] = Field(None, ge=1)
+    requires_signature: Optional[bool] = None
     
     model_config = ConfigDict(from_attributes=True)
 

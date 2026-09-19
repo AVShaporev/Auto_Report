@@ -27,9 +27,13 @@ class Report(Base):
     created_at: Mapped[date] = mapped_column(default=date.today)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
-    # Подпись заказчика на телефоне инженера (миграция e7f8a9b0c1d2).
-    # Картинка — PNG в MEDIA/reports/<id>/, тут относительный путь.
-    signature_path: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    # Подпись представителя заказчика узором — простая электронная подпись
+    # (миграции e7f8a9b0c1d2, f8a9b0c1d2e3). signature_status: verified |
+    # failed; signer_* — снимок ФИО/должности на момент подписания.
+    representative_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("customer_representatives.id", ondelete="SET NULL"), nullable=True)
+    signature_status: Mapped[Optional[str]] = mapped_column(String(16), nullable=True)
+    signature_code: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     signer_name: Mapped[Optional[str]] = mapped_column(String(150), nullable=True)
     signer_position: Mapped[Optional[str]] = mapped_column(String(150), nullable=True)
     signed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -84,8 +88,8 @@ class Report(Base):
     )
 
     @property
-    def has_signature(self) -> bool:
-        return bool(self.signature_path)
+    def is_signed(self) -> bool:
+        return self.signature_status == "verified"
 
     def __str__(self):
         return f"Report(id={self.id}, number={self.number})"

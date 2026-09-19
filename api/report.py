@@ -13,8 +13,6 @@ from schema.report import (
 )
 from schema.pagination import PaginationParams, PaginatedResponse
 from service import report as report_service
-from service import report_signature
-from fastapi.responses import FileResponse
 from core.dependencies import get_current_active_user
 
 router = APIRouter(prefix="/api/report", tags=["report"])
@@ -197,19 +195,6 @@ async def update_report(
     )
     
     return await report_service.get_report_by_id(report.id, current_user, load_relations=True)
-
-@router.get("/{report_id}/signature")
-async def get_report_signature(
-    report_id: int,
-    current_user: User = Depends(get_current_active_user),
-):
-    """PNG подписи заказчика (право: report_read)."""
-    report = await report_service.get_report_by_id(report_id, current_user)
-    path = report_signature.signature_file(report)
-    if not path:
-        raise HTTPException(status_code=404, detail="У отчёта нет подписи заказчика")
-    return FileResponse(path, media_type="image/png", headers={"Cache-Control": "private, max-age=300"})
-
 
 @router.patch("/{report_id}/status", response_model=ReportResponse)
 async def update_report_status(

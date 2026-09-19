@@ -35,6 +35,9 @@ class Object(Base):
     period_id: Mapped[int] = mapped_column(ForeignKey("periods.id"))
     contract_id: Mapped[int] = mapped_column(ForeignKey("contracts.id"))
     number_in_contract: Mapped[int] = mapped_column(nullable=False)
+    # «Подтверждение выполнения работ подписью ответственного»: отчёт нельзя
+    # отправить на утверждение / утвердить без подписи представителя заказчика.
+    requires_signature: Mapped[bool] = mapped_column(default=False, server_default="false")
 
     # Все отношения через строки
     region: Mapped["Region"] = relationship(

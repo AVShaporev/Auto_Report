@@ -9,7 +9,7 @@ from model.object import Object
 from model.spec_order_status import Spec_Order_Status
 from data import report as report_data
 from service.activity_log import log_activity
-from service import report_signature
+from service import customer_signature
 from schema.report import ReportCreate, ReportUpdate, ReportStatusUpdate
 from schema.pagination import PaginationParams
 from database.database import new_session
@@ -373,15 +373,17 @@ async def create_report(
             summary=f'Создал отчёт №{report.number}',
         )
 
-        # Подпись заказчика с телефона — вместе с отчётом (офлайн-очередь).
-        if report_create.customer_signature is not None:
-            report_signature.save_signature(report, report_create.customer_signature)
+        # Подпись представителя заказчика узором — вместе с отчётом (онлайн
+        # токен или офлайн-узор из очереди мобилки).
+        if report_create.signature_token or report_create.signature_offline:
+            await customer_signature.apply_signature(
+                session, report, order.id,
+                token=report_create.signature_token, offline=report_create.signature_offline)
             await session.commit()
             await log_activity(
                 session, current_user,
                 action='update', entity='report', entity_id=report.id,
-                summary=(f'Отчёт №{report.number}: подпись заказчика '
-                         f'({report.signer_name})'),
+                summary=_signature_summary(report),
             )
 
         # Создание отчёта = инженер начал работу по заявке. Автоматически
@@ -460,26 +462,30 @@ async def update_report(
                         detail=f"{entity_name} с id {update_data[field]} не существует"
                     )
         
-        # Подпись заказчика: объект — заменить, null — убрать. Проверяем до
-        # записи остальных полей, чтобы 400 не оставил отчёт полуизменённым.
-        signature_given = 'customer_signature' in report_update.model_fields_set
+        # Подпись: токен/офлайн-узор — поставить, clear_signature — убрать.
+        # Проверяем до записи остальных полей, чтобы 400 не оставил отчёт
+        # полуизменённым.
+        signature_given = bool(report_update.signature_token or report_update.signature_offline
+                               or report_update.clear_signature)
         if signature_given:
-            report_signature.ensure_not_approved(existing)
+            customer_signature.ensure_not_approved(existing)
 
         # Обновление (user_id нельзя изменить через update)
         report = await report_data.update_report(session, report_id, report_update)
 
         if signature_given:
-            if report_update.customer_signature is None:
-                report_signature.clear_signature(report)
+            if report_update.clear_signature:
+                customer_signature.clear_signature(report)
             else:
-                report_signature.save_signature(report, report_update.customer_signature)
+                order_id = report.order.id if report.order else None
+                await customer_signature.apply_signature(
+                    session, report, order_id,
+                    token=report_update.signature_token, offline=report_update.signature_offline)
             await session.commit()
             await session.refresh(report)
-            update_data.pop('customer_signature', None)
-            update_data['customer_signature'] = (
-                f'подписал {report.signer_name}' if report.signer_name else 'подпись убрана'
-            )
+            for k in ('signature_token', 'signature_offline', 'clear_signature'):
+                update_data.pop(k, None)
+            update_data['signature'] = _signature_summary(report)
 
         changed_keys = ', '.join(sorted(update_data.keys())) or 'нет полей'
         await log_activity(
@@ -540,6 +546,17 @@ async def update_report_status(
                     ),
                 )
 
+        if status.name in (SUBMITTED_STATUS_NAME, APPROVED_STATUS_NAME):
+            current = await report_data.get_report_by_id(session, report_id)
+            if (current and current.object and current.object.requires_signature
+                    and current.signature_status != 'verified'):
+                raise HTTPException(status_code=400, detail=(
+                    "На объекте нужна подпись представителя заказчика: попросите "
+                    "его подписать отчёт знаком в мобильном приложении."
+                    + (" Последняя подпись не подтвердилась — знак не совпал."
+                       if current.signature_status == 'failed' else "")
+                ))
+
         report = await report_data.update_report_status(session, report_id, status_update.status_id)
 
         if not report:
@@ -558,6 +575,16 @@ async def update_report_status(
         if status.name == APPROVED_STATUS_NAME:
             await _resolve_fixed_issues(session, report, current_user)
         return report
+
+
+def _signature_summary(report: Report) -> str:
+    if report.signature_status == 'verified':
+        return (f'Отчёт №{report.number}: подписан представителем заказчика '
+                f'{report.signer_name} (код {report.signature_code})')
+    if report.signature_status == 'failed':
+        return (f'Отчёт №{report.number}: подпись {report.signer_name} не подтверждена — '
+                f'знак не совпал')
+    return f'Отчёт №{report.number}: подпись убрана'
 
 
 async def _resolve_fixed_issues(session, report: Report, current_user: User) -> None:

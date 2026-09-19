@@ -301,18 +301,30 @@ def _report_to_dict(report: Optional[Report]) -> dict:
             "number": "", "date": "", "date_long": "", "month": "",
             "description": "", "engineer": "", "status": "", "is_approved": False,
             "is_signed": False, "signer_name": "", "signer_position": "", "signed_at": "",
+            "signature_code": "", "signature_line": "",
         }
     status_name = report.status.name if report.status else ""
     signed_at = ""
     if report.signed_at:
         from zoneinfo import ZoneInfo
         signed_at = report.signed_at.astimezone(ZoneInfo("Europe/Moscow")).strftime("%d.%m.%Y %H:%M")
+    is_signed = report.signature_status == "verified"
+    signature_line = ""
+    if is_signed:
+        who = report.signer_name or ""
+        if report.signer_position:
+            who += f", {report.signer_position}"
+        signature_line = (f"Подписано простой электронной подписью: {who}, {signed_at}, "
+                          f"код {report.signature_code}")
     return {
-        # Подпись заказчика на телефоне инженера (картинка — {{ customer_signature }}).
-        "is_signed": bool(report.signature_path),
-        "signer_name": report.signer_name or "",
-        "signer_position": report.signer_position or "",
-        "signed_at": signed_at,
+        # Подпись представителя заказчика узором (ПЭП) — {{ customer_signature }}
+        # = signature_line; только подтверждённая.
+        "is_signed": is_signed,
+        "signer_name": (report.signer_name or "") if is_signed else "",
+        "signer_position": (report.signer_position or "") if is_signed else "",
+        "signed_at": signed_at if is_signed else "",
+        "signature_code": (report.signature_code or "") if is_signed else "",
+        "signature_line": signature_line,
         "number": report.number or "",
         "date": _fmt_date(report.created_at),
         "date_long": _fmt_date_long(report.created_at),
@@ -557,11 +569,9 @@ async def render_order_document(
     # а не в _build_context). Автор шаблона сам решает, вставлять {{ qr }}
     # и где именно; если {{ qr }} в шаблоне отсутствует — QR не появится.
     doc = _open_docx_template(template_abs)
-    # Подпись заказчика картинкой ~4 см; нет подписи — пустая строка (акт
-    # подписывают на бумаге).
-    from service.report_signature import signature_file
-    sig_path = signature_file(order.report) if order.report else None
-    context["customer_signature"] = InlineImage(doc, str(sig_path), width=Mm(40)) if sig_path else ""
+    # Подпись представителя заказчика (ПЭП) — строка «Подписано простой
+    # электронной подписью: …, код …»; нет подписи — пусто.
+    context["customer_signature"] = context["report"]["signature_line"]
     qr_url = _build_qr_url(order_id)
     qr_buf = _make_qr_bytes(qr_url) if qr_url else None
     if qr_buf is not None:

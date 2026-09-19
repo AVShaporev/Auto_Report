@@ -358,7 +358,8 @@ async def create_report(
     report_data = report_create.model_dump()
     report_data.pop('report_period', None)
     report_data.pop('order_id', None)  # связь хранится в orders.report_id
-    report_data.pop('customer_signature', None)  # файл — service/report_signature.py
+    for k in ('signature_token', 'signature_offline'):  # service/customer_signature.py
+        report_data.pop(k, None)
     report_data['user_id'] = user_id
     report_data['number'] = number
     report_data['status_id'] = status_id
@@ -385,7 +386,8 @@ async def update_report(
         return None
 
     update_data = report_update.model_dump(exclude_unset=True)
-    update_data.pop('customer_signature', None)  # файл — service/report_signature.py
+    for k in ('signature_token', 'signature_offline', 'clear_signature'):  # service/customer_signature.py
+        update_data.pop(k, None)
     for field, value in update_data.items():
         if hasattr(report, field):
             setattr(report, field, value)
