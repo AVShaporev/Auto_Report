@@ -63,7 +63,8 @@ async def get_spec_order_options(
         {
             "id": item.id,
             "name": item.name,
-            "short_name": item.short_name
+            "short_name": item.short_name,
+            "code": item.code,
         }
         for item in spec_orders
     ]
@@ -87,6 +88,8 @@ async def get_all_spec_orders(
             "id": item.id,
             "name": item.name,
             "short_name": item.short_name,
+            # code нужен фронту: заявка на устранение ищет тип code='fix'
+            "code": item.code,
             "is_system": item.is_system,
             "is_default_planned": item.is_default_planned,
             "is_default_primary": item.is_default_primary,
