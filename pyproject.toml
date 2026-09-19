@@ -47,6 +47,7 @@ python-docx = "^1.2.0"
 # Feature-flag через FCM_SERVICE_ACCOUNT_PATH — если не задан, service/push.py
 # работает в no-op режиме (лог warning, никаких падений).
 firebase-admin = "^6.5.0"
+openpyxl = "^3.1.5"
 
 
 [tool.poetry.group.dev.dependencies]
