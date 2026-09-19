@@ -38,6 +38,7 @@ from model.spec_journal import Spec_Journal
 from model.objects_equipment import Objects_Equipment
 from config import MEDIA_PATH, settings
 from service.order import check_permission
+from service.address import address_parts
 
 
 # ---------------------------------------------------------------------------
@@ -89,29 +90,11 @@ def _format_director_full_name(org: Organization) -> str:
 
 
 def build_address(obj: ObjectModel) -> str:
-    parts = []
-    if obj.region and obj.region.name:
-        parts.append(f"{obj.region.name} {obj.region.spec_region.name}")
-    if obj.arial and obj.arial.name:
-        parts.append(f"{obj.arial.name} {obj.arial.spec_arial.name}")
-    if obj.locality and obj.locality.name:
-        prefix = ""
-        sl = getattr(obj.locality, "spec_locality", None)
-        if sl and getattr(sl, "short_name", None):
-            prefix = f"{sl.short_name} "
-        parts.append(f"{prefix}{obj.locality.name}".strip())
-    if obj.street and obj.street.name:
-        prefix = ""
-        ss = getattr(obj.street, "spec_street", None)
-        if ss and getattr(ss, "short_name", None):
-            prefix = f"{ss.short_name} "
-        parts.append(f"{prefix}{obj.street.name}".strip())
-    if obj.build_number:
-        prefix = obj.spec_build.name if obj.spec_build and obj.spec_build.name else "д."
-        parts.append(f"{prefix} {obj.build_number}".strip())
-    if obj.room_number:
-        prefix = obj.spec_room.name if obj.spec_room and obj.spec_room.name else "пом."
-        parts.append(f"{prefix} {obj.room_number}".strip())
+    """Полный адрес объекта одной строкой (акты, карточки, API).
+
+    Логика и защита от дублей типа («ул. ул. Тверская») — service/address.py.
+    """
+    parts = address_parts(obj)
     return ", ".join(parts) if parts else "—"
 
 
@@ -213,36 +196,14 @@ def _fmt_date(d: Optional[date]) -> str:
 def _build_org_address(org: Optional[Organization]) -> str:
     """
     Собрать полный адрес организации одной строкой.
-    Аналог `build_address`, но для Organization
-    (у которой набор полей и связей идентичен Object).
+    Аналог `build_address`, но для Organization (у неё тот же набор полей и
+    связей, что у Object) + почтовый индекс впереди; помещение всегда «пом.».
     """
     if not org:
         return ""
-    parts: list[str] = []
+    parts = address_parts(org, use_spec_room=False)
     if org.postal_code:
-        parts.append(org.postal_code)
-    if org.region and org.region.name:
-        sr = getattr(org.region, "spec_region", None)
-        suffix = f" {sr.name}" if sr and sr.name else ""
-        parts.append(f"{org.region.name}{suffix}")
-    if org.arial and org.arial.name:
-        sa = getattr(org.arial, "spec_arial", None)
-        suffix = f" {sa.name}" if sa and sa.name else ""
-        parts.append(f"{org.arial.name}{suffix}")
-    if org.locality and org.locality.name:
-        sl = getattr(org.locality, "spec_locality", None)
-        prefix = f"{sl.short_name} " if sl and getattr(sl, "short_name", None) else ""
-        parts.append(f"{prefix}{org.locality.name}".strip())
-    if org.street and org.street.name:
-        ss = getattr(org.street, "spec_street", None)
-        prefix = f"{ss.short_name} " if ss and getattr(ss, "short_name", None) else ""
-        parts.append(f"{prefix}{org.street.name}".strip())
-    if org.build_number:
-        sb = getattr(org, "spec_build", None)
-        prefix = sb.name if sb and sb.name else "д."
-        parts.append(f"{prefix} {org.build_number}".strip())
-    if org.room_number:
-        parts.append(f"пом. {org.room_number}".strip())
+        parts.insert(0, str(org.postal_code))
     return ", ".join(p for p in parts if p)
 
 
