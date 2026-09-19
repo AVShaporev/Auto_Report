@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field, ConfigDict, model_validator
 from typing import Optional, List
-from datetime import date
+from datetime import date, datetime
 
 # ========== БАЗОВЫЕ СХЕМЫ ==========
 
@@ -13,6 +13,21 @@ class ReportBase(BaseModel):
     description: Optional[str] = Field(None, max_length=1000, description="Описание отчета")
     
     model_config = ConfigDict(from_attributes=True)
+
+
+# ========== ПОДПИСЬ ЗАКАЗЧИКА ==========
+
+class CustomerSignatureIn(BaseModel):
+    """Подпись заказчика с телефона инженера.
+
+    image — data URL «data:image/png;base64,…» (или чистый base64 PNG).
+    signed_at — время подписания на телефоне: отчёт мог уйти из офлайн-очереди
+    позже. Не передано — время сервера.
+    """
+    image: str = Field(..., min_length=100, max_length=600_000)
+    signer_name: str = Field(..., min_length=2, max_length=150, description="ФИО подписавшего")
+    signer_position: Optional[str] = Field(None, max_length=150, description="Должность подписавшего")
+    signed_at: Optional[datetime] = None
 
 
 # ========== СХЕМЫ ДЛЯ СОЗДАНИЯ ==========
@@ -36,6 +51,8 @@ class ReportCreate(BaseModel):
     description: Optional[str] = Field(None, max_length=1000, description="Описание отчета")
     report_period: str = Field(..., pattern=r"^\d{4}-(0[1-9]|1[0-2])$",
                                description="Отчётный период в формате YYYY-MM")
+    customer_signature: Optional[CustomerSignatureIn] = Field(
+        None, description="Подпись заказчика (необязательно)")
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -49,7 +66,10 @@ class ReportUpdate(BaseModel):
     contract_id: Optional[int] = Field(None, ge=1)
     object_id: Optional[int] = Field(None, ge=1)
     description: Optional[str] = Field(None, max_length=1000)
-    
+    # Передано объектом — заменить подпись; передано null — убрать; не
+    # передано — не трогать. До утверждения отчёта.
+    customer_signature: Optional[CustomerSignatureIn] = None
+
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -103,6 +123,7 @@ class ReportListResponse(BaseModel):
             "user_name": data.user.name if data.user else None,
             "order_id": data.order.id if data.order else None,
             "order_number": data.order.number if data.order else None,
+            "has_signature": bool(data.signature_path),
         }
         # Только детальный ответ: в списках object грузится без адресных
         # spec_*-цепочек (см. data/report.py::get_report_by_id).
@@ -128,6 +149,11 @@ class ReportResponse(ReportListResponse):
     customer_id: Optional[int] = None
     customer_name: Optional[str] = None
     object_address: Optional[str] = None
+    # Подпись заказчика: картинка — GET /api/report/{id}/signature
+    has_signature: bool = False
+    signer_name: Optional[str] = None
+    signer_position: Optional[str] = None
+    signed_at: Optional[datetime] = None
 
 
 # ========== СХЕМА ДЛЯ ВЫПАДАЮЩЕГО СПИСКА ==========

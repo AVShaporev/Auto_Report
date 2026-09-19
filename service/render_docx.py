@@ -23,6 +23,7 @@ from urllib.parse import quote
 
 from fastapi import HTTPException
 from docxtpl import DocxTemplate, InlineImage
+from docx.shared import Mm
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
@@ -299,9 +300,19 @@ def _report_to_dict(report: Optional[Report]) -> dict:
         return {
             "number": "", "date": "", "date_long": "", "month": "",
             "description": "", "engineer": "", "status": "", "is_approved": False,
+            "is_signed": False, "signer_name": "", "signer_position": "", "signed_at": "",
         }
     status_name = report.status.name if report.status else ""
+    signed_at = ""
+    if report.signed_at:
+        from zoneinfo import ZoneInfo
+        signed_at = report.signed_at.astimezone(ZoneInfo("Europe/Moscow")).strftime("%d.%m.%Y %H:%M")
     return {
+        # Подпись заказчика на телефоне инженера (картинка — {{ customer_signature }}).
+        "is_signed": bool(report.signature_path),
+        "signer_name": report.signer_name or "",
+        "signer_position": report.signer_position or "",
+        "signed_at": signed_at,
         "number": report.number or "",
         "date": _fmt_date(report.created_at),
         "date_long": _fmt_date_long(report.created_at),
@@ -546,14 +557,15 @@ async def render_order_document(
     # а не в _build_context). Автор шаблона сам решает, вставлять {{ qr }}
     # и где именно; если {{ qr }} в шаблоне отсутствует — QR не появится.
     doc = _open_docx_template(template_abs)
+    # Подпись заказчика картинкой ~4 см; нет подписи — пустая строка (акт
+    # подписывают на бумаге).
+    from service.report_signature import signature_file
+    sig_path = signature_file(order.report) if order.report else None
+    context["customer_signature"] = InlineImage(doc, str(sig_path), width=Mm(40)) if sig_path else ""
     qr_url = _build_qr_url(order_id)
     qr_buf = _make_qr_bytes(qr_url) if qr_url else None
     if qr_buf is not None:
-        try:
-            from docx.shared import Mm
-            context["qr"] = InlineImage(doc, qr_buf, width=Mm(30))
-        except ImportError:
-            context["qr"] = ""
+        context["qr"] = InlineImage(doc, qr_buf, width=Mm(30))
     else:
         context["qr"] = ""
     doc.render(context)

@@ -1,7 +1,7 @@
 from typing import List, Optional, TYPE_CHECKING
-from datetime import date
+from datetime import date, datetime
 
-from sqlalchemy import ForeignKey, Text
+from sqlalchemy import DateTime, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from database.database import Base, int_pk, str_uniq, str_null_true
@@ -26,6 +26,13 @@ class Report(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     created_at: Mapped[date] = mapped_column(default=date.today)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    # Подпись заказчика на телефоне инженера (миграция e7f8a9b0c1d2).
+    # Картинка — PNG в MEDIA/reports/<id>/, тут относительный путь.
+    signature_path: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    signer_name: Mapped[Optional[str]] = mapped_column(String(150), nullable=True)
+    signer_position: Mapped[Optional[str]] = mapped_column(String(150), nullable=True)
+    signed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Все отношения через строки
     period: Mapped["Period"] = relationship(
@@ -75,6 +82,10 @@ class Report(Base):
         back_populates="report",
         cascade="all, delete-orphan",
     )
+
+    @property
+    def has_signature(self) -> bool:
+        return bool(self.signature_path)
 
     def __str__(self):
         return f"Report(id={self.id}, number={self.number})"

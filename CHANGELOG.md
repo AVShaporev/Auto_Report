@@ -5,6 +5,28 @@
 версионирование [SemVer](https://semver.org/lang/ru/) — bump на каждый
 фикс/фичу; см. правило в feedback_autoreport_versioning.md.
 
+## [1.0.69] — 2026-09-19
+
+### Added — подпись заказчика под отчётом
+- Миграция `e7f8a9b0c1d2`: `reports.signature_path`, `signer_name`,
+  `signer_position`, `signed_at`.
+- `customer_signature` ({image: data URL PNG, signer_name, signer_position?,
+  signed_at?}) в `ReportCreate` и `ReportUpdate`: подпись едет вместе с отчётом,
+  в т. ч. через офлайн-очередь мобилки. В update: объект — заменить, `null` —
+  убрать, не передано — не трогать. После утверждения отчёта — 400.
+- `service/report_signature.py`: проверка (PNG, ≤ 400 КБ, не пустая),
+  прозрачный фон → белый, обрезка полей вокруг росчерка, ширина ≤ 1600;
+  файл в MEDIA/reports/<id>/, старый удаляется.
+- `GET /api/report/{id}/signature` — PNG (право report_read).
+- `ReportResponse` (и `/mobile/reports/bulk-details`): `has_signature`,
+  `signer_name`, `signer_position`, `signed_at`.
+- Акт: `{{ customer_signature }}` — картинка 4 см (пусто, если подписи нет),
+  `{{ report.signer_name }}`, `{{ report.signer_position }}`,
+  `{{ report.signed_at }}` (ДД.ММ.ГГГГ ЧЧ:ММ МСК), `report.is_signed`.
+- Fix: локальный `from docx.shared import Mm` в render_order_document
+  затенял модульный импорт.
+- `tests/test_report_signature.py` — 4 теста, включая картинку в готовом .docx.
+
 ## [1.0.68] — 2026-09-19
 
 ### Added — импорт объектов и оборудования из Excel
