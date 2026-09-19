@@ -130,6 +130,7 @@ class ReportListResponse(BaseModel):
             # render_docx импортирует service.order — модульный импорт дал бы цикл.
             from service.render_docx import build_address
             result["object_address"] = build_address(data.object) if data.object else None
+            result["object_requires_signature"] = bool(data.object and data.object.requires_signature)
             result["customer_id"] = data.contract.customer_id if data.contract else None
             result["customer_name"] = (
                 data.contract.customer.name
@@ -149,6 +150,7 @@ class ReportResponse(ReportListResponse):
     customer_name: Optional[str] = None
     object_address: Optional[str] = None
     # Подпись представителя заказчика узором (ПЭП)
+    object_requires_signature: bool = False
     representative_id: Optional[int] = None
     signature_status: Optional[str] = None      # verified | failed
     signature_code: Optional[str] = None

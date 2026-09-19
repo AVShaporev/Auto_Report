@@ -171,6 +171,7 @@ async def test_object_flag_blocks_submit_without_signature(client: AsyncClient, 
     resp = await client.post("/api/report/create", headers=h, json={
         "order_id": seeded["order_id"], "report_period": "2026-09"})
     rid = resp.json()["id"]
+    assert resp.json()["object_requires_signature"] is True
 
     for status_id in (seeded["submitted_id"], seeded["approved_id"]):
         resp = await client.patch(f"/api/report/{rid}/status", headers=h, json={"status_id": status_id})
