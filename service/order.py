@@ -221,6 +221,7 @@ async def get_order_with_details(
             ),
             "object_name": order.object.name if order.object else None,
             "object_address": build_address(order.object) if order.object else None,
+            "object_requires_signature": bool(order.object and order.object.requires_signature),
             "user_name": order.user.name if order.user else None,
             "assigned_to_id": order.assigned_to_id,
             "assigned_to_name": order.assigned_to.name if order.assigned_to else None,
