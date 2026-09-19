@@ -46,6 +46,7 @@ async def check_permission(
 # Статусы, из которых автор без report_modify может отправить свой отчёт
 # на утверждение (совпадают с mobile services/reportStatuses.js).
 SUBMITTED_STATUS_NAME = 'На утверждении'
+APPROVED_STATUS_NAME = 'Утверждён'
 AUTHOR_EDITABLE_STATUS_NAMES = ('В работе', 'Отклонён')
 
 
@@ -523,7 +524,56 @@ async def update_report_status(
             summary=f'Сменил статус отчёта №{report.number} → {status.name}',
             details={'new_status_id': status_update.status_id},
         )
+
+        if status.name == APPROVED_STATUS_NAME:
+            await _resolve_fixed_issues(session, report, current_user)
         return report
+
+
+async def _resolve_fixed_issues(session, report: Report, current_user: User) -> None:
+    """Отчёт утверждён → неисправности, которые устраняли его заявки, «Устранена».
+
+    Связь: отчёт ← заявки (orders.report_id) ← неисправности (issues.order_id,
+    «заявка на устранение», backend 1.0.61). Трогаем только неустранённые
+    (is_resolved=false): статус с кодом 'resolved', дата устранения — сегодня.
+    Обратного хода нет: если отчёт потом «разутвердят», неисправность остаётся
+    устранённой — статус можно поменять вручную.
+    """
+    from model.issue import Issue
+    from model.order import Order
+    from data import spec_status as spec_status_data
+
+    issues = (await session.execute(
+        select(Issue)
+        .join(Order, Issue.order_id == Order.id)
+        .where(Order.report_id == report.id, Issue.is_resolved.is_(False))
+    )).scalars().all()
+    if not issues:
+        return
+
+    resolved = await spec_status_data.get_spec_status_by_code(session, 'resolved')
+    if not resolved:
+        # Справочник статусов неисправностей без системного 'resolved' — не
+        # гадаем по названию, просто не трогаем.
+        return
+
+    today = date.today()
+    for issue in issues:
+        issue.status_id = resolved.id
+        issue.is_resolved = True
+        issue.resolved_date = today
+    await session.commit()
+
+    for issue in issues:
+        await log_activity(
+            session, current_user,
+            action='change_status', entity='issue', entity_id=issue.id,
+            summary=(
+                f'Неисправность №{issue.number} → {resolved.name} '
+                f'(утверждён отчёт №{report.number} по заявке на устранение)'
+            ),
+            details={'report_id': report.id, 'resolved_date': today.isoformat()},
+        )
 
 # ========== УДАЛЕНИЕ ==========
 
