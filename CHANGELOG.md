@@ -5,6 +5,13 @@
 версионирование [SemVer](https://semver.org/lang/ru/) — bump на каждый
 фикс/фичу; см. правило в feedback_autoreport_versioning.md.
 
+## [1.0.64] — 2026-09-19
+
+### Added — `GET /api/mobile/order-types`
+- Все типы заявок (`id`, `name`, `short_name`, `code`) для фильтра «по типу»
+  в списке заявок мобилки (mobile ≥ 1.7.19). Только авторизация, как у
+  `/mobile/orders`: у роли инженера может не быть `spec_order_read`.
+
 ## [1.0.63] — 2026-09-19
 
 ### Fixed — форма заявки на устранение не выбирала тип «Устранение неисправности»
