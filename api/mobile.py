@@ -17,6 +17,7 @@ from schema.mobile import (
     MobileObjectEquipmentItem,
     MobileObjectSummaryItem,
     MobileOrderListItem,
+    MobileOrderTypeItem,
     MobileReportListItem,
 )
 from schema.object import ObjectResponse
@@ -200,6 +201,28 @@ async def mobile_orders(
             limit=limit,
         )
     return [MobileOrderListItem(**r) for r in rows]
+
+
+@router.get("/order-types", response_model=List[MobileOrderTypeItem])
+async def mobile_order_types(
+    current_user: User = Depends(get_current_user),
+) -> List[MobileOrderTypeItem]:
+    """Все типы заявок — для фильтра «по типу» в списке заявок мобилки.
+
+    Как и /mobile/orders — только авторизация: у инженера может не быть
+    spec_order_read (права на справочник), а фильтр ему нужен.
+    """
+    from sqlalchemy import select
+    from model.spec_order import Spec_Order
+
+    async with new_session() as session:
+        rows = (await session.execute(
+            select(Spec_Order).order_by(Spec_Order.name)
+        )).scalars().all()
+    return [
+        MobileOrderTypeItem(id=r.id, name=r.name, short_name=r.short_name, code=r.code)
+        for r in rows
+    ]
 
 
 # ============================================================================

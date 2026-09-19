@@ -66,6 +66,14 @@ class MobileReportListItem(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class MobileOrderTypeItem(BaseModel):
+    """Тип заявки (spec_orders) — для фильтра «по типу» в списке заявок мобилки."""
+    id: int
+    name: str
+    short_name: Optional[str] = None
+    code: Optional[str] = None
+
+
 class MobileOrderListItem(BaseModel):
     """Плановая/аварийная заявка на ТО — то, с чем инженер работает на объекте."""
     id: int
