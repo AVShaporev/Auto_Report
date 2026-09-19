@@ -36,6 +36,11 @@ from model.locality import Locality
 from model.street import Street
 from model.spec_journal import Spec_Journal
 from model.objects_equipment import Objects_Equipment
+from model.equipment import Equipment
+from model.spec_equipment import Spec_Equipment
+from model.operation import Operation
+from model.issue import Issue
+from model.report import Report
 from config import MEDIA_PATH, settings
 from service.order import check_permission
 from service.address import address_parts
@@ -78,6 +83,13 @@ _RUSSIAN_MONTHS_GEN = [
     "января", "февраля", "марта", "апреля", "мая", "июня",
     "июля", "августа", "сентября", "октября", "ноября", "декабря",
 ]
+_RUSSIAN_MONTHS_NOM = [
+    "январь", "февраль", "март", "апрель", "май", "июнь",
+    "июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь",
+]
+
+# Статус отчёта, после которого работы считаются выполненными (service/report.py).
+_APPROVED_REPORT_STATUS = "Утверждён"
 
 
 def _format_director_full_name(org: Organization) -> str:
@@ -193,6 +205,114 @@ def _fmt_date(d: Optional[date]) -> str:
     return d.strftime("%d.%m.%Y") if d else ""
 
 
+def _fmt_date_long(d: Optional[date]) -> str:
+    """«07» июня 2026 г."""
+    if not d:
+        return ""
+    return f"«{d.day:02d}» {_RUSSIAN_MONTHS_GEN[d.month - 1]} {d.year} г."
+
+
+def _month_year(d: Optional[date]) -> str:
+    """сентябрь 2026 — для «ТО за {{ order.period_month }}» в ежемесячных актах."""
+    if not d:
+        return ""
+    return f"{_RUSSIAN_MONTHS_NOM[d.month - 1]} {d.year}"
+
+
+def _build_works(obj: ObjectModel) -> Tuple[list[dict], list[dict]]:
+    """Регламентные работы по оборудованию объекта (справочник «Операции»).
+
+    Операции привязаны к ТИПУ оборудования (spec_equipment), поэтому
+    собираем их по всем типам оборудования на объекте, без дублей.
+    Returns: (works — плоский список, works_groups — по типам оборудования).
+      works:        [{"index": 1, "name": "...", "period": "Ежемесячно"}]
+      works_groups: [{"index": 1, "equipment_type": "...",
+                      "rows": [{"index": "1.1", "name": "...", "period": "..."}]}]
+    """
+    by_type: dict = {}
+    flat: dict = {}
+    for oe in (obj.objects_equipments or []):
+        se = oe.equipment.spec_equipment if oe.equipment else None
+        if not se:
+            continue
+        bucket = by_type.setdefault(se.id, {"name": se.name or "", "ops": {}})
+        for op in (se.operations or []):
+            item = {"name": op.name or "", "period": op.period.name if op.period else ""}
+            bucket["ops"][op.id] = item
+            flat.setdefault(op.id, item)
+
+    works = [
+        {"index": i, **w}
+        for i, w in enumerate(sorted(flat.values(), key=lambda w: w["name"].lower()), start=1)
+    ]
+    groups = []
+    ordered = sorted((b for b in by_type.values() if b["ops"]), key=lambda b: b["name"].lower())
+    for g_idx, b in enumerate(ordered, start=1):
+        ops = sorted(b["ops"].values(), key=lambda w: w["name"].lower())
+        groups.append({
+            "index": g_idx,
+            "equipment_type": b["name"],
+            "rows": [
+                {"index": f"{g_idx}.{i}", **w} for i, w in enumerate(ops, start=1)
+            ],
+        })
+    return works, groups
+
+
+def _collect_issues(obj: ObjectModel) -> list[Tuple[Issue, Objects_Equipment]]:
+    """Все неисправности оборудования объекта, по дате обнаружения."""
+    pairs = [
+        (iss, oe)
+        for oe in (obj.objects_equipments or [])
+        for iss in (oe.issues or [])
+    ]
+    pairs.sort(key=lambda p: (p[0].detected_date or date.min, p[0].number or ""))
+    return pairs
+
+
+def _issues_to_rows(pairs: list[Tuple[Issue, Objects_Equipment]]) -> list[dict]:
+    """[{"index": 1, "number", "title", "description", "equipment", "system",
+    "detected_date", "resolved_date", "status", "priority", "is_resolved",
+    "is_critical"}] — для таблиц неисправностей в актах и журналах."""
+    return [
+        {
+            "index": i,
+            "number": iss.number or "",
+            "title": iss.title or "",
+            "description": iss.description or "",
+            "equipment": (oe.equipment.name if oe.equipment else "") or "",
+            "system": (oe.spec_system.name if oe.spec_system else "") or "",
+            "detected_date": _fmt_date(iss.detected_date),
+            "resolved_date": _fmt_date(iss.resolved_date),
+            "status": iss.status.name if iss.status else "",
+            "priority": iss.priority.name if iss.priority else "",
+            "is_resolved": bool(iss.is_resolved),
+            "is_critical": bool(iss.is_critical),
+        }
+        for i, (iss, oe) in enumerate(pairs, start=1)
+    ]
+
+
+def _report_to_dict(report: Optional[Report]) -> dict:
+    """{{ report.* }} — отчёт инженера по заявке. Пустые строки, если отчёта нет."""
+    if not report:
+        return {
+            "number": "", "date": "", "date_long": "", "month": "",
+            "description": "", "engineer": "", "status": "", "is_approved": False,
+        }
+    status_name = report.status.name if report.status else ""
+    return {
+        "number": report.number or "",
+        "date": _fmt_date(report.created_at),
+        "date_long": _fmt_date_long(report.created_at),
+        "month": _month_year(report.created_at),
+        "description": report.description or "",
+        "engineer": (report.user.full_name if report.user else "") or "",
+        "status": status_name,
+        "is_approved": status_name == _APPROVED_REPORT_STATUS,
+    }
+
+
 def _build_org_address(org: Optional[Organization]) -> str:
     """
     Собрать полный адрес организации одной строкой.
@@ -235,13 +355,26 @@ def _build_context(order: Order) -> dict:
     executor = contract.executor if contract else None
     obj = order.object
     user = order.user
+    issue_pairs = _collect_issues(obj) if obj else []
+    works, works_groups = _build_works(obj) if obj else ([], [])
+    # Отчётный месяц: период плановой заявки, иначе — месяц создания.
+    period_date = order.period_start_date or order.created_at
 
     return {
         "order": {
             "number": order.number or "",
             "created_at": _fmt_date(order.created_at),
+            "created_at_long": _fmt_date_long(order.created_at),
             "description": order.description or "",
+            "type": order.spec_order.name if order.spec_order else "",
+            "status": order.spec_order_status.name if order.spec_order_status else "",
+            "due_date": _fmt_date(order.due_date),
+            "period_start": _fmt_date(order.period_start_date),
+            "period_month": _month_year(period_date),
+            "assigned_to": (order.assigned_to.full_name if order.assigned_to else "") or "",
         },
+        # Отчёт инженера по заявке — что сделано, когда, кем.
+        "report": _report_to_dict(order.report),
         "contract": {
             "number": contract.number if contract else "",
             "date_of_consclusion": _fmt_date(contract.date_of_consclusion if contract else None),
@@ -271,7 +404,33 @@ def _build_context(order: Order) -> dict:
         # В docxtpl-шаблоне: {%tr for group in equipment_groups %} в одной строке,
         # {%tr for row in group.rows %} во вложенной строке той же таблицы.
         "equipment_groups": _build_equipment_groups(obj) if obj else [],
+        # Регламентные работы по типам оборудования объекта (справочник «Операции»).
+        "works": works,
+        "works_groups": works_groups,
+        # Неустранённые неисправности объекта — «Замечания» в акте ТО.
+        "issues_open": _issues_to_rows([p for p in issue_pairs if not p[0].is_resolved]),
+        # Неисправности, которые устраняла эта заявка («Заявка на устранение»).
+        "issues_fixed": _issues_to_rows([p for p in issue_pairs if p[0].order_id == order.id]),
     }
+
+
+def _object_equipment_loads(base):
+    """Цепочки загрузки оборудования объекта для equipment_groups / works / issues.
+
+    base — selectinload(...) до ObjectModel (Order.object) или None для запроса
+    прямо по ObjectModel.
+    """
+    oe = (base.selectinload(ObjectModel.objects_equipments) if base is not None
+          else selectinload(ObjectModel.objects_equipments))
+    return [
+        oe.selectinload(Objects_Equipment.equipment)
+          .selectinload(Equipment.spec_equipment)
+          .selectinload(Spec_Equipment.operations)
+          .selectinload(Operation.period),
+        oe.selectinload(Objects_Equipment.spec_system),
+        oe.selectinload(Objects_Equipment.issues).selectinload(Issue.status),
+        oe.selectinload(Objects_Equipment.issues).selectinload(Issue.priority),
+    ]
 
 
 # ========== ЗАГРУЗКА ORDER СО ВСЕМИ СВЯЗЯМИ ==========
@@ -312,13 +471,12 @@ async def _load_order_for_docx(session, order_id: int) -> Order:
             selectinload(Order.object).selectinload(ObjectModel.street).selectinload(Street.spec_street),
             selectinload(Order.object).selectinload(ObjectModel.spec_build),
             selectinload(Order.object).selectinload(ObjectModel.spec_room),
-            # objects_equipments + equipment + spec_system — для equipment_groups в шаблоне
-            selectinload(Order.object)
-                .selectinload(ObjectModel.objects_equipments)
-                .selectinload(Objects_Equipment.equipment),
-            selectinload(Order.object)
-                .selectinload(ObjectModel.objects_equipments)
-                .selectinload(Objects_Equipment.spec_system),
+            # оборудование объекта — equipment_groups, works, issues_* в шаблоне
+            *_object_equipment_loads(selectinload(Order.object)),
+            selectinload(Order.spec_order_status),
+            selectinload(Order.assigned_to),
+            selectinload(Order.report).selectinload(Report.user),
+            selectinload(Order.report).selectinload(Report.status),
         )
     )
     result = await session.execute(stmt)
@@ -612,6 +770,11 @@ async def _load_object_for_journal(session, object_id: int) -> ObjectModel:
             selectinload(ObjectModel.contract).selectinload(Contract.executor).selectinload(Organization.locality).selectinload(Locality.spec_locality),
             selectinload(ObjectModel.contract).selectinload(Contract.executor).selectinload(Organization.street).selectinload(Street.spec_street),
             selectinload(ObjectModel.contract).selectinload(Contract.executor).selectinload(Organization.spec_build),
+            # оборудование, работы, неисправности, история отчётов — для таблиц журнала
+            *_object_equipment_loads(None),
+            selectinload(ObjectModel.reports).selectinload(Report.user),
+            selectinload(ObjectModel.reports).selectinload(Report.status),
+            selectinload(ObjectModel.reports).selectinload(Report.order).selectinload(Order.spec_order),
         )
     )
     result = await session.execute(stmt)
@@ -622,11 +785,37 @@ async def _load_object_for_journal(session, object_id: int) -> ObjectModel:
     return obj
 
 
+def _build_journal_reports(obj: ObjectModel) -> list[dict]:
+    """Утверждённые отчёты по объекту по дате — строки журнала регистрации работ.
+
+    [{"index", "number", "date", "description", "engineer", "order_type", "order_number"}]
+    """
+    approved = [
+        r for r in (obj.reports or [])
+        if r.status and r.status.name == _APPROVED_REPORT_STATUS
+    ]
+    approved.sort(key=lambda r: (r.created_at or date.min, r.number or ""))
+    return [
+        {
+            "index": i,
+            "number": r.number or "",
+            "date": _fmt_date(r.created_at),
+            "description": r.description or "",
+            "engineer": (r.user.full_name if r.user else "") or "",
+            "order_type": (r.order.spec_order.name if (r.order and r.order.spec_order) else "") or "",
+            "order_number": (r.order.number if r.order else "") or "",
+        }
+        for i, r in enumerate(approved, start=1)
+    ]
+
+
 def _build_journal_context(obj: ObjectModel) -> dict:
     """Собрать словарь для docxtpl-шаблона журнала. Список ключей идёт в DocsView (Phase 3)."""
     contract: Optional[Contract] = obj.contract
     customer = contract.customer if contract else None
     executor = contract.executor if contract else None
+    works, works_groups = _build_works(obj)
+    issue_pairs = _collect_issues(obj)
 
     return {
         "object": {
@@ -649,6 +838,14 @@ def _build_journal_context(obj: ObjectModel) -> dict:
         "executor": _org_to_dict(executor),
         "today": _today_short(),
         "today_long": _today_long(),
+        "equipment_groups": _build_equipment_groups(obj),
+        "works": works,
+        "works_groups": works_groups,
+        # История: утверждённые отчёты (журнал регистрации работ по ТО).
+        "reports": _build_journal_reports(obj),
+        # Неисправности объекта (журнал учёта неисправностей и отказов).
+        "issues": _issues_to_rows(issue_pairs),
+        "issues_open": _issues_to_rows([p for p in issue_pairs if not p[0].is_resolved]),
     }
 
 
